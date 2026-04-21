@@ -70,12 +70,17 @@ export class EcsStack extends cdk.Stack {
       memoryLimitMiB: 1024,
       taskRole,
       executionRole,
+      runtimePlatform: {
+        cpuArchitecture: ecs.CpuArchitecture.ARM64,
+        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+      },
     });
 
     taskDef.addContainer('AppContainer', {
       image: ecs.ContainerImage.fromEcrRepository(repository, 'latest'),
       portMappings: [{ containerPort: 3000 }],
       environment: {
+        HOSTNAME: '0.0.0.0',
         AWS_REGION: this.region,
         ATHENA_DATABASE: 'kiro_reports',
         ATHENA_OUTPUT_BUCKET: '',
@@ -89,7 +94,7 @@ export class EcsStack extends cdk.Stack {
         logGroup,
       }),
       healthCheck: {
-        command: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:3000/api/health || exit 1'],
+        command: ['CMD-SHELL', 'node -e "const http=require(\'http\');const r=http.get(\'http://localhost:3000/api/health\',res=>{process.exit(res.statusCode===200?0:1)});r.on(\'error\',()=>process.exit(1))"'],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         retries: 3,
