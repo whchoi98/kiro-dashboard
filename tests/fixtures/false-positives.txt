@@ -1,0 +1,12 @@
+# False positive samples — patterns that should NOT be blocked by secret-scan.sh
+# One pattern per line.
+
+process.env.NEXTAUTH_SECRET
+process.env.AWS_ACCESS_KEY_ID
+const secret = process.env.MY_SECRET
+NEXTAUTH_SECRET=change-me-in-production
+# Generate a secret: openssl rand -base64 32
+secret: 'change-me-in-production'
+token: '<your-token-here>'
+apiKey: 'TODO: set this'
+password: 'placeholder'

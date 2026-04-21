@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "command": "bash .claude/hooks/session-context.sh"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "bash .claude/hooks/secret-scan.sh"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "bash .claude/hooks/check-doc-sync.sh"
+      }
+    ],
+    "Notification": [
+      {
+        "command": "bash .claude/hooks/notify.sh"
+      }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(git push --force *)",
+      "Bash(git reset --hard *)",
+      "Bash(git checkout -- *)",
+      "Bash(git clean -f *)",
+      "Bash(> .env)",
+      "Bash(> .env.local)"
+    ]
+  }
+}
