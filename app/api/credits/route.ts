@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { resolveUsernames } from '@/lib/identity';
 import { CreditAnalysis } from '@/types/dashboard';
@@ -13,12 +13,12 @@ export async function GET(req: NextRequest) {
 
     const topUsersSql = `
       SELECT
-        userid,
+        ${NORMALIZE_USERID} AS userid,
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits,
         SUM(CAST(overage_credits_used AS DOUBLE)) AS overage_credits
       FROM "${tableName}"
       WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY userid
+      GROUP BY ${NORMALIZE_USERID}
       ORDER BY total_credits DESC
       LIMIT 15
     `;
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     const byTierSql = `
       SELECT
         subscription_tier,
-        COUNT(DISTINCT userid) AS user_count,
+        COUNT(DISTINCT ${NORMALIZE_USERID}) AS user_count,
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits
       FROM "${tableName}"
       WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')

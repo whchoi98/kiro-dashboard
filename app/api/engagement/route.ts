@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeInt } from '@/lib/athena';
+import { executeQuery, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { EngagementData, EngagementSegment, EngagementTier, FunnelStep } from '@/types/dashboard';
 
@@ -12,12 +12,12 @@ export async function GET(req: NextRequest) {
 
     const sql = `
       SELECT
-        userid,
+        ${NORMALIZE_USERID} AS userid,
         SUM(CAST(total_messages AS INTEGER)) AS total_messages,
         SUM(CAST(chat_conversations AS INTEGER)) AS total_conversations
       FROM "${tableName}"
       WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY userid
+      GROUP BY ${NORMALIZE_USERID}
     `;
 
     const rows = await executeQuery(sql);

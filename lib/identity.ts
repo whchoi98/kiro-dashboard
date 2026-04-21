@@ -16,8 +16,11 @@ export async function resolveUsernames(userIds: string[]): Promise<Map<string, s
   const result = new Map<string, string>();
   const identityStoreId = process.env.IDENTITY_STORE_ID;
 
+  // Strip any Identity Store ID prefix that may have survived Athena normalization
+  const cleanIds = userIds.map(id => id.replace(/^d-[a-z0-9]+\./, ''));
+
   if (!identityStoreId) {
-    for (const id of userIds) {
+    for (const id of cleanIds) {
       result.set(id, id.substring(0, 8));
     }
     return result;
@@ -27,7 +30,7 @@ export async function resolveUsernames(userIds: string[]): Promise<Map<string, s
   const uncachedIds: string[] = [];
 
   // Serve from cache where valid
-  for (const id of userIds) {
+  for (const id of cleanIds) {
     const entry = cache.get(id);
     if (entry && now - entry.cachedAt < TTL_MS) {
       result.set(id, entry.username);
@@ -71,8 +74,7 @@ export async function resolveUsernames(userIds: string[]): Promise<Map<string, s
   } catch {
     // On API failure, fall back to truncated id
     for (const id of uncachedIds) {
-      const fallback = id.substring(0, 8);
-      result.set(id, fallback);
+      result.set(id, id.substring(0, 8));
     }
   }
 

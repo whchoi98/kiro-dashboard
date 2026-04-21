@@ -7,9 +7,7 @@ const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
 async function fetchData<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(baseUrl + path, {
-      next: { revalidate: 300, tags: ['dashboard'] },
-    });
+    const res = await fetch(baseUrl + path, { cache: 'no-store' });
     if (!res.ok) return null;
     return res.json() as Promise<T>;
   } catch {
@@ -22,12 +20,6 @@ function formatNumber(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return n.toLocaleString();
 }
-
-const PLACEHOLDER_CLIENT_DIST: ClientDistribution[] = [
-  { clientType: 'KIRO_IDE', messageCount: 0, creditCount: 0, percentage: 60 },
-  { clientType: 'KIRO_CLI', messageCount: 0, creditCount: 0, percentage: 25 },
-  { clientType: 'PLUGIN', messageCount: 0, creditCount: 0, percentage: 15 },
-];
 
 interface IdcUserStatus {
   userId: string;
@@ -64,7 +56,7 @@ export default async function OverviewPage() {
   const mascotMood = overageUp ? 'alert' as const : powerUsers > 50 ? 'excited' as const : 'happy' as const;
 
   const clientDistRaw = await fetchData<ClientDistribution[]>('/api/client-dist?days=30');
-  const clientDist = Array.isArray(clientDistRaw) ? clientDistRaw : PLACEHOLDER_CLIENT_DIST;
+  const clientDist = Array.isArray(clientDistRaw) ? clientDistRaw : [];
 
   const idcUsersRaw = await fetchData<IdcUsersData>('/api/idc-users?days=30');
   const idcUsers =

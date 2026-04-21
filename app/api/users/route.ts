@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { resolveUsernames } from '@/lib/identity';
 import { TopUser } from '@/types/dashboard';
@@ -14,12 +14,12 @@ export async function GET(req: NextRequest) {
 
     const sql = `
       SELECT
-        userid,
+        ${NORMALIZE_USERID} AS userid,
         SUM(CAST(total_messages AS INTEGER)) AS total_messages,
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits
       FROM "${tableName}"
       WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY userid
+      GROUP BY ${NORMALIZE_USERID}
       ORDER BY total_messages DESC
       LIMIT ${limit}
     `;

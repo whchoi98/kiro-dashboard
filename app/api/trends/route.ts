@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { DailyTrend } from '@/types/dashboard';
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(total_messages AS INTEGER)) AS messages,
         SUM(CAST(chat_conversations AS INTEGER)) AS conversations,
         SUM(CAST(credits_used AS DOUBLE)) AS credits,
-        COUNT(DISTINCT userid) AS active_users
+        COUNT(DISTINCT ${NORMALIZE_USERID}) AS active_users
       FROM "${tableName}"
       WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
       GROUP BY date

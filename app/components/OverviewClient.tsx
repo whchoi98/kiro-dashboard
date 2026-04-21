@@ -10,7 +10,7 @@ import UserBarChart from '@/app/components/charts/BarChart';
 import FunnelChart from '@/app/components/charts/FunnelChart';
 import KiroIcon from '@/app/components/ui/KiroIcon';
 import IdcUserStatusComponent from '@/app/components/charts/IdcUserStatus';
-import { DailyTrend, TopUser, FunnelStep, ClientDistribution } from '@/types/dashboard';
+import { OverviewMetrics, DailyTrend, TopUser, EngagementData, FunnelStep, ClientDistribution } from '@/types/dashboard';
 import type { IdcUserStatus } from '@/app/components/charts/IdcUserStatus';
 
 interface IdcUsersData {
@@ -53,12 +53,22 @@ const PLACEHOLDER_CLIENT_DIST: ClientDistribution[] = [
 
 const PLACEHOLDER_IDC_USERS: IdcUsersData = { total: 0, active: 0, inactive: 0, users: [] };
 
+async function safeFetch<T>(url: string): Promise<T | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 async function fetchAll(days: number): Promise<OverviewData> {
   const [metrics, trends, users, engagement] = await Promise.all([
-    fetch(`/api/metrics?days=${days}`).then((r) => r.json()),
-    fetch(`/api/trends?days=${days}`).then((r) => r.json()),
-    fetch(`/api/users?days=${days}&limit=10`).then((r) => r.json()),
-    fetch(`/api/engagement?days=${days}`).then((r) => r.json()),
+    safeFetch<OverviewMetrics>(`/api/metrics?days=${days}`),
+    safeFetch<DailyTrend[]>(`/api/trends?days=${days}`),
+    safeFetch<TopUser[]>(`/api/users?days=${days}&limit=10`),
+    safeFetch<EngagementData>(`/api/engagement?days=${days}`),
   ]);
 
   const cr = metrics?.changeRates ?? {};
@@ -67,8 +77,8 @@ async function fetchAll(days: number): Promise<OverviewData> {
   const mascotMood = overageUp ? ('alert' as const) : powerUsers > 50 ? ('excited' as const) : ('happy' as const);
 
   const [clientDistData, idcUsersData] = await Promise.all([
-    fetch(`/api/client-dist?days=${days}`).then((r) => r.json()).catch(() => PLACEHOLDER_CLIENT_DIST),
-    fetch(`/api/idc-users?days=${days}`).then((r) => r.json()).catch(() => PLACEHOLDER_IDC_USERS),
+    safeFetch<ClientDistribution[]>(`/api/client-dist?days=${days}`),
+    safeFetch<IdcUsersData>(`/api/idc-users?days=${days}`),
   ]);
 
   return {

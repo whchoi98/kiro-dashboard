@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IdentitystoreClient, ListUsersCommand } from '@aws-sdk/client-identitystore';
-import { executeQuery, safeFloat, safeInt } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 
 export interface IdcUserStatus {
@@ -78,10 +78,10 @@ async function fetchActiveUserStats(
   const tableName = await resolveTableName();
 
   const sql = `
-    SELECT userid, SUM(CAST(total_messages AS INTEGER)) AS total_messages, SUM(CAST(credits_used AS DOUBLE)) AS total_credits, MAX(date) AS last_active
+    SELECT ${NORMALIZE_USERID} AS userid, SUM(CAST(total_messages AS INTEGER)) AS total_messages, SUM(CAST(credits_used AS DOUBLE)) AS total_credits, MAX(date) AS last_active
     FROM "${tableName}"
     WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-    GROUP BY userid
+    GROUP BY ${NORMALIZE_USERID}
   `;
 
   const rows = await executeQuery(sql);

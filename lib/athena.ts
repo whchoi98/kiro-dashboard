@@ -94,6 +94,8 @@ export async function executeQuery(sql: string): Promise<Record<string, string>[
   return allRows;
 }
 
+export const NORMALIZE_USERID = `REGEXP_REPLACE(userid, '^d-[a-z0-9]+\\.', '')`;
+
 export function safeFloat(val: string): number {
   const result = parseFloat(val);
   return isNaN(result) ? 0 : result;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { OverviewMetrics } from '@/types/dashboard';
 
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
     const currentPeriodSql = `
       SELECT
-        COUNT(DISTINCT userid) AS total_users,
+        COUNT(DISTINCT ${NORMALIZE_USERID}) AS total_users,
         SUM(CAST(total_messages AS INTEGER)) AS total_messages,
         SUM(CAST(chat_conversations AS INTEGER)) AS total_conversations,
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits,
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     const previousPeriodSql = `
       SELECT
-        COUNT(DISTINCT userid) AS total_users,
+        COUNT(DISTINCT ${NORMALIZE_USERID}) AS total_users,
         SUM(CAST(total_messages AS INTEGER)) AS total_messages,
         SUM(CAST(chat_conversations AS INTEGER)) AS total_conversations,
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits,
