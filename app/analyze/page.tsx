@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import KiroMascot from '@/app/components/ui/KiroMascot';
 import { useI18n } from '@/lib/i18n';
 
@@ -16,6 +17,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   tools?: ToolEvent[];
+  model?: string;
 }
 
 const EXAMPLE_KEYS = [
@@ -23,7 +25,83 @@ const EXAMPLE_KEYS = [
   'analyze.example2',
   'analyze.example3',
   'analyze.example4',
+  'analyze.example5',
+  'analyze.example6',
 ] as const;
+
+const MODEL_ID = 'claude-sonnet-4-6';
+
+const markdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
+  h1: ({ children }) => (
+    <h1 className="mb-2 mt-4 text-xl font-bold text-white">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-2 mt-3 text-lg font-bold text-white">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-1 mt-3 text-base font-semibold text-slate-100">{children}</h3>
+  ),
+  p: ({ children }) => <p className="mb-2 text-gray-300">{children}</p>,
+  strong: ({ children }) => (
+    <strong className="font-semibold text-white">{children}</strong>
+  ),
+  code: ({ children, className }) => {
+    const isBlock = className?.includes('language-');
+    if (isBlock)
+      return <code className="text-xs">{children}</code>;
+    return (
+      <code className="rounded bg-gray-800 px-1.5 py-0.5 font-mono text-xs text-purple-400">
+        {children}
+      </code>
+    );
+  },
+  pre: ({ children }) => (
+    <pre className="my-2 overflow-x-auto rounded-lg bg-gray-800/80 p-3 font-mono text-xs">
+      {children}
+    </pre>
+  ),
+  table: ({ children }) => (
+    <div className="my-2 overflow-x-auto">
+      <table className="w-full text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead className="bg-gray-800/50">{children}</thead>
+  ),
+  th: ({ children }) => (
+    <th className="border-b border-gray-700 px-3 py-2 text-left text-xs font-semibold uppercase text-purple-400">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="border-b border-gray-800/50 px-3 py-1.5 text-gray-300">
+      {children}
+    </td>
+  ),
+  ul: ({ children }) => (
+    <ul className="mb-2 list-inside list-disc space-y-1">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-2 list-inside list-decimal space-y-1">{children}</ol>
+  ),
+  li: ({ children }) => <li className="text-gray-300">{children}</li>,
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      className="text-purple-400 hover:underline"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="my-2 border-l-2 border-purple-500 pl-3 italic text-gray-400">
+      {children}
+    </blockquote>
+  ),
+  hr: () => <hr className="my-3 border-gray-700" />,
+};
 
 export default function AnalyzePage() {
   const { t } = useI18n();
@@ -41,18 +119,37 @@ export default function AnalyzePage() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  // Auto-resize textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const target = e.target;
+    target.style.height = '46px';
+    target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+  };
+
   const handleSubmit = async (prompt: string) => {
     if (!prompt.trim() || loading) return;
 
     const userMsg: ChatMessage = { role: 'user', content: prompt.trim() };
+
+    // Build conversation history for context (exclude last in-progress assistant msg)
+    const historyForApi = messages
+      .filter((m) => m.content.trim().length > 0)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = '46px';
+    }
     setLoading(true);
 
     const assistantMsg: ChatMessage = {
       role: 'assistant',
       content: '',
       tools: [],
+      model: MODEL_ID,
     };
     setMessages((prev) => [...prev, assistantMsg]);
 
@@ -62,6 +159,7 @@ export default function AnalyzePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: prompt.trim(),
+          history: historyForApi,
           sessionId: crypto.randomUUID(),
           days: 30,
         }),
@@ -111,6 +209,11 @@ export default function AnalyzePage() {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
                 if (last && last.role === 'assistant') {
+                  // Avoid duplicate tool_start entries for the same call
+                  const existingPending = (last.tools ?? []).find(
+                    (te) => te.tool === event.tool && !te.done,
+                  );
+                  if (existingPending) return prev;
                   updated[updated.length - 1] = {
                     ...last,
                     tools: [
@@ -132,7 +235,6 @@ export default function AnalyzePage() {
                 const last = updated[updated.length - 1];
                 if (last && last.role === 'assistant' && last.tools) {
                   const toolsCopy = [...last.tools];
-                  // Find last unresolved tool of same name
                   for (let i = toolsCopy.length - 1; i >= 0; i--) {
                     if (
                       toolsCopy[i].tool === event.tool &&
@@ -163,7 +265,7 @@ export default function AnalyzePage() {
                   updated[updated.length - 1] = {
                     ...last,
                     content:
-                      last.content + `\n\n**Error:** ${event.content}`,
+                      last.content + `\n\n**오류:** ${event.content}`,
                   };
                 }
                 return updated;
@@ -182,7 +284,7 @@ export default function AnalyzePage() {
         if (last && last.role === 'assistant') {
           updated[updated.length - 1] = {
             ...last,
-            content: `Connection error: ${message}`,
+            content: `연결 오류: ${message}`,
           };
         }
         return updated;
@@ -223,22 +325,26 @@ export default function AnalyzePage() {
 
       {/* Chat area */}
       <div className="flex-1 overflow-y-auto min-h-0 rounded-xl border border-gray-800 bg-gray-950/50 p-4">
+        {/* Welcome state */}
         {!hasMessages && (
           <div className="flex flex-col items-center justify-center h-full gap-6">
-            <div className="text-center">
-              <p className="text-slate-400 text-lg font-medium mb-2">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <KiroMascot size={72} mood="happy" theme="analyze" animate />
+              <p className="text-white text-lg font-semibold">
                 Kiro Analytics AI
               </p>
-              <p className="text-slate-500 text-sm max-w-md">
+              <p className="text-slate-500 text-sm max-w-sm">
                 {t('header.analyze.sub')}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 justify-center max-w-2xl">
+
+            {/* 2-column suggestion grid */}
+            <div className="grid grid-cols-2 gap-2 max-w-2xl w-full">
               {EXAMPLE_KEYS.map((key) => (
                 <button
                   key={key}
                   onClick={() => handleSubmit(t(key))}
-                  className="px-4 py-2 text-sm text-slate-300 bg-gray-800/60 hover:bg-gray-700/60 border border-gray-700 hover:border-gray-600 rounded-full transition-all duration-150"
+                  className="px-4 py-3 text-sm text-slate-300 bg-gray-800/60 hover:bg-gray-800 border border-gray-700 hover:border-[#9046FF]/60 rounded-xl transition-all duration-150 text-left leading-snug"
                 >
                   {t(key)}
                 </button>
@@ -247,20 +353,23 @@ export default function AnalyzePage() {
           </div>
         )}
 
+        {/* Messages */}
         {hasMessages && (
           <div className="flex flex-col gap-4">
             {messages.map((msg, idx) => (
               <div key={idx}>
                 {msg.role === 'user' ? (
+                  /* User bubble — right-aligned, purple background */
                   <div className="flex justify-end">
-                    <div className="max-w-[75%] bg-[#9046FF] text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed">
+                    <div className="max-w-[75%] bg-[#9046FF] text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap">
                       {msg.content}
                     </div>
                   </div>
                 ) : (
+                  /* AI bubble — left-aligned, dark card */
                   <div className="flex justify-start">
-                    <div className="max-w-[85%] flex flex-col gap-2">
-                      {/* Tool indicators */}
+                    <div className="max-w-[88%] flex flex-col gap-2">
+                      {/* Tool execution badges */}
                       {msg.tools && msg.tools.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {msg.tools.map((te, tIdx) => (
@@ -284,7 +393,7 @@ export default function AnalyzePage() {
                                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                                   {te.tool === 'query_athena'
                                     ? t('analyze.queryRunning')
-                                    : 'Looking up users...'}
+                                    : '사용자 조회 중...'}
                                 </>
                               )}
                             </span>
@@ -292,14 +401,29 @@ export default function AnalyzePage() {
                         </div>
                       )}
 
-                      {/* AI message content */}
+                      {/* AI message content with markdown */}
                       {msg.content && (
-                        <div className="bg-gray-900/80 border border-gray-800 rounded-2xl rounded-bl-sm px-5 py-4 text-sm leading-relaxed text-slate-200 prose prose-invert prose-sm max-w-none prose-headings:text-slate-100 prose-p:text-slate-300 prose-strong:text-slate-100 prose-table:text-slate-300 prose-th:text-slate-200 prose-td:text-slate-300 prose-code:text-purple-300 prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-700">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        <div className="bg-gray-900/80 border border-gray-800 rounded-2xl rounded-bl-sm px-5 py-4 text-sm leading-relaxed">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={markdownComponents}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+
+                          {/* Model badge */}
+                          {msg.model && (
+                            <div className="mt-3 pt-2 border-t border-gray-800/60 flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#9046FF]/10 text-[#9046FF] border border-[#9046FF]/20">
+                                <span className="w-1 h-1 rounded-full bg-[#9046FF]" />
+                                {msg.model}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {/* Loading indicator when no content yet */}
+                      {/* Loading indicator (no content yet) */}
                       {!msg.content &&
                         idx === messages.length - 1 &&
                         loading && (
@@ -333,14 +457,14 @@ export default function AnalyzePage() {
         )}
       </div>
 
-      {/* Quick prompts when there are messages */}
+      {/* Quick prompts (shown after first message, not while loading) */}
       {hasMessages && !loading && (
         <div className="flex flex-wrap gap-1.5 mt-2 flex-shrink-0">
           {EXAMPLE_KEYS.map((key) => (
             <button
               key={key}
               onClick={() => handleSubmit(t(key))}
-              className="px-3 py-1 text-xs text-slate-400 bg-gray-800/40 hover:bg-gray-700/40 border border-gray-800 hover:border-gray-700 rounded-full transition-all duration-150"
+              className="px-3 py-1 text-xs text-slate-400 bg-gray-800/40 hover:bg-gray-700/40 border border-gray-800 hover:border-[#9046FF]/40 rounded-full transition-all duration-150"
             >
               {t(key)}
             </button>
@@ -354,18 +478,13 @@ export default function AnalyzePage() {
           <textarea
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={t('analyze.placeholder')}
             disabled={loading}
             rows={1}
             className="flex-1 resize-none bg-gray-900/80 border border-gray-700 focus:border-[#9046FF] focus:ring-1 focus:ring-[#9046FF]/30 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all duration-150 disabled:opacity-50"
             style={{ minHeight: '46px', maxHeight: '120px' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = '46px';
-              target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
-            }}
           />
           <button
             onClick={() => handleSubmit(input)}

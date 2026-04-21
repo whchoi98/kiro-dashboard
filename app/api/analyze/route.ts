@@ -127,7 +127,12 @@ async function executeToolCall(
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { prompt } = body as { prompt: string; sessionId: string; days: number };
+  const { prompt, history } = body as {
+    prompt: string;
+    history?: { role: 'user' | 'assistant'; content: string }[];
+    sessionId: string;
+    days: number;
+  };
 
   const encoder = new TextEncoder();
 
@@ -138,7 +143,16 @@ export async function POST(request: NextRequest) {
       }
 
       try {
+        // Build messages array: prepend conversation history, then add current prompt
+        const priorMessages: Message[] = (history ?? [])
+          .filter((m) => m.content.trim().length > 0)
+          .map((m) => ({
+            role: m.role,
+            content: [{ text: m.content }],
+          }));
+
         const messages: Message[] = [
+          ...priorMessages,
           { role: 'user', content: [{ text: prompt }] },
         ];
 
