@@ -48,7 +48,7 @@ export default function ClientPieChart({ data, title }: PieChartProps) {
                 color: '#f1f5f9',
                 fontSize: 12,
               }}
-              formatter={(value: number) => [`${value.toFixed(1)}%`, 'Share']}
+              formatter={(value) => [typeof value === 'number' ? `${value.toFixed(1)}%` : `${value}%`, 'Share']}
             />
           </PieChart>
         </ResponsiveContainer>

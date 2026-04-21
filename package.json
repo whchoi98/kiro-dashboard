@@ -19,6 +19,7 @@
     "@aws-sdk/client-athena": "^3.1033.0",
     "@aws-sdk/client-glue": "^3.1033.0",
     "@aws-sdk/client-identitystore": "^3.1033.0",
+    "@tailwindcss/postcss": "^4.2.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.0",
@@ -30,5 +31,8 @@
     "recharts": "^3.8.1",
     "tailwindcss": "^4.2.3",
     "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0"
   }
 }
