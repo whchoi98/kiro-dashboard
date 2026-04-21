@@ -1,23 +1,10 @@
-export const dynamic = 'force-dynamic';
+'use client';
 
+import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import FunnelChart from '@/app/components/charts/FunnelChart';
 import { EngagementData, ClientDistribution } from '@/types/dashboard';
-
-const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-
-async function fetchData<T>(path: string): Promise<T | null> {
-  try {
-    const res = await fetch(baseUrl + path, {
-      next: { revalidate: 300, tags: ['dashboard'] },
-    });
-    if (!res.ok) return null;
-    return res.json() as Promise<T>;
-  } catch {
-    return null;
-  }
-}
 
 const TIER_META: Record<string, { color: string; description: string; icon: string }> = {
   Power: {
@@ -42,8 +29,29 @@ const TIER_META: Record<string, { color: string; description: string; icon: stri
   },
 };
 
-export default async function EngagementPage() {
-  const engagement = await fetchData<EngagementData>('/api/engagement');
+export default function EngagementPage() {
+  const [days, setDays] = useState(30);
+  const [engagement, setEngagement] = useState<EngagementData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/engagement?days=${days}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setEngagement(data ?? null);
+      })
+      .catch(() => {
+        // Keep existing data on error
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [days]);
 
   // Build segments pie data as ClientDistribution (reusing the pie component)
   const segmentsPieData: ClientDistribution[] = (engagement?.segments ?? []).map((seg) => ({
@@ -54,8 +62,14 @@ export default async function EngagementPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-6">
-      <Header titleKey="header.engagement" subtitleKey="header.engagement.sub" mascotMood="excited" />
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+      <Header
+        titleKey="header.engagement"
+        subtitleKey="header.engagement.sub"
+        mascotMood="excited"
+        days={days}
+        onDaysChange={setDays}
+      />
 
       {/* Pie + Funnel */}
       <div className="grid grid-cols-2 gap-4">

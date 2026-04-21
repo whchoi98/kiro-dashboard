@@ -1,12 +1,5 @@
 export const dynamic = 'force-dynamic';
 
-import Header from '@/app/components/layout/Header';
-import MetricCard from '@/app/components/charts/MetricCard';
-import TrendChart from '@/app/components/charts/TrendChart';
-import ClientPieChart from '@/app/components/charts/PieChart';
-import UserBarChart from '@/app/components/charts/BarChart';
-import FunnelChart from '@/app/components/charts/FunnelChart';
-import KiroIcon from '@/app/components/ui/KiroIcon';
 import OverviewClient from '@/app/components/OverviewClient';
 import { OverviewMetrics, DailyTrend, TopUser, EngagementData, ClientDistribution } from '@/types/dashboard';
 
@@ -38,10 +31,10 @@ const PLACEHOLDER_CLIENT_DIST: ClientDistribution[] = [
 
 export default async function OverviewPage() {
   const [metrics, trends, topUsers, engagement] = await Promise.all([
-    fetchData<OverviewMetrics>('/api/metrics'),
-    fetchData<DailyTrend[]>('/api/trends'),
-    fetchData<TopUser[]>('/api/users?limit=10'),
-    fetchData<EngagementData>('/api/engagement'),
+    fetchData<OverviewMetrics>('/api/metrics?days=30'),
+    fetchData<DailyTrend[]>('/api/trends?days=30'),
+    fetchData<TopUser[]>('/api/users?limit=10&days=30'),
+    fetchData<EngagementData>('/api/engagement?days=30'),
   ]);
 
   const cr = metrics?.changeRates ?? {};

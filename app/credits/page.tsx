@@ -1,22 +1,9 @@
-export const dynamic = 'force-dynamic';
+'use client';
 
+import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import { CreditAnalysis, ClientDistribution } from '@/types/dashboard';
-
-const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-
-async function fetchData<T>(path: string): Promise<T | null> {
-  try {
-    const res = await fetch(baseUrl + path, {
-      next: { revalidate: 300, tags: ['dashboard'] },
-    });
-    if (!res.ok) return null;
-    return res.json() as Promise<T>;
-  } catch {
-    return null;
-  }
-}
 
 const TIER_COLORS: Record<string, string> = {
   Pro: '#6366f1',
@@ -24,8 +11,29 @@ const TIER_COLORS: Record<string, string> = {
   Power: '#22d3ee',
 };
 
-export default async function CreditsPage() {
-  const credits = await fetchData<CreditAnalysis>('/api/credits');
+export default function CreditsPage() {
+  const [days, setDays] = useState(30);
+  const [credits, setCredits] = useState<CreditAnalysis | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/credits?days=${days}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setCredits(data ?? null);
+      })
+      .catch(() => {
+        // Keep existing data on error
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [days]);
 
   // Build base vs overage pie data
   const totalBVO = (credits?.baseVsOverage.base ?? 0) + (credits?.baseVsOverage.overage ?? 0);
@@ -52,8 +60,14 @@ export default async function CreditsPage() {
   const maxCredits = credits?.topUsers[0]?.totalCredits ?? 1;
 
   return (
-    <div className="flex flex-col gap-6">
-      <Header titleKey="header.credits" subtitleKey="header.credits.sub" mascotMood="thinking" />
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+      <Header
+        titleKey="header.credits"
+        subtitleKey="header.credits.sub"
+        mascotMood="thinking"
+        days={days}
+        onDaysChange={setDays}
+      />
 
       {/* Top credit users */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">

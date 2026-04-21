@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useI18n } from '@/lib/i18n';
 import Header from '@/app/components/layout/Header';
 import MetricCard from '@/app/components/charts/MetricCard';
@@ -28,6 +29,50 @@ interface OverviewData {
   mascotMood: 'happy' | 'excited' | 'thinking' | 'alert';
 }
 
+function formatNumber(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+const PLACEHOLDER_CLIENT_DIST: ClientDistribution[] = [
+  { clientType: 'KIRO_IDE', messageCount: 0, creditCount: 0, percentage: 60 },
+  { clientType: 'KIRO_CLI', messageCount: 0, creditCount: 0, percentage: 25 },
+  { clientType: 'PLUGIN', messageCount: 0, creditCount: 0, percentage: 15 },
+];
+
+async function fetchAll(days: number): Promise<OverviewData> {
+  const [metrics, trends, users, engagement] = await Promise.all([
+    fetch(`/api/metrics?days=${days}`).then((r) => r.json()),
+    fetch(`/api/trends?days=${days}`).then((r) => r.json()),
+    fetch(`/api/users?days=${days}&limit=10`).then((r) => r.json()),
+    fetch(`/api/engagement?days=${days}`).then((r) => r.json()),
+  ]);
+
+  const cr = metrics?.changeRates ?? {};
+  const powerUsers = engagement?.segments?.find((s: { tier: string }) => s.tier === 'Power')?.count ?? 0;
+  const overageUp = (cr.overage ?? 0) > 10;
+  const mascotMood = overageUp ? ('alert' as const) : powerUsers > 50 ? ('excited' as const) : ('happy' as const);
+
+  return {
+    metrics: {
+      totalUsers: formatNumber(metrics?.totalUsers ?? 0),
+      totalMessages: formatNumber(metrics?.totalMessages ?? 0),
+      totalConversations: formatNumber(metrics?.totalConversations ?? 0),
+      totalCredits: formatNumber(metrics?.totalCredits ?? 0),
+      totalOverageCredits: formatNumber(metrics?.totalOverageCredits ?? 0),
+    },
+    changeRates: cr,
+    trends: trends ?? [],
+    topUsers: users ?? [],
+    funnel: engagement?.funnel ?? [],
+    clientDist: PLACEHOLDER_CLIENT_DIST,
+    powerUsers,
+    overageUp,
+    mascotMood,
+  };
+}
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 mb-3">
@@ -51,14 +96,44 @@ function StatusIcon({ color, children }: { color: string; children: React.ReactN
 
 export default function OverviewClient({ data }: { data: OverviewData }) {
   const { t } = useI18n();
-  const { metrics, changeRates: cr, trends, topUsers, funnel, clientDist, powerUsers, overageUp, mascotMood } = data;
+  const [days, setDays] = useState(30);
+  const [liveData, setLiveData] = useState(data);
+  const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    // Skip initial render — we already have server data for the default 30-day window
+    if (!initialized) {
+      setInitialized(true);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetchAll(days)
+      .then((result) => {
+        if (!cancelled) setLiveData(result);
+      })
+      .catch(() => {
+        // Keep existing data on error
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { metrics, changeRates: cr, trends, topUsers, funnel, clientDist, powerUsers, overageUp, mascotMood } = liveData;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className={`flex flex-col gap-5 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
       <Header
         titleKey="header.overview"
         subtitleKey="header.overview.sub"
         mascotMood={mascotMood}
+        days={days}
+        onDaysChange={setDays}
       />
 
       {/* Row 1: Usage & Activity */}

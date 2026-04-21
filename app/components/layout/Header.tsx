@@ -3,15 +3,25 @@
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import KiroMascot from '@/app/components/ui/KiroMascot';
+import DateRangePicker from '@/app/components/ui/DateRangePicker';
 
 interface HeaderProps {
   titleKey: string;
   subtitleKey: string;
   mascotMood?: 'happy' | 'excited' | 'thinking' | 'alert';
   mascotMessage?: string;
+  days: number;
+  onDaysChange: (days: number) => void;
 }
 
-export default function Header({ titleKey, subtitleKey, mascotMood = 'happy', mascotMessage }: HeaderProps) {
+export default function Header({
+  titleKey,
+  subtitleKey,
+  mascotMood = 'happy',
+  mascotMessage,
+  days,
+  onDaysChange,
+}: HeaderProps) {
   const router = useRouter();
   const { t } = useI18n();
 
@@ -25,9 +35,7 @@ export default function Header({ titleKey, subtitleKey, mascotMood = 'happy', ma
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <span className="bg-gray-900/50 border border-gray-800 text-slate-400 text-xs font-medium px-3 py-1.5 rounded-full">
-          {t('common.last30days')}
-        </span>
+        <DateRangePicker value={days} onChange={onDaysChange} />
         <button
           onClick={() => router.refresh()}
           className="bg-[#9046FF] hover:bg-[#7c3aed] text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors duration-150 shadow-lg shadow-purple-500/20"
