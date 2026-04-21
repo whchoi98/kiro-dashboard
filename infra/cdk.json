@@ -1,4 +1,8 @@
 {
   "app": "npx ts-node bin/app.ts",
-  "context": { "useExistingVpc": "false", "vpcId": "", "vpcCidr": "10.254.0.0/16" }
+  "context": {
+    "useExistingVpc": "true",
+    "vpcId": "vpc-005338aca7ac5fb96",
+    "vpcCidr": "10.254.0.0/16"
+  }
 }

@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
 export interface SecurityStackProps extends cdk.StackProps {
@@ -11,20 +10,18 @@ export interface SecurityStackProps extends cdk.StackProps {
 export class SecurityStack extends cdk.Stack {
   public readonly albSg: ec2.SecurityGroup;
   public readonly ecsSg: ec2.SecurityGroup;
-  public readonly taskRole: iam.Role;
-  public readonly executionRole: iam.Role;
+  public readonly userPool: cognito.UserPool;
+  public readonly userPoolClient: cognito.UserPoolClient;
 
   constructor(scope: Construct, id: string, props: SecurityStackProps) {
     super(scope, id, props);
 
-    // CloudFront Prefix List parameter
     const cfPrefixListId = new cdk.CfnParameter(this, 'CloudFrontPrefixListId', {
       type: 'String',
       description: 'CloudFront managed prefix list ID for ALB ingress',
-      default: 'pl-3b927c52',
+      default: 'pl-22a6434b',
     });
 
-    // ALB Security Group
     this.albSg = new ec2.SecurityGroup(this, 'AlbSg', {
       vpc: props.vpc,
       description: 'ALB security group - allows CloudFront prefix list on port 80',
@@ -40,7 +37,6 @@ export class SecurityStack extends cdk.Stack {
       description: 'Allow HTTP from CloudFront prefix list',
     });
 
-    // ECS Security Group
     this.ecsSg = new ec2.SecurityGroup(this, 'EcsSg', {
       vpc: props.vpc,
       description: 'ECS tasks security group',
@@ -53,8 +49,7 @@ export class SecurityStack extends cdk.Stack {
       'Allow traffic from ALB on port 3000',
     );
 
-    // Cognito User Pool
-    const userPool = new cognito.UserPool(this, 'UserPool', {
+    this.userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: 'kiro-dashboard-users',
       selfSignUpEnabled: false,
       signInAliases: { email: true },
@@ -68,9 +63,8 @@ export class SecurityStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // User Pool Client
-    const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
-      userPool,
+    this.userPoolClient = this.userPool.addClient('DashboardClient', {
+      generateSecret: true,
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [
@@ -78,74 +72,33 @@ export class SecurityStack extends cdk.Stack {
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
         ],
-        callbackUrls: ['http://localhost:3000'],
+        callbackUrls: ['http://localhost:3000/api/auth/callback/cognito'],
+        logoutUrls: ['http://localhost:3000'],
       },
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.COGNITO,
+      ],
     });
 
-    // Cognito Domain
-    const userPoolDomain = new cognito.UserPoolDomain(this, 'UserPoolDomain', {
-      userPool,
+    this.userPool.addDomain('CognitoDomain', {
       cognitoDomain: {
         domainPrefix: `kiro-dashboard-${this.account}`,
       },
     });
 
-    // Task Role
-    this.taskRole = new iam.Role(this, 'TaskRole', {
-      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-      description: 'ECS task role for kiro-dashboard',
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonAthenaFullAccess'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonS3ReadOnlyAccess'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AWSGlueConsoleFullAccess'),
-      ],
-      inlinePolicies: {
-        IdentityStorePolicy: new iam.PolicyDocument({
-          statements: [
-            new iam.PolicyStatement({
-              actions: [
-                'identitystore:ListUsers',
-                'identitystore:DescribeUser',
-              ],
-              resources: ['*'],
-            }),
-          ],
-        }),
-      },
-    });
-
-    // Execution Role
-    this.executionRole = new iam.Role(this, 'ExecutionRole', {
-      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-      description: 'ECS task execution role for kiro-dashboard',
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
-      ],
-    });
-
-    // Outputs
     new cdk.CfnOutput(this, 'UserPoolId', {
-      value: userPool.userPoolId,
-      description: 'Cognito User Pool ID',
+      value: this.userPool.userPoolId,
       exportName: `${this.stackName}-UserPoolId`,
     });
 
     new cdk.CfnOutput(this, 'UserPoolClientId', {
-      value: userPoolClient.userPoolClientId,
-      description: 'Cognito User Pool Client ID',
+      value: this.userPoolClient.userPoolClientId,
       exportName: `${this.stackName}-UserPoolClientId`,
     });
 
     new cdk.CfnOutput(this, 'CognitoIssuer', {
-      value: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
-      description: 'Cognito OIDC Issuer URL',
+      value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`,
       exportName: `${this.stackName}-CognitoIssuer`,
-    });
-
-    new cdk.CfnOutput(this, 'CognitoDomain', {
-      value: `https://${userPoolDomain.domainName}.auth.${this.region}.amazoncognito.com`,
-      description: 'Cognito Hosted UI Domain',
-      exportName: `${this.stackName}-CognitoDomain`,
     });
   }
 }
