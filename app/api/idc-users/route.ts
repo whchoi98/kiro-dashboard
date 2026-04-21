@@ -27,13 +27,13 @@ async function fetchAllIdcUsers(): Promise<
   }
 
   const allUsers: Array<{ userId: string; displayName: string; email: string }> = [];
-  let nextToken: string | undefined = undefined;
+  let cursor: string | undefined;
 
-  do {
+  while (true) {
     const response = await identityClient.send(
       new ListUsersCommand({
         IdentityStoreId: identityStoreId,
-        NextToken: nextToken,
+        NextToken: cursor,
       }),
     );
 
@@ -42,11 +42,13 @@ async function fetchAllIdcUsers(): Promise<
     for (const user of users) {
       if (!user.UserId) continue;
 
+      const joinedName = [user.Name?.GivenName, user.Name?.FamilyName]
+        .filter(Boolean)
+        .join(' ');
       const displayName =
         user.DisplayName ??
         user.Name?.Formatted ??
-        [user.Name?.GivenName, user.Name?.FamilyName].filter(Boolean).join(' ') ||
-        user.UserName ??
+        (joinedName || user.UserName) ??
         user.UserId;
 
       const primaryEmail =
@@ -61,8 +63,9 @@ async function fetchAllIdcUsers(): Promise<
       });
     }
 
-    nextToken = response.NextToken;
-  } while (nextToken);
+    if (!response.NextToken) break;
+    cursor = response.NextToken;
+  }
 
   return allUsers;
 }
