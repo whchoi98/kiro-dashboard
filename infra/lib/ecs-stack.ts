@@ -55,6 +55,17 @@ export class EcsStack extends cdk.Stack {
             }),
           ],
         }),
+        BedrockInvoke: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: [
+                'bedrock:InvokeModel',
+                'bedrock:InvokeModelWithResponseStream',
+              ],
+              resources: ['arn:aws:bedrock:*::foundation-model/*'],
+            }),
+          ],
+        }),
       },
     });
 

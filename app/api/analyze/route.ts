@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
 
           const response = await bedrockClient.send(
             new ConverseStreamCommand({
-              modelId: 'anthropic.claude-sonnet-4-6',
+              modelId: 'global.anthropic.claude-sonnet-4-6',
               system: [{ text: SYSTEM_PROMPT }],
               messages,
               toolConfig: { tools },
