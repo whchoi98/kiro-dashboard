@@ -118,28 +118,28 @@ export default function ProductivityPage() {
       {/* Section 1: KPI Cards */}
       <div className="grid grid-cols-4 gap-4">
         {/* AI Code Lines */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderTop: '3px solid #9046FF' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">{t('prod.aiCodeLines')}</p>
           <p className="text-white text-3xl font-bold font-mono">{fmt(s?.aiCodeLines ?? 0)}</p>
           <p className="text-slate-500 text-xs mt-1">chat + inline</p>
         </div>
 
         {/* Inline Acceptance Rate */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderTop: '3px solid #22c55e' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">{t('prod.inlineRate')}</p>
           <p className="text-white text-3xl font-bold font-mono">{inlineRate}%</p>
           <p className="text-slate-500 text-xs mt-1">{fmt(s?.inlineAcceptances ?? 0)} / {fmt(s?.inlineSuggestions ?? 0)}</p>
         </div>
 
         {/* Chat Messages */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderTop: '3px solid #3b82f6' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">{t('prod.chatMessages')}</p>
           <p className="text-white text-3xl font-bold font-mono">{fmt(s?.chatMessages ?? 0)}</p>
           <p className="text-slate-500 text-xs mt-1">{fmt(s?.inlineChatSessions ?? 0)} inline chat sessions</p>
         </div>
 
         {/* Active IDE Users */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderTop: '3px solid #22d3ee' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">{t('prod.activeUsers')}</p>
           <p className="text-white text-3xl font-bold font-mono">{fmt(s?.activeUsers ?? 0)}</p>
           <p className="text-slate-500 text-xs mt-1">unique IDE users</p>
@@ -149,7 +149,7 @@ export default function ProductivityPage() {
       {/* Section 2: Feature Usage Cards (3x2) */}
       <div className="grid grid-cols-3 gap-4">
         {/* Chat */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderLeft: '3px solid #9046FF' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-3">{t('prod.chat')}</p>
           <div className="flex flex-col gap-2">
             <div className="flex justify-between">
@@ -164,7 +164,7 @@ export default function ProductivityPage() {
         </div>
 
         {/* Inline Completion */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderLeft: '3px solid #22c55e' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-green-400 text-xs font-bold uppercase tracking-wider mb-3">{t('prod.inlineCompletion')}</p>
           <div className="flex flex-col gap-2">
             <div className="flex justify-between">
@@ -179,7 +179,7 @@ export default function ProductivityPage() {
         </div>
 
         {/* Inline Chat */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderLeft: '3px solid #3b82f6' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-blue-400 text-xs font-bold uppercase tracking-wider mb-3">{t('prod.inlineChat')}</p>
           <div className="flex flex-col gap-2">
             <div className="flex justify-between">
@@ -194,7 +194,7 @@ export default function ProductivityPage() {
         </div>
 
         {/* Dev Agent */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderLeft: '3px solid #f97316' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-orange-400 text-xs font-bold uppercase tracking-wider mb-3">{t('prod.devAgent')}</p>
           <div className="flex flex-col gap-2">
             <div className="flex justify-between">
@@ -209,7 +209,7 @@ export default function ProductivityPage() {
         </div>
 
         {/* Code Review */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderLeft: '3px solid #f43f5e' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-rose-400 text-xs font-bold uppercase tracking-wider mb-3">{t('prod.codeReview')}</p>
           <div className="flex flex-col gap-2">
             <div className="flex justify-between">
@@ -220,7 +220,7 @@ export default function ProductivityPage() {
         </div>
 
         {/* Test / Doc Generation */}
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border" style={{ borderLeft: '3px solid #22d3ee' }}>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-cyan-400 text-xs font-bold uppercase tracking-wider mb-3">{t('prod.testDoc')}</p>
           <div className="flex flex-col gap-2">
             <div className="flex justify-between">
@@ -236,7 +236,7 @@ export default function ProductivityPage() {
       </div>
 
       {/* Section 3: Top Users by AI Code Lines */}
-      <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
+      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">{t('prod.topUsers')}</h3>
         {topUsers.length > 0 ? (
           <div style={{ height: Math.max(200, topUsers.length * 36) }}>
@@ -288,7 +288,7 @@ export default function ProductivityPage() {
       </div>
 
       {/* Section 4: Daily Trend */}
-      <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
+      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">{t('prod.dailyTrend')}</h3>
         {dailyTrend.length > 0 ? (
           <div style={{ height: 280 }}>
