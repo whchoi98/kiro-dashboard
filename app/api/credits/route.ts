@@ -13,32 +13,32 @@ export async function GET(req: NextRequest) {
 
     const topUsersSql = `
       SELECT
-        userid,
-        SUM(TRY_CAST(credits_used AS DOUBLE)) AS total_credits,
-        SUM(TRY_CAST(overage_credits_used AS DOUBLE)) AS overage_credits
-      FROM ${tableName}
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY userid
+        "UserId",
+        SUM(CAST("Credits_Used" AS DOUBLE)) AS total_credits,
+        SUM(CAST("Overage_Credits_Used" AS DOUBLE)) AS overage_credits
+      FROM "${tableName}"
+      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      GROUP BY "UserId"
       ORDER BY total_credits DESC
       LIMIT 15
     `;
 
     const baseVsOverageSql = `
       SELECT
-        SUM(TRY_CAST(credits_used AS DOUBLE)) AS base_credits,
-        SUM(TRY_CAST(overage_credits_used AS DOUBLE)) AS overage_credits
-      FROM ${tableName}
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+        SUM(CAST("Credits_Used" AS DOUBLE)) AS base_credits,
+        SUM(CAST("Overage_Credits_Used" AS DOUBLE)) AS overage_credits
+      FROM "${tableName}"
+      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
     `;
 
     const byTierSql = `
       SELECT
-        subscription_tier,
-        COUNT(DISTINCT userid) AS user_count,
-        SUM(TRY_CAST(credits_used AS DOUBLE)) AS total_credits
-      FROM ${tableName}
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY subscription_tier
+        "Subscription_Tier",
+        COUNT(DISTINCT "UserId") AS user_count,
+        SUM(CAST("Credits_Used" AS DOUBLE)) AS total_credits
+      FROM "${tableName}"
+      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      GROUP BY "Subscription_Tier"
       ORDER BY total_credits DESC
     `;
 
@@ -48,14 +48,14 @@ export async function GET(req: NextRequest) {
       executeQuery(byTierSql),
     ]);
 
-    const rawIds = topUsersRows.map((row) => row.userid.replace(/^['"]|['"]$/g, ''));
+    const rawIds = topUsersRows.map((row) => row.UserId.replace(/^['"]|['"]$/g, ''));
     const usernameMap = await resolveUsernames(rawIds);
 
     const bvo = baseVsOverageRows[0] ?? {};
 
     const analysis: CreditAnalysis = {
       topUsers: topUsersRows.map((row) => {
-        const userid = row.userid.replace(/^['"]|['"]$/g, '');
+        const userid = row.UserId.replace(/^['"]|['"]$/g, '');
         return {
           userid,
           username: usernameMap.get(userid) ?? userid.substring(0, 8),
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
         overage: safeFloat(bvo.overage_credits),
       },
       byTier: byTierRows.map((row) => ({
-        tier: row.subscription_tier,
+        tier: row.Subscription_Tier,
         userCount: safeInt(row.user_count),
         totalCredits: safeFloat(row.total_credits),
       })),

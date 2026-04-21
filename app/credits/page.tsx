@@ -55,17 +55,17 @@ export default async function CreditsPage() {
 
       {/* Top credit users */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
-        <h3 className="text-sm font-semibold text-slate-300 mb-4">Top 15 Credit Users</h3>
+        <h3 className="text-lg font-semibold text-slate-300 mb-4">Top 15 Credit Users</h3>
         <div className="flex flex-col gap-3">
           {(credits?.topUsers ?? []).map((user, index) => {
             const barPct = maxCredits > 0 ? (user.totalCredits / maxCredits) * 100 : 0;
             return (
               <div key={user.userid} className="flex items-center gap-3">
-                <span className="text-slate-500 text-xs w-5 text-right font-mono">#{index + 1}</span>
+                <span className="text-slate-500 text-sm w-5 text-right font-mono">#{index + 1}</span>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-slate-200 text-sm font-medium">{user.username}</span>
-                    <div className="flex items-center gap-3 text-xs">
+                    <span className="text-slate-200 text-base font-medium">{user.username}</span>
+                    <div className="flex items-center gap-3 text-sm">
                       <span className="text-slate-400">{user.totalCredits.toLocaleString()} credits</span>
                       {user.overageCredits > 0 && (
                         <span className="text-pink-400">{user.overageCredits.toLocaleString()} overage</span>
@@ -97,7 +97,7 @@ export default async function CreditsPage() {
           <ClientPieChart data={bvoPieData} title="Base vs Overage Credits" />
         </div>
         <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
-          <h3 className="text-sm font-semibold text-slate-300 mb-4">Credits by Subscription Tier</h3>
+          <h3 className="text-lg font-semibold text-slate-300 mb-4">Credits by Subscription Tier</h3>
           <div className="flex flex-col gap-3">
             {(credits?.byTier ?? []).map((tier) => (
               <div
@@ -106,12 +106,12 @@ export default async function CreditsPage() {
                 style={{ borderLeft: `3px solid ${TIER_COLORS[tier.tier] ?? '#64748b'}` }}
               >
                 <div>
-                  <p className="text-white font-semibold">{tier.tier}</p>
-                  <p className="text-slate-400 text-xs mt-0.5">{tier.userCount} users</p>
+                  <p className="text-white text-base font-semibold">{tier.tier}</p>
+                  <p className="text-slate-400 text-sm mt-0.5">{tier.userCount} users</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-white font-bold">{tier.totalCredits.toLocaleString()}</p>
-                  <p className="text-slate-500 text-xs">credits used</p>
+                  <p className="text-white text-lg font-bold">{tier.totalCredits.toLocaleString()}</p>
+                  <p className="text-slate-500 text-sm">credits used</p>
                 </div>
               </div>
             ))}

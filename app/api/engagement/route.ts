@@ -12,12 +12,12 @@ export async function GET(req: NextRequest) {
 
     const sql = `
       SELECT
-        userid,
-        SUM(TRY_CAST(total_messages AS BIGINT)) AS total_messages,
-        SUM(TRY_CAST(chat_conversations AS BIGINT)) AS total_conversations
-      FROM ${tableName}
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY userid
+        "UserId",
+        SUM(CAST("Total_Messages" AS INTEGER)) AS total_messages,
+        SUM(CAST("Chat_Conversations" AS INTEGER)) AS total_conversations
+      FROM "${tableName}"
+      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      GROUP BY "UserId"
     `;
 
     const rows = await executeQuery(sql);

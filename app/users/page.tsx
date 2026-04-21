@@ -32,7 +32,7 @@ export default async function UsersPage() {
       </div>
 
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
-        <h3 className="text-sm font-semibold text-slate-300 mb-4">User Activity Table</h3>
+        <h3 className="text-lg font-semibold text-slate-300 mb-4">User Activity Table</h3>
         <UserTable data={top100 ?? []} />
       </div>
     </div>

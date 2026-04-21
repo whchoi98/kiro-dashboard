@@ -76,17 +76,17 @@ export default async function EngagementPage() {
               style={{ borderTop: `3px solid ${meta.color}` }}
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-lg">{meta.icon}</span>
+                <span className="text-xl">{meta.icon}</span>
                 <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  className="text-sm font-semibold px-2 py-0.5 rounded-full"
                   style={{ color: meta.color, backgroundColor: `${meta.color}22` }}
                 >
                   {seg.percentage.toFixed(1)}%
                 </span>
               </div>
-              <p className="text-white text-2xl font-bold">{seg.count.toLocaleString()}</p>
-              <p className="text-slate-300 text-sm font-medium mt-1">{seg.tier} Users</p>
-              <p className="text-slate-500 text-xs mt-2">{meta.description}</p>
+              <p className="text-white text-3xl font-bold">{seg.count.toLocaleString()}</p>
+              <p className="text-slate-300 text-base font-medium mt-1">{seg.tier} Users</p>
+              <p className="text-slate-500 text-sm mt-2">{meta.description}</p>
             </div>
           );
         })}

@@ -12,21 +12,21 @@ export async function GET(req: NextRequest) {
 
     const sql = `
       SELECT
-        date,
-        SUM(TRY_CAST(total_messages AS BIGINT)) AS messages,
-        SUM(TRY_CAST(chat_conversations AS BIGINT)) AS conversations,
-        SUM(TRY_CAST(credits_used AS DOUBLE)) AS credits,
-        COUNT(DISTINCT userid) AS active_users
-      FROM ${tableName}
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY date
-      ORDER BY date ASC
+        "Date",
+        SUM(CAST("Total_Messages" AS INTEGER)) AS messages,
+        SUM(CAST("Chat_Conversations" AS INTEGER)) AS conversations,
+        SUM(CAST("Credits_Used" AS DOUBLE)) AS credits,
+        COUNT(DISTINCT "UserId") AS active_users
+      FROM "${tableName}"
+      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      GROUP BY "Date"
+      ORDER BY "Date" ASC
     `;
 
     const rows = await executeQuery(sql);
 
     const trends: DailyTrend[] = rows.map((row) => ({
-      date: row.date,
+      date: row.Date,
       messages: safeInt(row.messages),
       conversations: safeInt(row.conversations),
       credits: safeFloat(row.credits),

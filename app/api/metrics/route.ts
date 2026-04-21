@@ -12,25 +12,25 @@ export async function GET(req: NextRequest) {
 
     const currentPeriodSql = `
       SELECT
-        COUNT(DISTINCT userid) AS total_users,
-        SUM(TRY_CAST(total_messages AS BIGINT)) AS total_messages,
-        SUM(TRY_CAST(chat_conversations AS BIGINT)) AS total_conversations,
-        SUM(TRY_CAST(credits_used AS DOUBLE)) AS total_credits,
-        SUM(TRY_CAST(overage_credits_used AS DOUBLE)) AS total_overage_credits
-      FROM ${tableName}
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+        COUNT(DISTINCT "UserId") AS total_users,
+        SUM(CAST("Total_Messages" AS INTEGER)) AS total_messages,
+        SUM(CAST("Chat_Conversations" AS INTEGER)) AS total_conversations,
+        SUM(CAST("Credits_Used" AS DOUBLE)) AS total_credits,
+        SUM(CAST("Overage_Credits_Used" AS DOUBLE)) AS total_overage_credits
+      FROM "${tableName}"
+      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
     `;
 
     const previousPeriodSql = `
       SELECT
-        COUNT(DISTINCT userid) AS total_users,
-        SUM(TRY_CAST(total_messages AS BIGINT)) AS total_messages,
-        SUM(TRY_CAST(chat_conversations AS BIGINT)) AS total_conversations,
-        SUM(TRY_CAST(credits_used AS DOUBLE)) AS total_credits,
-        SUM(TRY_CAST(overage_credits_used AS DOUBLE)) AS total_overage_credits
-      FROM ${tableName}
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days * 2}, CURRENT_DATE), '%Y-%m-%d')
-        AND date < DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+        COUNT(DISTINCT "UserId") AS total_users,
+        SUM(CAST("Total_Messages" AS INTEGER)) AS total_messages,
+        SUM(CAST("Chat_Conversations" AS INTEGER)) AS total_conversations,
+        SUM(CAST("Credits_Used" AS DOUBLE)) AS total_credits,
+        SUM(CAST("Overage_Credits_Used" AS DOUBLE)) AS total_overage_credits
+      FROM "${tableName}"
+      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days * 2}, CURRENT_DATE), '%Y-%m-%d')
+        AND "Date" < DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
     `;
 
     const [currentRows, previousRows] = await Promise.all([
