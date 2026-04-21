@@ -43,7 +43,7 @@ export class EcsStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonAthenaFullAccess'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonS3ReadOnlyAccess'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonS3FullAccess'),
         iam.ManagedPolicy.fromAwsManagedPolicyName('AWSGlueConsoleFullAccess'),
       ],
       inlinePolicies: {
@@ -81,10 +81,10 @@ export class EcsStack extends cdk.Stack {
       portMappings: [{ containerPort: 3000 }],
       environment: {
         HOSTNAME: '0.0.0.0',
-        AWS_REGION: this.region,
-        ATHENA_DATABASE: 'kiro_reports',
-        ATHENA_OUTPUT_BUCKET: '',
-        GLUE_TABLE_NAME: '',
+        AWS_REGION: 'us-east-1',
+        ATHENA_DATABASE: 'titanlog',
+        ATHENA_OUTPUT_BUCKET: 's3://whchoi01-titan-q-log/athena-results/',
+        GLUE_TABLE_NAME: 'user_report',
         IDENTITY_STORE_ID: '',
         NEXTAUTH_URL: '',
         NEXTAUTH_SECRET: 'change-me-in-production',
