@@ -85,7 +85,7 @@ export class EcsStack extends cdk.Stack {
         ATHENA_DATABASE: 'titanlog',
         ATHENA_OUTPUT_BUCKET: 's3://whchoi01-titan-q-log/athena-results/',
         GLUE_TABLE_NAME: 'user_report',
-        IDENTITY_STORE_ID: '',
+        IDENTITY_STORE_ID: 'd-90663be888',
         NEXTAUTH_URL: '',
         NEXTAUTH_SECRET: 'change-me-in-production',
       },
