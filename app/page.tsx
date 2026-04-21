@@ -43,10 +43,10 @@ const PLACEHOLDER_IDC_USERS: IdcUsersData = { total: 0, active: 0, inactive: 0, 
 
 export default async function OverviewPage() {
   const [metrics, trends, topUsers, engagement] = await Promise.all([
-    fetchData<OverviewMetrics>('/api/metrics?days=30'),
-    fetchData<DailyTrend[]>('/api/trends?days=30'),
-    fetchData<TopUser[]>('/api/users?limit=10&days=30'),
-    fetchData<EngagementData>('/api/engagement?days=30'),
+    fetchData<OverviewMetrics>('/api/metrics?days=90'),
+    fetchData<DailyTrend[]>('/api/trends?days=90'),
+    fetchData<TopUser[]>('/api/users?limit=10&days=90'),
+    fetchData<EngagementData>('/api/engagement?days=90'),
   ]);
 
   const cr = metrics?.changeRates ?? {};
@@ -55,10 +55,10 @@ export default async function OverviewPage() {
 
   const mascotMood = overageUp ? 'alert' as const : powerUsers > 50 ? 'excited' as const : 'happy' as const;
 
-  const clientDistRaw = await fetchData<ClientDistribution[]>('/api/client-dist?days=30');
+  const clientDistRaw = await fetchData<ClientDistribution[]>('/api/client-dist?days=90');
   const clientDist = Array.isArray(clientDistRaw) ? clientDistRaw : [];
 
-  const idcUsersRaw = await fetchData<IdcUsersData>('/api/idc-users?days=30');
+  const idcUsersRaw = await fetchData<IdcUsersData>('/api/idc-users?days=90');
   const idcUsers =
     idcUsersRaw && typeof idcUsersRaw.total === 'number'
       ? idcUsersRaw

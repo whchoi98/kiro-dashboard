@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
-import { resolveUsernames } from '@/lib/identity';
+import { resolveUserDetails } from '@/lib/identity';
 import { CreditAnalysis } from '@/types/dashboard';
 
 export async function GET(req: NextRequest) {
@@ -49,16 +49,20 @@ export async function GET(req: NextRequest) {
     ]);
 
     const rawIds = topUsersRows.map((row) => row.userid.replace(/^['"]|['"]$/g, ''));
-    const usernameMap = await resolveUsernames(rawIds);
+    const detailMap = await resolveUserDetails(rawIds);
 
     const bvo = baseVsOverageRows[0] ?? {};
 
     const analysis: CreditAnalysis = {
       topUsers: topUsersRows.map((row) => {
         const userid = row.userid.replace(/^['"]|['"]$/g, '');
+        const detail = detailMap.get(userid);
         return {
           userid,
-          username: usernameMap.get(userid) ?? userid.substring(0, 8),
+          username: detail?.email || detail?.username || userid.substring(0, 8),
+          displayName: detail?.displayName || userid.substring(0, 8),
+          email: detail?.email || '',
+          organization: detail?.organization || '',
           totalCredits: safeFloat(row.total_credits),
           overageCredits: safeFloat(row.overage_credits),
         };

@@ -10,6 +10,21 @@ interface UserTableProps {
 type SortField = 'totalMessages' | 'totalCredits';
 type SortDir = 'asc' | 'desc';
 
+const ORG_BADGE_COLORS: Record<string, string> = {
+  'amazon.com': 'bg-orange-900/40 text-orange-300 border-orange-800',
+  'aws.com': 'bg-yellow-900/40 text-yellow-300 border-yellow-800',
+};
+
+function OrgBadge({ org }: { org: string }) {
+  if (!org) return <span className="text-slate-600 text-xs">—</span>;
+  const colorClass = ORG_BADGE_COLORS[org.toLowerCase()] ?? 'bg-slate-800 text-slate-300 border-slate-700';
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs border font-medium ${colorClass}`}>
+      {org}
+    </span>
+  );
+}
+
 export default function UserTable({ data }: UserTableProps) {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalMessages');
@@ -30,6 +45,9 @@ export default function UserTable({ data }: UserTableProps) {
       ? data.filter(
           (u) =>
             u.username.toLowerCase().includes(q) ||
+            u.displayName.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q) ||
+            u.organization.toLowerCase().includes(q) ||
             u.userid.toLowerCase().includes(q)
         )
       : data;
@@ -86,7 +104,7 @@ export default function UserTable({ data }: UserTableProps) {
         </svg>
         <input
           type="text"
-          placeholder="Search users..."
+          placeholder="Search by name, email, or organization..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full bg-dashboard-card border border-dashboard-border rounded-lg pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-kiro-orange focus:ring-1 focus:ring-kiro-orange"
@@ -95,14 +113,20 @@ export default function UserTable({ data }: UserTableProps) {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-dashboard-border">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[800px]">
           <thead>
             <tr className="border-b border-dashboard-border bg-dashboard-sidebar">
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 w-12">
                 Rank
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                User
+                Name
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Email
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Organization
               </th>
               <th
                 className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none whitespace-nowrap hover:text-slate-300 transition-colors"
@@ -123,7 +147,7 @@ export default function UserTable({ data }: UserTableProps) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-slate-500 text-sm">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-sm">
                   No users match your search.
                 </td>
               </tr>
@@ -137,10 +161,17 @@ export default function UserTable({ data }: UserTableProps) {
                     #{user.rank}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="text-slate-200 font-medium">{user.username}</span>
-                      <span className="text-slate-500 text-xs font-mono">{user.userid.substring(0, 12)}...</span>
-                    </div>
+                    <span className="text-slate-200 font-medium whitespace-nowrap">
+                      {user.displayName || user.username}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-slate-300 text-xs font-mono">
+                      {user.email || '—'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <OrgBadge org={user.organization} />
                   </td>
                   <td className="px-4 py-3 text-right text-slate-200 font-medium tabular-nums">
                     {user.totalMessages.toLocaleString()}

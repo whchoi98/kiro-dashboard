@@ -6,7 +6,7 @@ import TrendChart from '@/app/components/charts/TrendChart';
 import { DailyTrend } from '@/types/dashboard';
 
 export default function TrendsPage() {
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(90);
   const [trends, setTrends] = useState<DailyTrend[]>([]);
   const [loading, setLoading] = useState(true);
 

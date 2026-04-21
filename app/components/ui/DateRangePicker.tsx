@@ -6,6 +6,8 @@ interface DateRangePickerProps {
 }
 
 const PRESETS = [
+  { label: '1일', days: 1 },
+  { label: '3일', days: 3 },
   { label: '7일', days: 7 },
   { label: '14일', days: 14 },
   { label: '30일', days: 30 },

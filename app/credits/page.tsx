@@ -12,7 +12,7 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export default function CreditsPage() {
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(90);
   const [credits, setCredits] = useState<CreditAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -80,7 +80,7 @@ export default function CreditsPage() {
                 <span className="text-slate-500 text-sm w-5 text-right font-mono">#{index + 1}</span>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-slate-200 text-base font-medium">{user.username}</span>
+                    <span className="text-slate-200 text-base font-medium">{user.displayName || user.username}</span>
                     <div className="flex items-center gap-3 text-sm">
                       <span className="text-slate-400">{user.totalCredits.toLocaleString()} credits</span>
                       {user.overageCredits > 0 && (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
-import { resolveUsernames } from '@/lib/identity';
+import { resolveUserDetails } from '@/lib/identity';
 import { TopUser } from '@/types/dashboard';
 
 export async function GET(req: NextRequest) {
@@ -27,13 +27,17 @@ export async function GET(req: NextRequest) {
     const rows = await executeQuery(sql);
 
     const rawIds = rows.map((row) => row.userid.replace(/^['"]|['"]$/g, ''));
-    const usernameMap = await resolveUsernames(rawIds);
+    const detailMap = await resolveUserDetails(rawIds);
 
     const users: TopUser[] = rows.map((row, index) => {
       const userid = row.userid.replace(/^['"]|['"]$/g, '');
+      const detail = detailMap.get(userid);
       return {
         userid,
-        username: usernameMap.get(userid) ?? userid.substring(0, 8),
+        username: detail?.email || detail?.username || userid.substring(0, 8),
+        displayName: detail?.displayName || userid.substring(0, 8),
+        email: detail?.email || '',
+        organization: detail?.organization || '',
         totalMessages: safeInt(row.total_messages),
         totalCredits: safeFloat(row.total_credits),
         rank: index + 1,

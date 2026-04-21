@@ -30,7 +30,7 @@ const TIER_META: Record<string, { color: string; description: string; icon: stri
 };
 
 export default function EngagementPage() {
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(90);
   const [engagement, setEngagement] = useState<EngagementData | null>(null);
   const [loading, setLoading] = useState(true);
 

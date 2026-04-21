@@ -124,7 +124,7 @@ function StatusIcon({ color, children }: { color: string; children: React.ReactN
 
 export default function OverviewClient({ data }: { data: OverviewData }) {
   const { t } = useI18n();
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(90);
   const [liveData, setLiveData] = useState(data);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);

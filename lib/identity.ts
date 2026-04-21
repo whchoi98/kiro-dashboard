@@ -4,6 +4,67 @@ const client = new IdentitystoreClient({
   region: process.env.AWS_REGION ?? 'us-east-1',
 });
 
+export interface UserDetail {
+  username: string;
+  displayName: string;
+  email: string;
+  organization: string;
+}
+
+export async function resolveUserDetails(userIds: string[]): Promise<Map<string, UserDetail>> {
+  // Clean IDs (strip d-xxxxx. prefix)
+  const cleanIds = userIds.map(id => id.replace(/^d-[a-z0-9]+\./, ''));
+
+  const result = new Map<string, UserDetail>();
+  const identityStoreId = process.env.IDENTITY_STORE_ID || '';
+
+  if (!identityStoreId) {
+    for (const id of cleanIds) {
+      result.set(id, { username: id.substring(0, 8), displayName: id.substring(0, 8), email: '', organization: '' });
+    }
+    return result;
+  }
+
+  try {
+    // Paginate ListUsers to get all IdC users
+    let allUsers: any[] = [];
+    let nextToken: string | undefined;
+    do {
+      const response = await client.send(new ListUsersCommand({
+        IdentityStoreId: identityStoreId,
+        ...(nextToken ? { NextToken: nextToken } : {})
+      }));
+      allUsers.push(...(response.Users || []));
+      nextToken = response.NextToken;
+    } while (nextToken);
+
+    const userMap = new Map(allUsers.map(u => [
+      u.UserId!,
+      {
+        username: u.UserName || u.DisplayName || u.UserId!,
+        displayName: u.DisplayName || u.UserName || u.UserId!,
+        email: u.Emails?.[0]?.Value || u.UserName || '',
+        organization: (u.Emails?.[0]?.Value || u.UserName || '').split('@')[1] || '',
+      }
+    ]));
+
+    for (const id of cleanIds) {
+      const detail = userMap.get(id);
+      if (detail) {
+        result.set(id, detail);
+      } else {
+        result.set(id, { username: id.substring(0, 8), displayName: id.substring(0, 8), email: '', organization: '' });
+      }
+    }
+  } catch {
+    for (const id of cleanIds) {
+      result.set(id, { username: id.substring(0, 8), displayName: id.substring(0, 8), email: '', organization: '' });
+    }
+  }
+
+  return result;
+}
+
 interface CacheEntry {
   username: string;
   cachedAt: number;

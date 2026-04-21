@@ -38,6 +38,9 @@ export interface ClientDistribution {
 export interface TopUser {
   userid: string;
   username: string;
+  displayName: string;
+  email: string;
+  organization: string;
   totalMessages: number;
   totalCredits: number;
   rank: number;
@@ -62,6 +65,9 @@ export interface CreditAnalysis {
   topUsers: Array<{
     userid: string;
     username: string;
+    displayName: string;
+    email: string;
+    organization: string;
     totalCredits: number;
     overageCredits: number;
   }>;

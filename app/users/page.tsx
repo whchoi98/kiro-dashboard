@@ -7,7 +7,7 @@ import UserTable from '@/app/components/tables/UserTable';
 import { TopUser } from '@/types/dashboard';
 
 export default function UsersPage() {
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(90);
   const [top10, setTop10] = useState<TopUser[]>([]);
   const [top100, setTop100] = useState<TopUser[]>([]);
   const [loading, setLoading] = useState(true);

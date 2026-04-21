@@ -25,15 +25,26 @@ interface IdcUserStatusProps {
   data: IdcUserStatusData;
 }
 
-// Deterministic color assignment per org domain
 const ORG_COLORS: Record<string, string> = {
   'daangn.com': 'bg-orange-500/20 text-orange-300',
+  'daangnpay.com': 'bg-orange-500/20 text-orange-300',
   'gsretail.com': 'bg-blue-500/20 text-blue-300',
-  'kakao.com': 'bg-yellow-500/20 text-yellow-300',
+  'cj.net': 'bg-red-500/20 text-red-300',
+  'amazon.com': 'bg-amber-500/20 text-amber-300',
+  'hyundai.com': 'bg-cyan-500/20 text-cyan-300',
+  'hybecorp.com': 'bg-pink-500/20 text-pink-300',
+  'ssg.com': 'bg-rose-500/20 text-rose-300',
+  'kakaoinsurecorp.com': 'bg-yellow-500/20 text-yellow-300',
+  'kakaopaysec.com': 'bg-yellow-500/20 text-yellow-300',
+  'toss.im': 'bg-blue-500/20 text-blue-300',
+  'gmail.com': 'bg-sky-500/20 text-sky-300',
   'naver.com': 'bg-green-500/20 text-green-300',
-  'samsung.com': 'bg-cyan-500/20 text-cyan-300',
-  'lge.com': 'bg-red-500/20 text-red-300',
-  'sk.com': 'bg-purple-500/20 text-purple-300',
+  'hanafn.com': 'bg-emerald-500/20 text-emerald-300',
+  'dunamu.com': 'bg-indigo-500/20 text-indigo-300',
+  'kbs.co.kr': 'bg-violet-500/20 text-violet-300',
+  'cnspartner.com': 'bg-teal-500/20 text-teal-300',
+  'nol-universe.com': 'bg-fuchsia-500/20 text-fuchsia-300',
+  'ilevit.com': 'bg-lime-500/20 text-lime-300',
 };
 
 const DEFAULT_ORG_COLORS = [
@@ -65,7 +76,7 @@ function StatCard({
     <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 flex flex-col gap-1">
       <div className="flex items-center gap-2">
         {dot && <span className={`w-2 h-2 rounded-full ${dot}`} />}
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+        <span className="text-sm font-semibold uppercase tracking-wider text-gray-400">
           {label}
         </span>
       </div>
@@ -78,7 +89,6 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
 
-  // Collect unique orgs for stable color indexing
   const orgIndex = useMemo(() => {
     const seen = new Map<string, number>();
     let idx = 0;
@@ -103,7 +113,6 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Stat cards row */}
       <div className="grid grid-cols-3 gap-3">
         <StatCard
           label={t('idc.total')}
@@ -124,7 +133,6 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
         />
       </div>
 
-      {/* Search */}
       <div className="relative">
         <svg
           className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
@@ -149,30 +157,29 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
         />
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-gray-800 overflow-hidden">
-        <table className="w-full text-xs">
+      <div className="rounded-xl border border-gray-800 overflow-x-auto">
+        <table className="w-full text-sm min-w-[900px]">
           <thead>
             <tr className="border-b border-gray-800 bg-gray-900/70">
-              <th className="text-left px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wider w-20">
+              <th className="text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24">
                 {t('idc.status')}
               </th>
-              <th className="text-left px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-40">
                 {t('idc.name')}
               </th>
-              <th className="text-left px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wider">
+              <th className="text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider min-w-[220px]">
                 {t('idc.email')}
               </th>
-              <th className="text-left px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wider w-32">
+              <th className="text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-44">
                 {t('idc.org')}
               </th>
-              <th className="text-right px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wider w-24">
+              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-28">
                 {t('metric.messages')}
               </th>
-              <th className="text-right px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wider w-24">
+              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-28">
                 {t('metric.credits')}
               </th>
-              <th className="text-right px-3 py-2.5 text-gray-500 font-semibold uppercase tracking-wider w-28">
+              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-32">
                 {t('idc.lastActive')}
               </th>
             </tr>
@@ -180,7 +187,7 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-6 text-gray-600">
+                <td colSpan={7} className="text-center py-8 text-gray-600">
                   {search ? 'No results found' : 'No users'}
                 </td>
               </tr>
@@ -195,10 +202,9 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
                   key={user.userId}
                   className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
                 >
-                  {/* Status pill */}
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-2.5">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${
                         isActive
                           ? 'bg-emerald-500/10 text-emerald-400'
                           : 'bg-gray-500/10 text-gray-400'
@@ -213,21 +219,18 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
                     </span>
                   </td>
 
-                  {/* Name */}
-                  <td className="px-3 py-2 text-gray-200 font-medium">
+                  <td className="px-4 py-2.5 text-gray-200 font-medium whitespace-nowrap">
                     {user.displayName}
                   </td>
 
-                  {/* Email */}
-                  <td className="px-3 py-2 text-gray-400 font-mono text-[11px]">
+                  <td className="px-4 py-2.5 text-gray-400 font-mono text-xs break-all">
                     {user.email || '—'}
                   </td>
 
-                  {/* Organization badge */}
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-2.5">
                     {user.organization ? (
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${orgColor}`}
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${orgColor}`}
                       >
                         {user.organization}
                       </span>
@@ -236,8 +239,7 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
                     )}
                   </td>
 
-                  {/* Messages */}
-                  <td className="px-3 py-2 text-right font-mono">
+                  <td className="px-4 py-2.5 text-right font-mono">
                     {isActive ? (
                       <span className="text-gray-200">
                         {user.totalMessages.toLocaleString()}
@@ -247,8 +249,7 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
                     )}
                   </td>
 
-                  {/* Credits */}
-                  <td className="px-3 py-2 text-right font-mono">
+                  <td className="px-4 py-2.5 text-right font-mono">
                     {isActive ? (
                       <span className="text-gray-200">
                         {user.totalCredits.toLocaleString(undefined, {
@@ -260,8 +261,7 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
                     )}
                   </td>
 
-                  {/* Last Active */}
-                  <td className="px-3 py-2 text-right text-gray-400">
+                  <td className="px-4 py-2.5 text-right text-gray-400 font-mono text-xs whitespace-nowrap">
                     {user.lastActive ? user.lastActive : <span className="text-gray-600">—</span>}
                   </td>
                 </tr>
@@ -271,7 +271,6 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
         </table>
       </div>
 
-      {/* Row count */}
       {search && (
         <p className="text-xs text-gray-600 text-right">
           {filtered.length} / {data.users.length} {t('idc.registered')}

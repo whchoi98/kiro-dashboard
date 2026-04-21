@@ -38,11 +38,11 @@ export default function UserBarChart({ data, title }: UserBarChartProps) {
             />
             <YAxis
               type="category"
-              dataKey="username"
+              dataKey="displayName"
               tick={{ fill: '#94a3b8', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
-              width={80}
+              width={120}
             />
             <Tooltip
               contentStyle={{
