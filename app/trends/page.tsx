@@ -1,8 +1,10 @@
+export const dynamic = 'force-dynamic';
+
 import Header from '@/app/components/layout/Header';
 import TrendChart from '@/app/components/charts/TrendChart';
 import { DailyTrend } from '@/types/dashboard';
 
-const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
 async function fetchData<T>(path: string): Promise<T | null> {
   try {

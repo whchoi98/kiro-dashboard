@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import Header from '@/app/components/layout/Header';
 import MetricCard from '@/app/components/charts/MetricCard';
 import TrendChart from '@/app/components/charts/TrendChart';
@@ -8,7 +10,7 @@ import KiroIcon from '@/app/components/ui/KiroIcon';
 import OverviewClient from '@/app/components/OverviewClient';
 import { OverviewMetrics, DailyTrend, TopUser, EngagementData, ClientDistribution } from '@/types/dashboard';
 
-const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
 async function fetchData<T>(path: string): Promise<T | null> {
   try {

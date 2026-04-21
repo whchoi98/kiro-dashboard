@@ -1,9 +1,11 @@
+export const dynamic = 'force-dynamic';
+
 import Header from '@/app/components/layout/Header';
 import UserBarChart from '@/app/components/charts/BarChart';
 import UserTable from '@/app/components/tables/UserTable';
 import { TopUser } from '@/types/dashboard';
 
-const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
 async function fetchData<T>(path: string): Promise<T | null> {
   try {
