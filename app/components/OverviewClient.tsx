@@ -9,7 +9,16 @@ import ClientPieChart from '@/app/components/charts/PieChart';
 import UserBarChart from '@/app/components/charts/BarChart';
 import FunnelChart from '@/app/components/charts/FunnelChart';
 import KiroIcon from '@/app/components/ui/KiroIcon';
+import IdcUserStatusComponent from '@/app/components/charts/IdcUserStatus';
 import { DailyTrend, TopUser, FunnelStep, ClientDistribution } from '@/types/dashboard';
+import type { IdcUserStatus } from '@/app/components/charts/IdcUserStatus';
+
+interface IdcUsersData {
+  total: number;
+  active: number;
+  inactive: number;
+  users: IdcUserStatus[];
+}
 
 interface OverviewData {
   metrics: {
@@ -27,6 +36,7 @@ interface OverviewData {
   powerUsers: number;
   overageUp: boolean;
   mascotMood: 'happy' | 'excited' | 'thinking' | 'alert';
+  idcUsers: IdcUsersData;
 }
 
 function formatNumber(n: number): string {
@@ -41,6 +51,8 @@ const PLACEHOLDER_CLIENT_DIST: ClientDistribution[] = [
   { clientType: 'PLUGIN', messageCount: 0, creditCount: 0, percentage: 15 },
 ];
 
+const PLACEHOLDER_IDC_USERS: IdcUsersData = { total: 0, active: 0, inactive: 0, users: [] };
+
 async function fetchAll(days: number): Promise<OverviewData> {
   const [metrics, trends, users, engagement] = await Promise.all([
     fetch(`/api/metrics?days=${days}`).then((r) => r.json()),
@@ -54,7 +66,10 @@ async function fetchAll(days: number): Promise<OverviewData> {
   const overageUp = (cr.totalOverageCredits ?? 0) > 10;
   const mascotMood = overageUp ? ('alert' as const) : powerUsers > 50 ? ('excited' as const) : ('happy' as const);
 
-  const clientDistData = await fetch(`/api/client-dist?days=${days}`).then((r) => r.json()).catch(() => PLACEHOLDER_CLIENT_DIST);
+  const [clientDistData, idcUsersData] = await Promise.all([
+    fetch(`/api/client-dist?days=${days}`).then((r) => r.json()).catch(() => PLACEHOLDER_CLIENT_DIST),
+    fetch(`/api/idc-users?days=${days}`).then((r) => r.json()).catch(() => PLACEHOLDER_IDC_USERS),
+  ]);
 
   return {
     metrics: {
@@ -72,6 +87,7 @@ async function fetchAll(days: number): Promise<OverviewData> {
     powerUsers,
     overageUp,
     mascotMood,
+    idcUsers: (idcUsersData && typeof idcUsersData.total === 'number') ? idcUsersData : PLACEHOLDER_IDC_USERS,
   };
 }
 
@@ -126,7 +142,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
     };
   }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { metrics, changeRates: cr, trends, topUsers, funnel, clientDist, powerUsers, overageUp, mascotMood } = liveData;
+  const { metrics, changeRates: cr, trends, topUsers, funnel, clientDist, powerUsers, overageUp, mascotMood, idcUsers } = liveData;
 
   return (
     <div className={`flex flex-col gap-5 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
@@ -236,6 +252,12 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
             <span className="text-gray-400">{t('insights.creditNormal')}</span>
           </div>
         )}
+      </div>
+
+      {/* IdC User Status */}
+      <SectionLabel>{t('section.idcUsers')}</SectionLabel>
+      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
+        <IdcUserStatusComponent data={idcUsers} />
       </div>
 
       {/* Row 2: Charts */}

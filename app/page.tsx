@@ -29,6 +29,26 @@ const PLACEHOLDER_CLIENT_DIST: ClientDistribution[] = [
   { clientType: 'PLUGIN', messageCount: 0, creditCount: 0, percentage: 15 },
 ];
 
+interface IdcUserStatus {
+  userId: string;
+  displayName: string;
+  email: string;
+  status: 'active' | 'inactive';
+  totalMessages: number;
+  totalCredits: number;
+  lastActive: string | null;
+  organization: string;
+}
+
+interface IdcUsersData {
+  total: number;
+  active: number;
+  inactive: number;
+  users: IdcUserStatus[];
+}
+
+const PLACEHOLDER_IDC_USERS: IdcUsersData = { total: 0, active: 0, inactive: 0, users: [] };
+
 export default async function OverviewPage() {
   const [metrics, trends, topUsers, engagement] = await Promise.all([
     fetchData<OverviewMetrics>('/api/metrics?days=30'),
@@ -46,6 +66,12 @@ export default async function OverviewPage() {
   const clientDistRaw = await fetchData<ClientDistribution[]>('/api/client-dist?days=30');
   const clientDist = Array.isArray(clientDistRaw) ? clientDistRaw : PLACEHOLDER_CLIENT_DIST;
 
+  const idcUsersRaw = await fetchData<IdcUsersData>('/api/idc-users?days=30');
+  const idcUsers =
+    idcUsersRaw && typeof idcUsersRaw.total === 'number'
+      ? idcUsersRaw
+      : PLACEHOLDER_IDC_USERS;
+
   const serverData = {
     metrics: {
       totalUsers: formatNumber(metrics?.totalUsers ?? 0),
@@ -62,6 +88,7 @@ export default async function OverviewPage() {
     powerUsers,
     overageUp,
     mascotMood,
+    idcUsers,
   };
 
   return <OverviewClient data={serverData} />;
