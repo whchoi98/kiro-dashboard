@@ -1,1 +1,6 @@
 .superpowers/
+.next/
+node_modules/
+infra/node_modules/
+infra/cdk.out/
+cdk.context.json
