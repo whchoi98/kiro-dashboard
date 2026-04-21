@@ -14,23 +14,23 @@ export async function GET(req: NextRequest) {
 
     const sql = `
       SELECT
-        "UserId",
-        SUM(CAST("Total_Messages" AS INTEGER)) AS total_messages,
-        SUM(CAST("Credits_Used" AS DOUBLE)) AS total_credits
+        userid,
+        SUM(CAST(total_messages AS INTEGER)) AS total_messages,
+        SUM(CAST(credits_used AS DOUBLE)) AS total_credits
       FROM "${tableName}"
-      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY "UserId"
+      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      GROUP BY userid
       ORDER BY total_messages DESC
       LIMIT ${limit}
     `;
 
     const rows = await executeQuery(sql);
 
-    const rawIds = rows.map((row) => row.UserId.replace(/^['"]|['"]$/g, ''));
+    const rawIds = rows.map((row) => row.userid.replace(/^['"]|['"]$/g, ''));
     const usernameMap = await resolveUsernames(rawIds);
 
     const users: TopUser[] = rows.map((row, index) => {
-      const userid = row.UserId.replace(/^['"]|['"]$/g, '');
+      const userid = row.userid.replace(/^['"]|['"]$/g, '');
       return {
         userid,
         username: usernameMap.get(userid) ?? userid.substring(0, 8),

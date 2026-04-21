@@ -12,25 +12,25 @@ export async function GET(req: NextRequest) {
 
     const currentPeriodSql = `
       SELECT
-        COUNT(DISTINCT "UserId") AS total_users,
-        SUM(CAST("Total_Messages" AS INTEGER)) AS total_messages,
-        SUM(CAST("Chat_Conversations" AS INTEGER)) AS total_conversations,
-        SUM(CAST("Credits_Used" AS DOUBLE)) AS total_credits,
-        SUM(CAST("Overage_Credits_Used" AS DOUBLE)) AS total_overage_credits
+        COUNT(DISTINCT userid) AS total_users,
+        SUM(CAST(total_messages AS INTEGER)) AS total_messages,
+        SUM(CAST(chat_conversations AS INTEGER)) AS total_conversations,
+        SUM(CAST(credits_used AS DOUBLE)) AS total_credits,
+        SUM(CAST(overage_credits_used AS DOUBLE)) AS total_overage_credits
       FROM "${tableName}"
-      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
     `;
 
     const previousPeriodSql = `
       SELECT
-        COUNT(DISTINCT "UserId") AS total_users,
-        SUM(CAST("Total_Messages" AS INTEGER)) AS total_messages,
-        SUM(CAST("Chat_Conversations" AS INTEGER)) AS total_conversations,
-        SUM(CAST("Credits_Used" AS DOUBLE)) AS total_credits,
-        SUM(CAST("Overage_Credits_Used" AS DOUBLE)) AS total_overage_credits
+        COUNT(DISTINCT userid) AS total_users,
+        SUM(CAST(total_messages AS INTEGER)) AS total_messages,
+        SUM(CAST(chat_conversations AS INTEGER)) AS total_conversations,
+        SUM(CAST(credits_used AS DOUBLE)) AS total_credits,
+        SUM(CAST(overage_credits_used AS DOUBLE)) AS total_overage_credits
       FROM "${tableName}"
-      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days * 2}, CURRENT_DATE), '%Y-%m-%d')
-        AND "Date" < DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days * 2}, CURRENT_DATE), '%Y-%m-%d')
+        AND date < DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
     `;
 
     const [currentRows, previousRows] = await Promise.all([

@@ -6,9 +6,9 @@ import ClientPieChart from '@/app/components/charts/PieChart';
 import { CreditAnalysis, ClientDistribution } from '@/types/dashboard';
 
 const TIER_COLORS: Record<string, string> = {
-  Pro: '#6366f1',
-  ProPlus: '#f97316',
-  Power: '#22d3ee',
+  POWER: '#22d3ee',
+  PRO: '#6366f1',
+  PROPLUS: '#f97316',
 };
 
 export default function CreditsPage() {
@@ -119,7 +119,7 @@ export default function CreditsPage() {
               <div
                 key={tier.tier}
                 className="flex items-center justify-between p-4 rounded-lg border border-dashboard-border"
-                style={{ borderLeft: `3px solid ${TIER_COLORS[tier.tier] ?? '#64748b'}` }}
+                style={{ borderLeft: `3px solid ${TIER_COLORS[tier.tier.toUpperCase()] ?? '#64748b'}` }}
               >
                 <div>
                   <p className="text-white text-base font-semibold">{tier.tier}</p>

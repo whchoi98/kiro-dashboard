@@ -7,7 +7,7 @@ export interface UserReport {
   credits_used: number;
   overage_credits_used: number;
   client_type: 'KIRO_IDE' | 'KIRO_CLI' | 'PLUGIN';
-  subscription_tier: 'Pro' | 'ProPlus' | 'Power';
+  subscription_tier: string;
   overage_enabled: boolean;
 }
 

@@ -12,12 +12,12 @@ export async function GET(req: NextRequest) {
 
     const sql = `
       SELECT
-        "Client_Type" AS client_type,
-        SUM(CAST("Total_Messages" AS INTEGER)) AS message_count,
-        SUM(CAST("Credits_Used" AS DOUBLE)) AS credit_count
+        client_type,
+        SUM(CAST(total_messages AS INTEGER)) AS message_count,
+        SUM(CAST(credits_used AS DOUBLE)) AS credit_count
       FROM "${tableName}"
-      WHERE "Date" >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
-      GROUP BY "Client_Type"
+      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      GROUP BY client_type
     `;
 
     const rows = await executeQuery(sql);
