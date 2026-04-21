@@ -61,14 +61,37 @@ export async function executeQuery(sql: string): Promise<Record<string, string>[
   // First row is the header row — skip it
   const dataRows = rows.slice(1);
 
-  return dataRows.map((row) => {
-    const record: Record<string, string> = {};
-    const data = row.Data ?? [];
-    for (let i = 0; i < columns.length; i++) {
-      record[columns[i]] = data[i]?.VarCharValue ?? '';
-    }
-    return record;
-  });
+  const mapRows = (rawRows: typeof dataRows) =>
+    rawRows.map((row) => {
+      const record: Record<string, string> = {};
+      const data = row.Data ?? [];
+      for (let i = 0; i < columns.length; i++) {
+        record[columns[i]] = data[i]?.VarCharValue ?? '';
+      }
+      return record;
+    });
+
+  let allRows = mapRows(dataRows);
+  let nextToken = resultsResponse.NextToken;
+  while (nextToken) {
+    const nextPage = await client.send(
+      new GetQueryResultsCommand({
+        QueryExecutionId: queryExecutionId,
+        NextToken: nextToken,
+      })
+    );
+    const moreRows = (nextPage.ResultSet?.Rows ?? []).map((row) => {
+      const record: Record<string, string> = {};
+      const data = row.Data ?? [];
+      for (let i = 0; i < columns.length; i++) {
+        record[columns[i]] = data[i]?.VarCharValue ?? '';
+      }
+      return record;
+    });
+    allRows = allRows.concat(moreRows);
+    nextToken = nextPage.NextToken;
+  }
+  return allRows;
 }
 
 export function safeFloat(val: string): number {

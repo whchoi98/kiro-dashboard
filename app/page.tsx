@@ -39,9 +39,12 @@ export default async function OverviewPage() {
 
   const cr = metrics?.changeRates ?? {};
   const powerUsers = engagement?.segments?.find(s => s.tier === 'Power')?.count ?? 0;
-  const overageUp = (cr.overage ?? 0) > 10;
+  const overageUp = (cr.totalOverageCredits ?? 0) > 10;
 
   const mascotMood = overageUp ? 'alert' as const : powerUsers > 50 ? 'excited' as const : 'happy' as const;
+
+  const clientDistRaw = await fetchData<ClientDistribution[]>('/api/client-dist?days=30');
+  const clientDist = Array.isArray(clientDistRaw) ? clientDistRaw : PLACEHOLDER_CLIENT_DIST;
 
   const serverData = {
     metrics: {
@@ -55,7 +58,7 @@ export default async function OverviewPage() {
     trends: trends ?? [],
     topUsers: topUsers ?? [],
     funnel: engagement?.funnel ?? [],
-    clientDist: PLACEHOLDER_CLIENT_DIST,
+    clientDist,
     powerUsers,
     overageUp,
     mascotMood,

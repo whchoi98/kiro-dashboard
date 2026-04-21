@@ -51,8 +51,10 @@ async function fetchAll(days: number): Promise<OverviewData> {
 
   const cr = metrics?.changeRates ?? {};
   const powerUsers = engagement?.segments?.find((s: { tier: string }) => s.tier === 'Power')?.count ?? 0;
-  const overageUp = (cr.overage ?? 0) > 10;
+  const overageUp = (cr.totalOverageCredits ?? 0) > 10;
   const mascotMood = overageUp ? ('alert' as const) : powerUsers > 50 ? ('excited' as const) : ('happy' as const);
+
+  const clientDistData = await fetch(`/api/client-dist?days=${days}`).then((r) => r.json()).catch(() => PLACEHOLDER_CLIENT_DIST);
 
   return {
     metrics: {
@@ -66,7 +68,7 @@ async function fetchAll(days: number): Promise<OverviewData> {
     trends: trends ?? [],
     topUsers: users ?? [],
     funnel: engagement?.funnel ?? [],
-    clientDist: PLACEHOLDER_CLIENT_DIST,
+    clientDist: Array.isArray(clientDistData) ? clientDistData : PLACEHOLDER_CLIENT_DIST,
     powerUsers,
     overageUp,
     mascotMood,
@@ -142,7 +144,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
         <MetricCard
           title={t('metric.totalUsers')}
           value={metrics.totalUsers}
-          changeRate={cr.users ?? 0}
+          changeRate={cr.totalUsers ?? 0}
           accentColor="#9046FF"
           subtitle={t('metric.unique')}
           detail={t('metric.activeAccounts')}
@@ -155,7 +157,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
         <MetricCard
           title={t('metric.messages')}
           value={metrics.totalMessages}
-          changeRate={cr.messages ?? 0}
+          changeRate={cr.totalMessages ?? 0}
           accentColor="#6366f1"
           subtitle={t('metric.total')}
           detail={t('metric.chatMessages')}
@@ -168,7 +170,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
         <MetricCard
           title={t('metric.conversations')}
           value={metrics.totalConversations}
-          changeRate={cr.conversations ?? 0}
+          changeRate={cr.totalConversations ?? 0}
           accentColor="#0ea5e9"
           subtitle={t('metric.sessions')}
           detail={t('metric.chatSessions')}
@@ -181,7 +183,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
         <MetricCard
           title={t('metric.creditsUsed')}
           value={metrics.totalCredits}
-          changeRate={cr.credits ?? 0}
+          changeRate={cr.totalCredits ?? 0}
           accentColor="#22d3ee"
           subtitle={t('metric.credits')}
           detail={t('metric.baseCreditUsage')}
@@ -194,7 +196,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
         <MetricCard
           title={t('metric.overage')}
           value={metrics.totalOverageCredits}
-          changeRate={cr.overage ?? 0}
+          changeRate={cr.totalOverageCredits ?? 0}
           accentColor="#ec4899"
           subtitle={t('metric.overage.label')}
           detail={t('metric.overageCreditUsage')}
