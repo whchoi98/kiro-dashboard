@@ -12,7 +12,7 @@ import type { DocumentType } from '@smithy/types';
 import { executeQuery } from '@/lib/athena';
 import { resolveUserDetails } from '@/lib/identity';
 
-const bedrockClient = new BedrockRuntimeClient({ region: 'us-east-1' });
+const bedrockClient = new BedrockRuntimeClient({ region: 'ap-northeast-2' });
 
 const SYSTEM_PROMPT = `You are Kiro Analytics AI Assistant, an expert data analyst for Kiro IDE usage data.
 You have access to two Athena tables in the 'titanlog' database:
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
 
           const response = await bedrockClient.send(
             new ConverseStreamCommand({
-              modelId: 'anthropic.claude-sonnet-4-6-v1',
+              modelId: 'anthropic.claude-sonnet-4-6',
               system: [{ text: SYSTEM_PROMPT }],
               messages,
               toolConfig: { tools },
