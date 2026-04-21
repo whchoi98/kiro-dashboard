@@ -270,7 +270,6 @@ export default function ProductivityPage() {
                     fontSize: 12,
                   }}
                   cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                  formatter={(value: number) => [fmt(value), 'AI Code Lines']}
                 />
                 <Bar dataKey="aiCodeLines" name="AI Code Lines" radius={[0, 4, 4, 0]}>
                   {topUsers.map((_, index) => (
@@ -319,7 +318,6 @@ export default function ProductivityPage() {
                   }}
                   labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
                   cursor={{ stroke: 'rgba(255,255,255,0.1)' }}
-                  formatter={(value: number) => [fmt(value)]}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: 12, color: '#94a3b8', paddingTop: 8 }}
