@@ -23,6 +23,7 @@ interface IdcUserStatusData {
 
 interface IdcUserStatusProps {
   data: IdcUserStatusData;
+  onUserClick?: (userId: string) => void;
 }
 
 const ORG_COLORS: Record<string, string> = {
@@ -85,7 +86,7 @@ function StatCard({
   );
 }
 
-export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
+export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserStatusProps) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
 
@@ -196,11 +197,13 @@ export default function IdcUserStatusComponent({ data }: IdcUserStatusProps) {
               const isActive = user.status === 'active';
               const orgColorIdx = orgIndex.get(user.organization) ?? 0;
               const orgColor = getOrgColor(user.organization, orgColorIdx);
+              const clickable = onUserClick && isActive;
 
               return (
                 <tr
                   key={user.userId}
-                  className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
+                  onClick={() => clickable && onUserClick(user.userId)}
+                  className={`border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors ${clickable ? 'cursor-pointer' : ''}`}
                 >
                   <td className="px-4 py-2.5">
                     <span

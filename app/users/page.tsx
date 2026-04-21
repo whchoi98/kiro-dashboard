@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
 import UserBarChart from '@/app/components/charts/BarChart';
 import UserTable from '@/app/components/tables/UserTable';
+import UserDetailPanel from '@/app/components/ui/UserDetailPanel';
 import { TopUser } from '@/types/dashboard';
 
 export default function UsersPage() {
@@ -11,6 +12,7 @@ export default function UsersPage() {
   const [top10, setTop10] = useState<TopUser[]>([]);
   const [top100, setTop100] = useState<TopUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,8 +54,14 @@ export default function UsersPage() {
 
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">User Activity Table</h3>
-        <UserTable data={top100} />
+        <UserTable data={top100} onUserClick={(id) => setSelectedUserId(id)} />
       </div>
+
+      <UserDetailPanel
+        userId={selectedUserId}
+        days={days}
+        onClose={() => setSelectedUserId(null)}
+      />
     </div>
   );
 }

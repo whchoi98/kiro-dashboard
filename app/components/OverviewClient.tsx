@@ -10,6 +10,7 @@ import UserBarChart from '@/app/components/charts/BarChart';
 import FunnelChart from '@/app/components/charts/FunnelChart';
 import KiroIcon from '@/app/components/ui/KiroIcon';
 import IdcUserStatusComponent from '@/app/components/charts/IdcUserStatus';
+import UserDetailPanel from '@/app/components/ui/UserDetailPanel';
 import { OverviewMetrics, DailyTrend, TopUser, EngagementData, FunnelStep, ClientDistribution } from '@/types/dashboard';
 import type { IdcUserStatus } from '@/app/components/charts/IdcUserStatus';
 
@@ -128,6 +129,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
   const [liveData, setLiveData] = useState(data);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     // Skip initial render — we already have server data for the default 30-day window
@@ -267,8 +269,14 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
       {/* IdC User Status */}
       <SectionLabel>{t('section.idcUsers')}</SectionLabel>
       <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
-        <IdcUserStatusComponent data={idcUsers} />
+        <IdcUserStatusComponent data={idcUsers} onUserClick={(id) => setSelectedUserId(id)} />
       </div>
+
+      <UserDetailPanel
+        userId={selectedUserId}
+        days={days}
+        onClose={() => setSelectedUserId(null)}
+      />
 
       {/* Row 2: Charts */}
       <SectionLabel>{t('section.trends')}</SectionLabel>

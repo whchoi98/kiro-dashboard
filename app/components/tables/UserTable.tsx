@@ -5,6 +5,7 @@ import { TopUser } from '@/types/dashboard';
 
 interface UserTableProps {
   data: TopUser[];
+  onUserClick?: (userId: string) => void;
 }
 
 type SortField = 'totalMessages' | 'totalCredits';
@@ -25,7 +26,7 @@ function OrgBadge({ org }: { org: string }) {
   );
 }
 
-export default function UserTable({ data }: UserTableProps) {
+export default function UserTable({ data, onUserClick }: UserTableProps) {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalMessages');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -155,7 +156,8 @@ export default function UserTable({ data }: UserTableProps) {
               filtered.map((user) => (
                 <tr
                   key={user.userid}
-                  className="border-b border-dashboard-border last:border-0 hover:bg-dashboard-card-hover transition-colors duration-100"
+                  onClick={() => onUserClick?.(user.userid)}
+                  className={`border-b border-dashboard-border last:border-0 hover:bg-dashboard-card-hover transition-colors duration-100 ${onUserClick ? 'cursor-pointer' : ''}`}
                 >
                   <td className="px-4 py-3 text-slate-500 font-mono text-xs">
                     #{user.rank}

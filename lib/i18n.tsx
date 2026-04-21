@@ -66,6 +66,12 @@ const translations: Record<Locale, Record<string, string>> = {
     'common.signIn': 'Cognito로 로그인',
     'common.signInTitle': 'Kiro 분석 대시보드',
     'common.signInSub': '대시보드에 접근하려면 로그인하세요',
+    'userDetail.title': '사용자 상세',
+    'userDetail.activeDays': '활동 일수',
+    'userDetail.firstActive': '첫 활동일',
+    'userDetail.lastActive': '마지막 활동일',
+    'userDetail.dailyActivity': '일별 활동 내역',
+    'userDetail.clientBreakdown': '클라이언트별 사용량',
   },
   en: {
     'nav.overview': 'Overview',
@@ -128,6 +134,12 @@ const translations: Record<Locale, Record<string, string>> = {
     'common.signIn': 'Sign in with Cognito',
     'common.signInTitle': 'Kiro Analytics',
     'common.signInSub': 'Sign in to access the dashboard',
+    'userDetail.title': 'User Detail',
+    'userDetail.activeDays': 'Active Days',
+    'userDetail.firstActive': 'First Active',
+    'userDetail.lastActive': 'Last Active',
+    'userDetail.dailyActivity': 'Daily Activity',
+    'userDetail.clientBreakdown': 'Client Breakdown',
   },
 };
 
