@@ -6,7 +6,7 @@ import { OverviewMetrics } from '@/types/dashboard';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const days = parseInt(searchParams.get('days') ?? '30', 10);
+    const days = Math.max(1, Math.ceil(parseFloat(searchParams.get('days') ?? '90')));
 
     const tableName = await resolveTableName();
 
