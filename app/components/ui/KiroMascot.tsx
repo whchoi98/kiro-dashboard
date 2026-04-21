@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useId } from 'react';
 
-type KiroTheme = 'dashboard' | 'users' | 'trends' | 'credits' | 'productivity' | 'engagement';
+type KiroTheme = 'dashboard' | 'users' | 'trends' | 'credits' | 'productivity' | 'engagement' | 'analyze';
 
 interface KiroMascotProps {
   size?: number;
@@ -54,7 +54,8 @@ export default function KiroMascot({
     theme === 'trends' ? '#0ea5e9' :
     theme === 'credits' ? '#22d3ee' :
     theme === 'productivity' ? '#22c55e' :
-    '#ec4899';
+    theme === 'engagement' ? '#ec4899' :
+    '#f59e0b';
 
   const floatY = Math.sin(wave * 0.05) * 2;
   const accessoryBob = Math.sin(wave * 0.08) * 3;
@@ -179,6 +180,20 @@ export default function KiroMascot({
               <line x1="140" y1="75" x2="170" y2="75" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
               {/* Cursor blink */}
               {sparkle && <rect x="154" y="55" width="2" height="10" fill={glowColor} opacity="0.9" />}
+            </g>
+          )}
+
+          {theme === 'analyze' && (
+            <g transform={`translate(0, ${accessoryBob})`}>
+              {/* Magnifying glass */}
+              <circle cx="150" cy="58" r="12" fill="none" stroke={glowColor} strokeWidth="3" opacity="0.9" />
+              <line x1="159" y1="67" x2="170" y2="78" stroke={glowColor} strokeWidth="3" strokeLinecap="round" opacity="0.9" />
+              {/* Sparkles around magnifying glass */}
+              <path d="M138 44 L140 48 L142 44 L140 40Z" fill={glowColor} opacity={sparkle ? 0.9 : 0.3} />
+              <path d="M166 46 L168 50 L170 46 L168 42Z" fill={glowColor} opacity={sparkle ? 0.7 : 0.2} />
+              <path d="M144 76 L146 80 L148 76 L146 72Z" fill={glowColor} opacity={sparkle ? 0.8 : 0.2} />
+              {/* Inner lens shine */}
+              <circle cx="146" cy="54" r="3" fill="white" opacity="0.3" />
             </g>
           )}
 

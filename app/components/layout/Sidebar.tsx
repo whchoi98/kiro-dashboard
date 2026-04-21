@@ -60,6 +60,7 @@ const navItems = [
   { key: 'nav.credits', href: '/credits', accent: '#22d3ee' },
   { key: 'nav.productivity', href: '/productivity', accent: '#22c55e' },
   { key: 'nav.engagement', href: '/engagement', accent: '#ec4899' },
+  { key: 'nav.analyze', href: '/analyze', accent: '#f59e0b' },
 ];
 
 export default function Sidebar() {

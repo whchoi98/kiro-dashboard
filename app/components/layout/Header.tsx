@@ -9,7 +9,7 @@ interface HeaderProps {
   titleKey: string;
   subtitleKey: string;
   mascotMood?: 'happy' | 'excited' | 'thinking' | 'alert';
-  mascotTheme?: 'dashboard' | 'users' | 'trends' | 'credits' | 'productivity' | 'engagement';
+  mascotTheme?: 'dashboard' | 'users' | 'trends' | 'credits' | 'productivity' | 'engagement' | 'analyze';
   mascotMessage?: string;
   days: number;
   onDaysChange: (days: number) => void;
