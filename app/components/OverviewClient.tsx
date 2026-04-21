@@ -162,6 +162,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
         titleKey="header.overview"
         subtitleKey="header.overview.sub"
         mascotMood={mascotMood}
+        mascotTheme="dashboard"
         days={days}
         onDaysChange={setDays}
       />

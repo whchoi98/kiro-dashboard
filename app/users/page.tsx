@@ -44,6 +44,7 @@ export default function UsersPage() {
         titleKey="header.users"
         subtitleKey="header.users.sub"
         mascotMood="happy"
+        mascotTheme="users"
         days={days}
         onDaysChange={setDays}
       />

@@ -9,6 +9,7 @@ interface HeaderProps {
   titleKey: string;
   subtitleKey: string;
   mascotMood?: 'happy' | 'excited' | 'thinking' | 'alert';
+  mascotTheme?: 'dashboard' | 'users' | 'trends' | 'credits' | 'productivity' | 'engagement';
   mascotMessage?: string;
   days: number;
   onDaysChange: (days: number) => void;
@@ -18,6 +19,7 @@ export default function Header({
   titleKey,
   subtitleKey,
   mascotMood = 'happy',
+  mascotTheme = 'dashboard',
   mascotMessage,
   days,
   onDaysChange,
@@ -28,7 +30,7 @@ export default function Header({
   return (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-4">
-        <KiroMascot size={48} mood={mascotMood} message={mascotMessage} />
+        <KiroMascot size={56} mood={mascotMood} theme={mascotTheme} message={mascotMessage} />
         <div>
           <h1 className="text-2xl font-bold text-white">{t(titleKey)}</h1>
           <p className="text-slate-400 text-sm mt-0.5">{t(subtitleKey)}</p>

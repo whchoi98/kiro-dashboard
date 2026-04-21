@@ -64,6 +64,7 @@ export default function EngagementPage() {
         titleKey="header.engagement"
         subtitleKey="header.engagement.sub"
         mascotMood="excited"
+        mascotTheme="engagement"
         days={days}
         onDaysChange={setDays}
       />

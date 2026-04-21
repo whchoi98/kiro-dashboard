@@ -35,6 +35,7 @@ export default function TrendsPage() {
         titleKey="header.trends"
         subtitleKey="header.trends.sub"
         mascotMood="thinking"
+        mascotTheme="trends"
         days={days}
         onDaysChange={setDays}
       />

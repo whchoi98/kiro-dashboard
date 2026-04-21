@@ -65,6 +65,7 @@ export default function CreditsPage() {
         titleKey="header.credits"
         subtitleKey="header.credits.sub"
         mascotMood="thinking"
+        mascotTheme="credits"
         days={days}
         onDaysChange={setDays}
       />

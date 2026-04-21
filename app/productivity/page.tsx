@@ -111,6 +111,7 @@ export default function ProductivityPage() {
         titleKey="header.productivity"
         subtitleKey="header.productivity.sub"
         mascotMood="excited"
+        mascotTheme="productivity"
         days={days}
         onDaysChange={setDays}
       />
