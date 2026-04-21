@@ -25,7 +25,7 @@ export default async function UsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Header title="Users" subtitle="Top users by message volume and credit consumption" />
+      <Header titleKey="header.users" subtitleKey="header.users.sub" mascotMood="happy" />
 
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <UserBarChart data={top10 ?? []} title="Top 10 Users by Messages" />

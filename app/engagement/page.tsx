@@ -53,7 +53,7 @@ export default async function EngagementPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Header title="Engagement" subtitle="User engagement tiers and conversion funnel" />
+      <Header titleKey="header.engagement" subtitleKey="header.engagement.sub" mascotMood="excited" />
 
       {/* Pie + Funnel */}
       <div className="grid grid-cols-2 gap-4">

@@ -51,7 +51,7 @@ export default async function CreditsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Header title="Credits" subtitle="Credit usage analysis by user and subscription tier" />
+      <Header titleKey="header.credits" subtitleKey="header.credits.sub" mascotMood="thinking" />
 
       {/* Top credit users */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">

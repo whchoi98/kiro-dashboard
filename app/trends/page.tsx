@@ -21,7 +21,7 @@ export default async function TrendsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Header title="Trends" subtitle="Daily message and conversation activity over time" />
+      <Header titleKey="header.trends" subtitleKey="header.trends.sub" mascotMood="thinking" />
 
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-sm font-semibold text-slate-300 mb-4">Messages & Conversations Over Time</h3>
