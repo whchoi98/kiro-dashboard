@@ -42,9 +42,7 @@ export default function EngagementPage() {
       .then((data) => {
         if (!cancelled) setEngagement(data ?? null);
       })
-      .catch(() => {
-        // Keep existing data on error
-      })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -53,7 +51,6 @@ export default function EngagementPage() {
     };
   }, [days]);
 
-  // Build segments pie data as ClientDistribution (reusing the pie component)
   const segmentsPieData: ClientDistribution[] = (engagement?.segments ?? []).map((seg) => ({
     clientType: seg.tier,
     messageCount: seg.count,
@@ -71,25 +68,22 @@ export default function EngagementPage() {
         onDaysChange={setDays}
       />
 
-      {/* Pie + Funnel */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
           <ClientPieChart data={segmentsPieData} title="User Segments" />
         </div>
-        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
+        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
           <FunnelChart data={engagement?.funnel ?? []} title="Engagement Funnel" />
         </div>
       </div>
 
-      {/* Tier detail cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-3">
         {(engagement?.segments ?? []).map((seg) => {
           const meta = TIER_META[seg.tier] ?? { color: '#64748b', description: '', icon: '?' };
           return (
             <div
               key={seg.tier}
-              className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border"
-              style={{ borderTop: `3px solid ${meta.color}` }}
+              className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70"
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xl">{meta.icon}</span>
