@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  dashboard:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      - AWS_REGION=us-east-1
+      - ATHENA_DATABASE=kiro_reports
+      - ATHENA_OUTPUT_BUCKET=kiro-athena-results
+      - GLUE_TABLE_NAME=
+      - IDENTITY_STORE_ID=
+      - COGNITO_CLIENT_ID=
+      - COGNITO_CLIENT_SECRET=
+      - COGNITO_ISSUER=
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=dev-secret-change-in-production
