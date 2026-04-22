@@ -1,0 +1,32 @@
+{
+  "name": "kiro-dashboard-dev",
+  "description": "Kiro Analytics Dashboard development agent — Next.js, Athena, CDK",
+  "prompt": "You are a senior full-stack developer working on the Kiro Analytics Dashboard. This is a Next.js 14 App Router project with TypeScript, Tailwind CSS 4, and Recharts for the frontend, AWS Athena for data queries, and AWS CDK for infrastructure. Follow the steering rules in .kiro/steering/ for code style, data conventions, security, and infrastructure patterns.",
+  "tools": ["*"],
+  "allowedTools": [
+    "fs_read",
+    "grep",
+    "glob",
+    "code",
+    "knowledge",
+    "use_aws",
+    "web_fetch",
+    "web_search"
+  ],
+  "resources": [
+    "file://AGENTS.md",
+    "file://docs/kiro-user-activity-report-schema.md",
+    "file://types/dashboard.ts",
+    "skill://.kiro/skills/**/SKILL.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "echo \"Node: $(node -v) | Next.js project: $(cat package.json | grep '\"name\"' | head -1 | tr -d ' \",' | cut -d: -f2) | Git: $(git log --oneline -1 2>/dev/null || echo 'no commits')\"",
+        "timeout_ms": 5000
+      }
+    ]
+  },
+  "keyboardShortcut": "ctrl+shift+d",
+  "welcomeMessage": "Kiro Dashboard 개발 에이전트입니다. 프론트엔드, API, Athena 쿼리, CDK 인프라 작업을 도와드립니다."
+}

@@ -1,0 +1,9 @@
+{
+  "chat.defaultAgent": "kiro-dashboard-dev",
+  "chat.enableKnowledge": true,
+  "chat.enableCodeIntelligence": true,
+  "chat.enableSubagent": true,
+  "chat.enableTodoList": true,
+  "knowledge.indexType": "Fast",
+  "knowledge.defaultExcludePatterns": ["node_modules/**", ".next/**", "infra/node_modules/**", "infra/cdk.out/**", ".git/**"]
+}
