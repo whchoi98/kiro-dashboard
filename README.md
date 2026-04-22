@@ -18,7 +18,33 @@
 
 kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage data. It queries user activity reports stored in S3 via Athena, renders interactive charts with Recharts, and provides natural language analysis powered by Amazon Bedrock Claude Sonnet 4.6. The dashboard is deployed on ECS Fargate behind CloudFront and ALB with Cognito authentication.
 
-![Dashboard](docs/images/dashboard-overview.png)
+### Dashboard Overview
+
+![Dashboard Overview](screenshot/dashboard01.png)
+
+### User Activity and Leaderboard
+
+![Users](screenshot/user.png)
+
+### User Detail Drill-down
+
+![User Detail](screenshot/user-detail.png)
+
+### Daily Trends
+
+![Trends](screenshot/trends.png)
+
+### IDE Productivity Metrics
+
+![IDE Productivity](screenshot/ide_productivity.png)
+
+### Engagement Segmentation
+
+![Engagement](screenshot/engagement.png)
+
+### AI-Powered Natural Language Analysis
+
+![AI Analysis](screenshot/AI_analytics.png)
 
 ## Features
 
@@ -26,6 +52,7 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - **IDE Productivity Metrics** — Analyze inline completion rates, AI code lines, chat interactions, dev agent usage, and code review findings from the 46-column legacy report
 - **Identity Center Integration** — Map all IdC users to display names, emails, and organizations with active/inactive status tracking
 - **AI-Powered Analysis** — Ask natural language questions about Kiro data; Claude Sonnet 4.6 autonomously generates Athena SQL, executes queries, and produces Korean markdown reports
+- **User Detail Drill-down** — Click any user row to see daily activity breakdown, client type usage, and conversation history in a slide-in panel
 - **Animated Kiro Mascot** — Page-themed Kiro ghost character with eye-blinking, bouncing, and contextual accessories (dashboard grid, trend arrows, code terminal, chat bubbles)
 - **Bilingual Interface** — Full Korean/English toggle with sidebar language switcher
 
@@ -197,7 +224,33 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 플랫폼입니다. S3에 저장된 사용자 활동 리포트를 Athena로 쿼리하고, Recharts로 인터랙티브 차트를 렌더링하며, Amazon Bedrock Claude Sonnet 4.6으로 자연어 분석 기능을 제공합니다. 대시보드는 CloudFront와 ALB 뒤의 ECS Fargate에 배포되며, Cognito 인증을 사용합니다.
 
-![대시보드](docs/images/dashboard-overview.png)
+### 대시보드 개요
+
+![대시보드 개요](screenshot/dashboard01.png)
+
+### 사용자 활동 및 리더보드
+
+![사용자](screenshot/user.png)
+
+### 사용자 상세 드릴다운
+
+![사용자 상세](screenshot/user-detail.png)
+
+### 일별 트렌드
+
+![트렌드](screenshot/trends.png)
+
+### IDE 생산성 메트릭
+
+![IDE 생산성](screenshot/ide_productivity.png)
+
+### 참여도 세그먼트
+
+![참여도](screenshot/engagement.png)
+
+### AI 기반 자연어 분석
+
+![AI 분석](screenshot/AI_analytics.png)
 
 ## 주요 기능
 
@@ -205,6 +258,7 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - **IDE 생산성 메트릭** — 46개 컬럼 레거시 리포트에서 인라인 수락률, AI 코드 라인, 채팅, Dev Agent, 코드 리뷰를 분석합니다
 - **Identity Center 통합** — 모든 IdC 사용자를 이름, 이메일, 소속으로 매핑하고 활성/비활성 상태를 추적합니다
 - **AI 기반 분석** — Kiro 데이터에 대한 자연어 질문을 처리합니다. Claude Sonnet 4.6이 Athena SQL을 자율 생성하고 실행하여 한국어 마크다운 리포트를 생성합니다
+- **사용자 상세 드릴다운** — 사용자 행 클릭 시 일별 활동 내역, 클라이언트 유형별 사용량, 대화 이력을 슬라이드 패널로 확인합니다
 - **애니메이션 Kiro 마스코트** — 페이지별 테마에 맞는 Kiro 유령 캐릭터가 눈 깜빡임, 바운스, 상황별 액세서리(대시보드 그리드, 트렌드 화살표, 코드 터미널, 채팅 말풍선)를 표시합니다
 - **이중 언어 인터페이스** — 사이드바 언어 전환기를 통한 한국어/영어 완전 지원
 
