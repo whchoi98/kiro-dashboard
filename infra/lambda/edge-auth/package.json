@@ -1,0 +1,7 @@
+{
+  "name": "edge-auth",
+  "private": true,
+  "dependencies": {
+    "aws-jwt-verify": "^4.0.1"
+  }
+}
