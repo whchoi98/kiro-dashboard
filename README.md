@@ -1,7 +1,7 @@
 # kiro-dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-purple.svg)]()
+[![Version](https://img.shields.io/badge/version-1.1.0-purple.svg)]()
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)]()
 [![AWS CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-orange.svg)]()
 [![English](https://img.shields.io/badge/lang-English-blue.svg)](#english)

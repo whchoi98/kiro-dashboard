@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-04-24
+
 ### Added
 
 - Lambda@Edge + Cognito PKCE authentication at CloudFront Viewer Request level, replacing NextAuth.js
@@ -83,7 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bedrock model ID corrected to global inference profile (global.anthropic.claude-sonnet-4-6)
 - Bedrock IAM policy expanded to include inference-profile ARN pattern
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/whchoi98/kiro-dashboard/releases/tag/v1.0.0
 
 ---
@@ -95,6 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-04-24
 
 ### Added
 
@@ -166,5 +171,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bedrock 모델 ID 수정 (global inference profile global.anthropic.claude-sonnet-4-6 적용)
 - Bedrock IAM 정책 확장 (inference-profile ARN 패턴 추가)
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/whchoi98/kiro-dashboard/releases/tag/v1.0.0
