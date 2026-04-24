@@ -12,6 +12,7 @@ export class SecurityStack extends cdk.Stack {
   public readonly ecsSg: ec2.SecurityGroup;
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
+  public readonly edgeClientId: string;
 
   constructor(scope: Construct, id: string, props: SecurityStackProps) {
     super(scope, id, props);
@@ -80,6 +81,25 @@ export class SecurityStack extends cdk.Stack {
       ],
     });
 
+    const edgeClient = this.userPool.addClient('EdgeAuthClient', {
+      generateSecret: false,
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.PROFILE,
+        ],
+        callbackUrls: ['https://placeholder.cloudfront.net/auth/callback'],
+        logoutUrls: ['https://placeholder.cloudfront.net'],
+      },
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.COGNITO,
+      ],
+    });
+
+    this.edgeClientId = edgeClient.userPoolClientId;
+
     this.userPool.addDomain('CognitoDomain', {
       cognitoDomain: {
         domainPrefix: `kiro-dashboard-${this.account}`,
@@ -99,6 +119,11 @@ export class SecurityStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'CognitoIssuer', {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`,
       exportName: `${this.stackName}-CognitoIssuer`,
+    });
+
+    new cdk.CfnOutput(this, 'EdgeAuthClientId', {
+      value: edgeClient.userPoolClientId,
+      exportName: `${this.stackName}-EdgeAuthClientId`,
     });
   }
 }
