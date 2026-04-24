@@ -5,6 +5,7 @@ export interface UserReport {
   chat_conversations: number;
   total_messages: number;
   credits_used: number;
+  overage_cap: number;
   overage_credits_used: number;
   client_type: 'KIRO_IDE' | 'KIRO_CLI' | 'PLUGIN';
   subscription_tier: string;
@@ -85,4 +86,30 @@ export interface CreditAnalysis {
 export interface EngagementData {
   segments: EngagementSegment[];
   funnel: FunnelStep[];
+}
+
+export interface ModelDistribution {
+  model: string;
+  messages: number;
+  percentage: number;
+}
+
+export interface ModelTrendPoint {
+  date: string;
+  [model: string]: string | number;
+}
+
+export interface ModelUserPreference {
+  userid: string;
+  displayName: string;
+  models: Record<string, number>;
+  totalMessages: number;
+  primaryModel: string;
+}
+
+export interface ModelUsageData {
+  distribution: ModelDistribution[];
+  trend: ModelTrendPoint[];
+  userPreferences: ModelUserPreference[];
+  availableModels: string[];
 }

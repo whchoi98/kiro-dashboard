@@ -57,6 +57,7 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - **Bilingual Interface** — Full Korean/English toggle with sidebar language switcher
 - **Lambda@Edge Authentication** — CDN-level Cognito PKCE authentication via Lambda@Edge; no auth logic in the app
 - **Data Masking** — Server-side masking of all user identifiers (names, emails, organizations) showing only first 2 characters
+- **Model Usage Analysis** — Per-model message distribution (Auto, Claude Opus, Claude Sonnet), daily trends, Auto vs manual selection ratio, and user model preference table via S3 direct CSV parsing
 
 ## Prerequisites
 
@@ -122,12 +123,13 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 | `ATHENA_OUTPUT_BUCKET` | S3 path for Athena query results | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | Primary Glue table name | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center store ID | `` |
+| `S3_REPORT_PREFIX` | S3 prefix for user_report CSV files | `q-user-log/AWSLogs/.../user_report/us-east-1/` |
 
 ## Project Structure
 
 ```
 app/                        Next.js App Router
-  api/                      11 API routes
+  api/                      12 API routes
     analyze/                Bedrock AI analysis (SSE streaming)
     metrics/                KPI aggregations
     users/                  User rankings with IdC details
@@ -138,6 +140,7 @@ app/                        Next.js App Router
     idc-users/              Identity Center user status
     user-detail/            Per-user activity drill-down
     client-dist/            Client type distribution
+    model-usage/            AI model usage analysis (S3 direct read)
     health/                 ECS health check
   components/               Shared React components
     layout/                 Sidebar (with logout), Header, KiroLogo
@@ -150,6 +153,7 @@ app/                        Next.js App Router
   trends/                   Activity trends page
   engagement/               Engagement metrics page
   productivity/             IDE productivity page
+  model-usage/              AI model usage analysis page
 lib/                        Shared libraries
   athena.ts                 Athena query client + NORMALIZE_USERID
   glue.ts                   Glue table resolver
@@ -259,6 +263,7 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - **이중 언어 인터페이스** — 사이드바 언어 전환기를 통한 한국어/영어 완전 지원
 - **Lambda@Edge 인증** — CDN 레벨 Cognito PKCE 인증 (Lambda@Edge), 앱 내 인증 로직 없음
 - **데이터 마스킹** — 모든 사용자 식별자(이름, 이메일, 소속)를 서버 측에서 마스킹하여 첫 2글자만 표시
+- **모델 사용 분석** — 모델별 메시지 분포(Auto, Claude Opus, Claude Sonnet), 일별 트렌드, Auto vs 수동 선택 비율, 사용자별 모델 선호도 테이블 (S3 CSV 직접 파싱)
 
 ## 사전 요구 사항
 
@@ -324,12 +329,13 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 | `ATHENA_OUTPUT_BUCKET` | Athena 쿼리 결과 S3 경로 | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | 기본 Glue 테이블 이름 | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | `` |
+| `S3_REPORT_PREFIX` | user_report CSV 파일 S3 경로 프리픽스 | `q-user-log/AWSLogs/.../user_report/us-east-1/` |
 
 ## 프로젝트 구조
 
 ```
 app/                        Next.js App Router
-  api/                      11개 API 라우트
+  api/                      12개 API 라우트
     analyze/                Bedrock AI 분석 (SSE 스트리밍)
     metrics/                KPI 집계
     users/                  IdC 정보 포함 사용자 순위
@@ -340,6 +346,7 @@ app/                        Next.js App Router
     idc-users/              Identity Center 사용자 상태
     user-detail/            개별 사용자 활동 드릴다운
     client-dist/            클라이언트 유형별 분포
+    model-usage/            AI 모델 사용 분석 (S3 직접 읽기)
     health/                 ECS 헬스 체크
   components/               공유 React 컴포넌트
     layout/                 사이드바 (로그아웃 포함), 헤더, Kiro 로고
@@ -352,6 +359,7 @@ app/                        Next.js App Router
   trends/                   활동 트렌드 페이지
   engagement/               참여도 메트릭 페이지
   productivity/             IDE 생산성 페이지
+  model-usage/              AI 모델 사용 분석 페이지
 lib/                        공유 라이브러리
   athena.ts                 Athena 쿼리 클라이언트 + NORMALIZE_USERID
   glue.ts                   Glue 테이블 리졸버

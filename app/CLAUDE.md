@@ -19,6 +19,7 @@ app/
   trends/               Usage trend charts page
   engagement/           Engagement metric dashboard page
   productivity/         Productivity metrics dashboard page
+  model-usage/          AI model usage analysis page (S3 direct read)
 ```
 
 ## Page Conventions

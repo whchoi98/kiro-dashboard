@@ -4,7 +4,7 @@
 
 Next.js App Router API route handlers. All routes connect to Athena via `lib/athena.ts` and resolve the Glue table via `lib/glue.ts`.
 
-## All 11 Endpoints
+## All 12 Endpoints
 
 | Endpoint | File | Description |
 |----------|------|-------------|
@@ -18,6 +18,7 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/analyze` | `analyze/route.ts` | Bedrock AI streaming analysis (SSE / ReadableStream) |
 | `GET /api/idc-users` | `idc-users/route.ts` | IAM Identity Center user list via IdentityStore SDK (masked) |
 | `GET /api/user-detail` | `user-detail/route.ts` | Single-user detail from `by_user_analytic` table (masked) |
+| `GET /api/model-usage` | `model-usage/route.ts` | AI model message distribution — reads S3 CSV directly (masked) |
 | `GET /api/client-dist` | `client-dist/route.ts` | Client distribution breakdown (IDE version, OS, etc.) |
 
 ## Common Query Parameters
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest) {
 - `by_user_analytic` table uses `MM-DD-YYYY` date format — cast accordingly
 - The `analyze` endpoint uses `BedrockRuntimeClient` with response streaming (ReadableStream)
 - The `idc-users` endpoint uses `IdentityStoreClient` from `lib/identity.ts` — no Athena
+- The `model-usage` endpoint reads S3 CSV files directly via `@aws-sdk/client-s3` — dynamic model columns cannot be queried through Glue/Athena due to OpenCSVSerDe positional mapping
 - User-facing routes (users, credits, productivity, user-detail, idc-users) return masked identifiers via `lib/mask.ts`
 - Authentication is handled by Lambda@Edge at the CDN layer — no auth middleware in API routes
 

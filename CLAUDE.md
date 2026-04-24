@@ -61,7 +61,7 @@ docker push <account>.dkr.ecr.ap-northeast-2.amazonaws.com/kiro-dashboard:latest
 
 ```
 app/                    Next.js App Router pages & API routes
-  api/                  11 API route handlers (see app/api/CLAUDE.md)
+  api/                  12 API route handlers (see app/api/CLAUDE.md)
   components/           Shared React components (see app/components/CLAUDE.md)
   analyze/              AI analysis chat page (Bedrock streaming)
   users/                User activity dashboard page
@@ -69,6 +69,7 @@ app/                    Next.js App Router pages & API routes
   trends/               Usage trend dashboard page
   engagement/           Engagement metrics dashboard page
   productivity/         Productivity metrics dashboard page
+  model-usage/          AI model usage analysis page (S3 direct read)
 lib/                    Shared AWS service clients (see lib/CLAUDE.md)
 types/                  TypeScript interfaces (see types/CLAUDE.md)
 public/                 Static assets (kiro-logo.svg)
@@ -131,17 +132,20 @@ ATHENA_DATABASE     = titanlog
 ATHENA_OUTPUT_BUCKET= s3://whchoi01-titan-q-log/athena-results/
 GLUE_TABLE_NAME     = user_report
 IDENTITY_STORE_ID   = d-90663be888
+S3_REPORT_PREFIX    = q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/
 ```
 
 For local development, copy `.env.example` to `.env.local` and fill in values.
 
 ### API Route Pattern
-All API routes follow this pattern:
+Most API routes follow this pattern:
 1. Accept query params via `req.url` / `new URL(req.url).searchParams`
 2. Resolve Glue table with `resolveTableName()`
 3. Build Athena SQL using `NORMALIZE_USERID` constant
 4. Execute via `executeQuery()` from `lib/athena.ts`
 5. Return `NextResponse.json(data)` or `NextResponse.json({ error }, { status: 500 })`
+
+Exception: `/api/model-usage` reads S3 CSV files directly via `@aws-sdk/client-s3` because dynamic `{Model_name}_Messages` columns cannot be queried through Glue/Athena (OpenCSVSerDe uses positional mapping, but model columns appear in different positions across files).
 
 ### Authentication Flow
 - CloudFront Viewer Request triggers Lambda@Edge for every request

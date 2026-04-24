@@ -21,12 +21,12 @@
     "@aws-sdk/client-bedrock-runtime": "^3.1033.0",
     "@aws-sdk/client-glue": "^3.1033.0",
     "@aws-sdk/client-identitystore": "^3.1033.0",
+    "@aws-sdk/client-s3": "^3.1037.0",
     "@tailwindcss/postcss": "^4.2.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.0",
     "next": "^14.2.35",
-
     "postcss": "^8.5.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

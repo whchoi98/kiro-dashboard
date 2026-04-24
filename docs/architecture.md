@@ -118,6 +118,8 @@ User question → /api/analyze → Bedrock (Claude) streaming → SSE to browser
 
 8. **Data masking** — All user identifiers (displayName, email, username, organization) are server-side masked via `lib/mask.ts` before reaching the browser. Shows first 2 characters with `*` padding. Applied at the `resolveUserDetails()` layer so all API consumers get masked data automatically.
 
+9. **S3 direct read for model usage** — The `user_report` CSV files contain dynamic `{Model_name}_Messages` columns (e.g., `auto_messages`, `claude_opus_4.6_messages`) that vary across files. Since the Glue table uses `OpenCSVSerDe` (positional mapping), these dynamic columns cannot be queried via Athena. The `/api/model-usage` endpoint reads S3 CSV files directly and parses headers to extract model data accurately.
+
 ### Operations
 
 See `docs/runbooks/` for operational procedures.
@@ -173,6 +175,8 @@ AI 분석 경로:
 7. **Lambda@Edge + Cognito PKCE** — 인증을 NextAuth.js(앱 내)에서 Lambda@Edge(CDN 레이어)로 이전했습니다. 모든 요청은 오리진에 도달하기 전에 인증됩니다. Lambda@Edge 환경변수 제한을 피하기 위해 공개 Cognito 클라이언트(시크릿 없음)와 PKCE 플로우를 사용합니다. 설정은 SSM Parameter Store(us-east-1)에 저장되며 콜드 스타트 시 캐싱됩니다.
 
 8. **데이터 마스킹** — 모든 사용자 식별자(displayName, email, username, organization)는 `lib/mask.ts`를 통해 브라우저에 전달되기 전 서버 측에서 마스킹됩니다. 첫 2글자만 표시하고 나머지는 `*`로 처리합니다. `resolveUserDetails()` 레이어에서 적용되어 모든 API 소비자가 자동으로 마스킹된 데이터를 받습니다.
+
+9. **모델 사용 분석 S3 직접 읽기** — `user_report` CSV 파일에는 동적 `{Model_name}_Messages` 컬럼(예: `auto_messages`, `claude_opus_4.6_messages`)이 파일마다 다른 위치에 포함됩니다. Glue 테이블이 `OpenCSVSerDe`(위치 기반 매핑)를 사용하므로 Athena로는 정확한 쿼리가 불가능합니다. `/api/model-usage` 엔드포인트는 S3 CSV를 직접 읽고 헤더를 파싱하여 모델 데이터를 정확히 추출합니다.
 
 ### 운영
 

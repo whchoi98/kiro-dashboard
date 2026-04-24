@@ -43,6 +43,7 @@ Defined in `lib/ecs-stack.ts` — `taskDefinition.addContainer(...)` environment
 | `ATHENA_OUTPUT_BUCKET` | `s3://whchoi01-titan-q-log/athena-results/` | Athena result output |
 | `GLUE_TABLE_NAME` | `user_report` | Primary Glue table |
 | `IDENTITY_STORE_ID` | `d-90663be888` | IAM Identity Center store ID |
+| `S3_REPORT_PREFIX` | `q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/` | S3 prefix for user_report CSV files (model-usage API) |
 
 **To change env vars:** edit `infra/lib/ecs-stack.ts` and run `npx cdk deploy KiroDashboardEcs`.
 

@@ -11,7 +11,7 @@
 | 구분 | 신규 `user_report` | 레거시 `by_user_analytic` |
 |------|-------------------|--------------------------|
 | 관점 | 비용/라이선스 관리 | 개발자 생산성 |
-| 컬럼 수 | 11개 | 46개 |
+| 컬럼 수 | 11개 + 동적 모델 컬럼 | 46개 |
 | S3 경로 | `.../KiroLogs/user_report/us-east-1/` | `.../KiroLogs/by_user_analytic/us-east-1/` |
 | 파일명 | `{CLIENT_TYPE}_120443221648_user_report_{ts}.csv` | `120443221648_by_user_analytic_{ts}_report.csv` |
 | 파일 분리 | 클라이언트별 분리 (KIRO_CLI, KIRO_IDE) | 통합 파일 |
@@ -21,7 +21,7 @@
 
 ---
 
-## A. 신규 리포트: `user_report` — 크레딧/구독 관리 (11개 컬럼)
+## A. 신규 리포트: `user_report` — 크레딧/구독 관리 (11개 고정 + 동적 모델 컬럼)
 
 | # | 컬럼 | 타입 | 설명 |
 |---|------|------|------|
@@ -36,6 +36,22 @@
 | 9 | `ProfileId` | string | Kiro 프로필 ARN |
 | 10 | `Subscription_Tier` | string | `Pro`, `ProPlus`, `Power` |
 | 11 | `Total_Messages` | integer | 총 메시지 수 (프롬프트 + 툴콜 + 응답) |
+
+### A-2. 동적 모델 컬럼 (2026-03-12~)
+
+| 컬럼 패턴 | 타입 | 설명 |
+|-----------|------|------|
+| `{model_name}_messages` | integer | 특정 모델이 처리한 메시지 수. 실제 사용 모델에 따라 동적 생성, 알파벳 순 정렬 |
+
+**확인된 모델 컬럼:**
+
+| 컬럼명 | 최초 확인일 | 설명 |
+|--------|-----------|------|
+| `auto_messages` | 2026-04-23 | Auto 모드로 처리된 메시지 수 |
+| `claude_opus_4.6_messages` | 2026-03-12 | Claude Opus 4.6 모델 메시지 수 |
+| `claude_sonnet_4_messages` | 2026-03-12 | Claude Sonnet 4 모델 메시지 수 |
+
+> **참고:** 동적 컬럼은 CSV 파일마다 순서와 개수가 다를 수 있음. Glue `OpenCSVSerDe`는 위치 기반 매핑이므로, 대시보드에서는 S3 직접 읽기 + 헤더 기반 파싱으로 처리.
 
 ---
 

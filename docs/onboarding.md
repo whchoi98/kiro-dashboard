@@ -54,7 +54,7 @@ See `.env.example` for all required variables. Key ones:
 ### Project Structure Walkthrough
 
 ```
-app/api/          API route handlers — connect to Athena/Bedrock/IdC
+app/api/          API route handlers — connect to Athena/Bedrock/IdC/S3
 app/components/   React UI components (charts, tables, layout)
 app/*/page.tsx    Dashboard pages (users, credits, trends, etc.)
 lib/              AWS SDK clients (athena.ts, glue.ts, identity.ts, mask.ts)

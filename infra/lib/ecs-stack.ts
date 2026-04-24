@@ -153,6 +153,7 @@ export class EcsStack extends cdk.Stack {
         ATHENA_OUTPUT_BUCKET: 's3://whchoi01-titan-q-log/athena-results/',
         GLUE_TABLE_NAME: 'user_report',
         IDENTITY_STORE_ID: 'd-90663be888',
+        S3_REPORT_PREFIX: 'q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/',
         NEXTAUTH_URL: '',
       },
       secrets: {

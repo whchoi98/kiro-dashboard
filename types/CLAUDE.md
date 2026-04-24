@@ -26,6 +26,10 @@
 | `UserDetail` | `/api/user-detail` response — full per-user breakdown |
 | `IdcUser` | `/api/idc-users` row — IAM Identity Center user info |
 | `ClientDistribution` | `/api/client-dist` row — IDE version/OS breakdown |
+| `ModelUsageData` | `/api/model-usage` response — model distribution, trend, user preferences |
+| `ModelDistribution` | Per-model message count and percentage |
+| `ModelTrendPoint` | Daily model usage data point (dynamic keys per model) |
+| `ModelUserPreference` | Per-user model usage breakdown with primary model |
 
 ---
 
