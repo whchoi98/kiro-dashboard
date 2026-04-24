@@ -3,5 +3,9 @@
   "private": true,
   "dependencies": {
     "aws-jwt-verify": "^4.0.1"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-ssm": "^3.1037.0",
+    "@types/aws-lambda": "^8.10.161"
   }
 }
