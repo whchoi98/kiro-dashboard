@@ -3,6 +3,7 @@
   "context": {
     "useExistingVpc": "true",
     "vpcId": "vpc-005338aca7ac5fb96",
-    "vpcCidr": "10.254.0.0/16"
+    "vpcCidr": "10.254.0.0/16",
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false
   }
 }
