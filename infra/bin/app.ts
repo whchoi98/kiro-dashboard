@@ -34,9 +34,12 @@ const ecsStack = new EcsStack(app, 'KiroDashboardEcs', {
 
 new CdnStack(app, 'KiroDashboardCdn', {
   env,
-  description: 'Kiro Dashboard - CloudFront distribution',
+  description: 'Kiro Dashboard - CloudFront distribution + Lambda@Edge auth',
   alb: ecsStack.alb,
   customSecret: ecsStack.customSecret,
+  userPool: securityStack.userPool,
+  edgeClientId: securityStack.edgeClientId,
+  userPoolDomain: `kiro-dashboard-${env.account}`,
 });
 
 app.synth();
