@@ -1,4 +1,5 @@
 import { IdentitystoreClient, ListUsersCommand } from '@aws-sdk/client-identitystore';
+import { maskText, maskEmail } from './mask';
 
 const client = new IdentitystoreClient({
   region: process.env.AWS_REGION ?? 'us-east-1',
@@ -20,7 +21,7 @@ export async function resolveUserDetails(userIds: string[]): Promise<Map<string,
 
   if (!identityStoreId) {
     for (const id of cleanIds) {
-      result.set(id, { username: id.substring(0, 8), displayName: id.substring(0, 8), email: '', organization: '' });
+      result.set(id, { username: maskText(id.substring(0, 8)), displayName: maskText(id.substring(0, 8)), email: '', organization: '' });
     }
     return result;
   }
@@ -38,27 +39,31 @@ export async function resolveUserDetails(userIds: string[]): Promise<Map<string,
       nextToken = response.NextToken;
     } while (nextToken);
 
-    const userMap = new Map(allUsers.map(u => [
-      u.UserId!,
-      {
-        username: u.UserName || u.DisplayName || u.UserId!,
-        displayName: u.DisplayName || u.UserName || u.UserId!,
-        email: u.Emails?.[0]?.Value || u.UserName || '',
-        organization: (u.Emails?.[0]?.Value || u.UserName || '').split('@')[1] || '',
-      }
-    ]));
+    const userMap = new Map(allUsers.map(u => {
+      const rawEmail = u.Emails?.[0]?.Value || u.UserName || '';
+      const rawOrg = rawEmail.split('@')[1] || '';
+      return [
+        u.UserId!,
+        {
+          username: maskText(u.UserName || u.DisplayName || u.UserId!),
+          displayName: maskText(u.DisplayName || u.UserName || u.UserId!),
+          email: maskEmail(rawEmail),
+          organization: maskText(rawOrg),
+        },
+      ];
+    }));
 
     for (const id of cleanIds) {
       const detail = userMap.get(id);
       if (detail) {
         result.set(id, detail);
       } else {
-        result.set(id, { username: id.substring(0, 8), displayName: id.substring(0, 8), email: '', organization: '' });
+        result.set(id, { username: maskText(id.substring(0, 8)), displayName: maskText(id.substring(0, 8)), email: '', organization: '' });
       }
     }
   } catch {
     for (const id of cleanIds) {
-      result.set(id, { username: id.substring(0, 8), displayName: id.substring(0, 8), email: '', organization: '' });
+      result.set(id, { username: maskText(id.substring(0, 8)), displayName: maskText(id.substring(0, 8)), email: '', organization: '' });
     }
   }
 
@@ -82,7 +87,7 @@ export async function resolveUsernames(userIds: string[]): Promise<Map<string, s
 
   if (!identityStoreId) {
     for (const id of cleanIds) {
-      result.set(id, id.substring(0, 8));
+      result.set(id, maskText(id.substring(0, 8)));
     }
     return result;
   }
@@ -118,24 +123,23 @@ export async function resolveUsernames(userIds: string[]): Promise<Map<string, s
     const apiLookup = new Map<string, string>();
     for (const user of users) {
       if (user.UserId) {
-        const username =
+        const username = maskText(
           user.UserName ??
           user.DisplayName ??
-          user.UserId.substring(0, 8);
+          user.UserId.substring(0, 8));
         apiLookup.set(user.UserId, username);
       }
     }
 
     // Populate result and update cache
     for (const id of uncachedIds) {
-      const username = apiLookup.get(id) ?? id.substring(0, 8);
+      const username = apiLookup.get(id) ?? maskText(id.substring(0, 8));
       result.set(id, username);
       cache.set(id, { username, cachedAt: now });
     }
   } catch {
-    // On API failure, fall back to truncated id
     for (const id of uncachedIds) {
-      result.set(id, id.substring(0, 8));
+      result.set(id, maskText(id.substring(0, 8)));
     }
   }
 

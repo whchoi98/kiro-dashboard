@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { resolveUserDetails } from '@/lib/identity';
+import { maskText } from '@/lib/mask';
 import { CreditAnalysis } from '@/types/dashboard';
 
 export async function GET(req: NextRequest) {
@@ -59,8 +60,8 @@ export async function GET(req: NextRequest) {
         const detail = detailMap.get(userid);
         return {
           userid,
-          username: detail?.email || detail?.username || userid.substring(0, 8),
-          displayName: detail?.displayName || userid.substring(0, 8),
+          username: detail?.email || detail?.username || maskText(userid.substring(0, 8)),
+          displayName: detail?.displayName || maskText(userid.substring(0, 8)),
           email: detail?.email || '',
           organization: detail?.organization || '',
           totalCredits: safeFloat(row.total_credits),

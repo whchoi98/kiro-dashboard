@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveUserDetails } from '@/lib/identity';
+import { maskText } from '@/lib/mask';
 
 export async function GET(req: NextRequest) {
   try {
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
       const detail = detailMap.get(userid);
       return {
         userid,
-        displayName: detail?.displayName || userid.substring(0, 8),
+        displayName: detail?.displayName || maskText(userid.substring(0, 8)),
         email: detail?.email || '',
         organization: detail?.organization || '',
         chatMessages: safeInt(row.chat_messages),

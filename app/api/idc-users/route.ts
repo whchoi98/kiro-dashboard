@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { IdentitystoreClient, ListUsersCommand } from '@aws-sdk/client-identitystore';
 import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
+import { maskText, maskEmail } from '@/lib/mask';
 
 export interface IdcUserStatus {
   userId: string;
@@ -123,13 +124,13 @@ export async function GET(req: NextRequest) {
 
       return {
         userId: idcUser.userId,
-        displayName: idcUser.displayName,
-        email: idcUser.email,
+        displayName: maskText(idcUser.displayName),
+        email: maskEmail(idcUser.email),
         status: isActive ? 'active' : 'inactive',
         totalMessages: isActive ? stats.totalMessages : 0,
         totalCredits: isActive ? stats.totalCredits : 0,
         lastActive: isActive ? stats.lastActive : null,
-        organization,
+        organization: maskText(organization),
       };
     });
 
