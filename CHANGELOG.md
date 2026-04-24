@@ -13,6 +13,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Lambda@Edge + Cognito PKCE authentication at CloudFront Viewer Request level, replacing NextAuth.js
+- Lambda@Edge function with JWT validation (`aws-jwt-verify`), PKCE flow, token refresh, and HttpOnly cookie management
+- SSM Parameter Store config loader (us-east-1) for Lambda@Edge with cold-start caching
+- CDK `EdgeFunction` construct with esbuild bundling and cross-region deployment to us-east-1
+- `AwsCustomResource` for SSM config writes and Cognito callback URL updates post-deploy
+- Public Cognito `EdgeAuthClient` (no client secret) for Lambda@Edge PKCE compatibility
+- Server-side data masking for all user identifiers via `lib/mask.ts` — first 2 characters shown, rest replaced with `*`
+- Logout menu in sidebar with `/auth/logout` link (Lambda@Edge clears cookies and redirects to Cognito logout)
+
+### Changed
+
+- CDK infrastructure expanded from 4 to 5 stacks (`KiroDashboardEdgeLambda` auto-created in us-east-1)
+- CdnStack rewritten to include Lambda@Edge, SSM config, and Cognito callback URL management
+- SecurityStack updated with EdgeAuthClient UserPoolClient
+- User identity resolution (`lib/identity.ts`) now returns masked values for displayName, email, username, organization
+- All user-facing API routes (users, credits, productivity, user-detail, idc-users) return masked identifiers
+
+### Removed
+
+- NextAuth.js dependency and configuration (`lib/auth.ts`, `app/api/auth/[...nextauth]/route.ts`)
+- Custom login page (`app/login/page.tsx`) — replaced by Cognito Hosted UI
+- `NEXTAUTH_URL` and `NEXTAUTH_SECRET` environment variables
+
 ## [1.0.0] - 2026-04-21
 
 ### Added
@@ -34,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker multi-stage build (node:20-alpine, ARM64) with standalone Next.js output
 - ECS Fargate service with Auto Scaling (1-4 tasks, CPU 70% target)
 - CloudFront distribution with X-Custom-Secret header validation for ALB security
-- Cognito User Pool with NextAuth.js integration
+- Cognito User Pool with Lambda@Edge PKCE authentication
 - Client distribution pie chart with real Athena data (KIRO_IDE vs KIRO_CLI)
 - Engagement funnel and user segmentation (Power/Active/Light/Idle tiers)
 - Metric cards in AWSops dashboard style (semi-transparent dark, hover effects, font-mono values)
@@ -68,6 +93,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- CloudFront Viewer Request 레벨 Lambda@Edge + Cognito PKCE 인증 (NextAuth.js 대체)
+- Lambda@Edge 함수: JWT 검증(`aws-jwt-verify`), PKCE 플로우, 토큰 갱신, HttpOnly 쿠키 관리
+- SSM Parameter Store 설정 로더 (us-east-1) — Lambda@Edge 콜드 스타트 캐싱
+- CDK `EdgeFunction` 구성: esbuild 번들링, us-east-1 크로스 리전 배포
+- `AwsCustomResource`: SSM 설정 쓰기 및 Cognito 콜백 URL 배포 후 업데이트
+- 공개 Cognito `EdgeAuthClient` (클라이언트 시크릿 없음) — Lambda@Edge PKCE 호환
+- `lib/mask.ts` 서버 측 데이터 마스킹 — 모든 사용자 식별자 첫 2글자만 표시, 나머지 `*` 처리
+- 사이드바 로그아웃 메뉴 — `/auth/logout` 링크 (Lambda@Edge가 쿠키 삭제 후 Cognito 로그아웃 리다이렉트)
+
+### Changed
+
+- CDK 인프라 4개 → 5개 스택 확장 (`KiroDashboardEdgeLambda` us-east-1 자동 생성)
+- CdnStack 재작성: Lambda@Edge, SSM 설정, Cognito 콜백 URL 관리 포함
+- SecurityStack에 EdgeAuthClient UserPoolClient 추가
+- 사용자 ID 해석(`lib/identity.ts`)이 마스킹된 값 반환 (displayName, email, username, organization)
+- 사용자 대면 API 라우트(users, credits, productivity, user-detail, idc-users) 마스킹된 식별자 반환
+
+### Removed
+
+- NextAuth.js 의존성 및 설정 (`lib/auth.ts`, `app/api/auth/[...nextauth]/route.ts`)
+- 커스텀 로그인 페이지 (`app/login/page.tsx`) — Cognito Hosted UI로 대체
+- `NEXTAUTH_URL`, `NEXTAUTH_SECRET` 환경변수
+
 ## [1.0.0] - 2026-04-21
 
 ### Added
@@ -89,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker 멀티 스테이지 빌드 (node:20-alpine, ARM64, standalone 출력)
 - ECS Fargate 서비스 오토 스케일링 (1-4 태스크, CPU 70% 타겟)
 - CloudFront X-Custom-Secret 헤더 검증을 통한 ALB 보안
-- Cognito User Pool + NextAuth.js 인증 통합
+- Cognito User Pool + Lambda@Edge PKCE 인증
 - Athena 실제 데이터 기반 클라이언트 분포 파이 차트 (KIRO_IDE vs KIRO_CLI)
 - 참여도 퍼널 및 사용자 세그먼트 (Power/Active/Light/Idle 등급)
 - AWSops 스타일 메트릭 카드 (반투명 다크, hover 효과, font-mono 값)

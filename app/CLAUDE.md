@@ -19,29 +19,28 @@ app/
   trends/               Usage trend charts page
   engagement/           Engagement metric dashboard page
   productivity/         Productivity metrics dashboard page
-  login/                Cognito OAuth login page
 ```
 
 ## Page Conventions
 
 - All dashboard pages are Server Components by default
 - Client interactivity is isolated in `*Client.tsx` files (e.g., `OverviewClient.tsx`)
-- Pages use `useLanguage()` from `lib/i18n.tsx` for Korean/English UI text
+- Pages use `useI18n()` from `lib/i18n.tsx` for Korean/English UI text
 - Dark theme: root `bg-black`, cards `bg-gray-900/50`
 - Kiro brand accent color: `#9046FF` (use `text-[#9046FF]` or `bg-[#9046FF]`)
 
 ## Layout
 
 `app/layout.tsx` wraps all pages with:
-- NextAuth `SessionProvider`
-- i18n `LanguageProvider`
+- i18n `I18nProvider`
 - `Sidebar` and `Header` from `components/layout/`
 
 ## Auth
 
-- Login page at `app/login/` handles Cognito redirect
-- Protected routes check session via `getServerSession()` from NextAuth
-- API routes that require auth use `getServerSession(authOptions)` from `lib/auth.ts`
+- Authentication is handled at the CDN layer by Lambda@Edge (not in the Next.js app)
+- Lambda@Edge validates Cognito JWT tokens in cookies before requests reach the origin
+- Authenticated user info is available via `X-User-Email` and `X-User-Name` request headers
+- Logout is handled by navigating to `/auth/logout` (Lambda@Edge clears cookies and redirects to Cognito logout)
 
 ## Adding a New Dashboard Page
 

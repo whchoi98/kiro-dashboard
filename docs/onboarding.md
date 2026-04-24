@@ -50,8 +50,6 @@ See `.env.example` for all required variables. Key ones:
 | `ATHENA_OUTPUT_BUCKET` | S3 path for query results | Team shared bucket |
 | `GLUE_TABLE_NAME` | Primary Glue table | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center store ID | AWS console → IAM Identity Center |
-| `NEXTAUTH_URL` | NextAuth base URL | `http://localhost:3000` for local |
-| `NEXTAUTH_SECRET` | NextAuth signing secret | Generate: `openssl rand -base64 32` |
 
 ### Project Structure Walkthrough
 
@@ -59,9 +57,9 @@ See `.env.example` for all required variables. Key ones:
 app/api/          API route handlers — connect to Athena/Bedrock/IdC
 app/components/   React UI components (charts, tables, layout)
 app/*/page.tsx    Dashboard pages (users, credits, trends, etc.)
-lib/              AWS SDK clients (athena.ts, glue.ts, identity.ts)
+lib/              AWS SDK clients (athena.ts, glue.ts, identity.ts, mask.ts)
 types/            TypeScript interfaces for all data shapes
-infra/            AWS CDK stacks (network, security, ecs, cdn)
+infra/            AWS CDK stacks (network, security, ecs, cdn, edge-lambda)
 ```
 
 Read each directory's `CLAUDE.md` for detailed conventions.

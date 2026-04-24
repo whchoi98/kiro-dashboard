@@ -55,6 +55,8 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - **User Detail Drill-down** — Click any user row to see daily activity breakdown, client type usage, and conversation history in a slide-in panel
 - **Animated Kiro Mascot** — Page-themed Kiro ghost character with eye-blinking, bouncing, and contextual accessories (dashboard grid, trend arrows, code terminal, chat bubbles)
 - **Bilingual Interface** — Full Korean/English toggle with sidebar language switcher
+- **Lambda@Edge Authentication** — CDN-level Cognito PKCE authentication via Lambda@Edge; no auth logic in the app
+- **Data Masking** — Server-side masking of all user identifiers (names, emails, organizations) showing only first 2 characters
 
 ## Prerequisites
 
@@ -120,17 +122,12 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 | `ATHENA_OUTPUT_BUCKET` | S3 path for Athena query results | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | Primary Glue table name | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center store ID | `` |
-| `NEXTAUTH_URL` | NextAuth callback URL | `http://localhost:3000` |
-| `NEXTAUTH_SECRET` | NextAuth JWT signing secret | `` |
-| `COGNITO_CLIENT_ID` | Cognito app client ID | `` |
-| `COGNITO_CLIENT_SECRET` | Cognito app client secret | `` |
-| `COGNITO_ISSUER` | Cognito OIDC issuer URL | `` |
 
 ## Project Structure
 
 ```
 app/                        Next.js App Router
-  api/                      12 API routes
+  api/                      11 API routes
     analyze/                Bedrock AI analysis (SSE streaming)
     metrics/                KPI aggregations
     users/                  User rankings with IdC details
@@ -142,9 +139,8 @@ app/                        Next.js App Router
     user-detail/            Per-user activity drill-down
     client-dist/            Client type distribution
     health/                 ECS health check
-    auth/                   NextAuth.js + Cognito
   components/               Shared React components
-    layout/                 Sidebar, Header, KiroLogo
+    layout/                 Sidebar (with logout), Header, KiroLogo
     charts/                 MetricCard, TrendChart, PieChart, BarChart, FunnelChart, IdcUserStatus
     tables/                 UserTable (sortable, searchable)
     ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel
@@ -154,21 +150,21 @@ app/                        Next.js App Router
   trends/                   Activity trends page
   engagement/               Engagement metrics page
   productivity/             IDE productivity page
-  login/                    Cognito login page
 lib/                        Shared libraries
   athena.ts                 Athena query client + NORMALIZE_USERID
   glue.ts                   Glue table resolver
-  identity.ts               Identity Center user resolver
-  auth.ts                   NextAuth configuration
+  identity.ts               Identity Center user resolver (with masking)
+  mask.ts                   Data masking utilities
   i18n.tsx                  Korean/English i18n context
 types/                      TypeScript interfaces
   dashboard.ts              All data model types
 infra/                      AWS CDK infrastructure
-  bin/app.ts                CDK app entry (4 stacks)
+  bin/app.ts                CDK app entry (5 stacks)
   lib/network-stack.ts      VPC (new or existing mgmt-vpc)
-  lib/security-stack.ts     Security groups, Cognito
+  lib/security-stack.ts     Security groups, Cognito, EdgeAuthClient
   lib/ecs-stack.ts          ECS Fargate, ALB, ECR, IAM, Auto Scaling
-  lib/cdn-stack.ts          CloudFront distribution
+  lib/cdn-stack.ts          CloudFront + Lambda@Edge + SSM config
+  lambda/edge-auth/         Lambda@Edge Cognito auth (PKCE + JWT)
 public/                     Static assets
   kiro-logo.svg             Kiro ghost character SVG
 docs/                       Architecture, ADRs, specs
@@ -261,6 +257,8 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - **사용자 상세 드릴다운** — 사용자 행 클릭 시 일별 활동 내역, 클라이언트 유형별 사용량, 대화 이력을 슬라이드 패널로 확인합니다
 - **애니메이션 Kiro 마스코트** — 페이지별 테마에 맞는 Kiro 유령 캐릭터가 눈 깜빡임, 바운스, 상황별 액세서리(대시보드 그리드, 트렌드 화살표, 코드 터미널, 채팅 말풍선)를 표시합니다
 - **이중 언어 인터페이스** — 사이드바 언어 전환기를 통한 한국어/영어 완전 지원
+- **Lambda@Edge 인증** — CDN 레벨 Cognito PKCE 인증 (Lambda@Edge), 앱 내 인증 로직 없음
+- **데이터 마스킹** — 모든 사용자 식별자(이름, 이메일, 소속)를 서버 측에서 마스킹하여 첫 2글자만 표시
 
 ## 사전 요구 사항
 
@@ -326,17 +324,12 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 | `ATHENA_OUTPUT_BUCKET` | Athena 쿼리 결과 S3 경로 | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | 기본 Glue 테이블 이름 | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | `` |
-| `NEXTAUTH_URL` | NextAuth 콜백 URL | `http://localhost:3000` |
-| `NEXTAUTH_SECRET` | NextAuth JWT 서명 시크릿 | `` |
-| `COGNITO_CLIENT_ID` | Cognito 앱 클라이언트 ID | `` |
-| `COGNITO_CLIENT_SECRET` | Cognito 앱 클라이언트 시크릿 | `` |
-| `COGNITO_ISSUER` | Cognito OIDC 발급자 URL | `` |
 
 ## 프로젝트 구조
 
 ```
 app/                        Next.js App Router
-  api/                      12개 API 라우트
+  api/                      11개 API 라우트
     analyze/                Bedrock AI 분석 (SSE 스트리밍)
     metrics/                KPI 집계
     users/                  IdC 정보 포함 사용자 순위
@@ -348,9 +341,8 @@ app/                        Next.js App Router
     user-detail/            개별 사용자 활동 드릴다운
     client-dist/            클라이언트 유형별 분포
     health/                 ECS 헬스 체크
-    auth/                   NextAuth.js + Cognito
   components/               공유 React 컴포넌트
-    layout/                 사이드바, 헤더, Kiro 로고
+    layout/                 사이드바 (로그아웃 포함), 헤더, Kiro 로고
     charts/                 MetricCard, TrendChart, PieChart, BarChart, FunnelChart, IdcUserStatus
     tables/                 UserTable (정렬, 검색 가능)
     ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel
@@ -360,21 +352,21 @@ app/                        Next.js App Router
   trends/                   활동 트렌드 페이지
   engagement/               참여도 메트릭 페이지
   productivity/             IDE 생산성 페이지
-  login/                    Cognito 로그인 페이지
 lib/                        공유 라이브러리
   athena.ts                 Athena 쿼리 클라이언트 + NORMALIZE_USERID
   glue.ts                   Glue 테이블 리졸버
-  identity.ts               Identity Center 사용자 리졸버
-  auth.ts                   NextAuth 설정
+  identity.ts               Identity Center 사용자 리졸버 (마스킹 포함)
+  mask.ts                   데이터 마스킹 유틸리티
   i18n.tsx                  한국어/영어 i18n 컨텍스트
 types/                      TypeScript 인터페이스
   dashboard.ts              전체 데이터 모델 타입
 infra/                      AWS CDK 인프라
-  bin/app.ts                CDK 앱 엔트리 (4개 스택)
+  bin/app.ts                CDK 앱 엔트리 (5개 스택)
   lib/network-stack.ts      VPC (신규 또는 기존 mgmt-vpc)
-  lib/security-stack.ts     보안 그룹, Cognito
+  lib/security-stack.ts     보안 그룹, Cognito, EdgeAuthClient
   lib/ecs-stack.ts          ECS Fargate, ALB, ECR, IAM, 오토 스케일링
-  lib/cdn-stack.ts          CloudFront 배포
+  lib/cdn-stack.ts          CloudFront + Lambda@Edge + SSM 설정
+  lambda/edge-auth/         Lambda@Edge Cognito 인증 (PKCE + JWT)
 public/                     정적 에셋
   kiro-logo.svg             Kiro 유령 캐릭터 SVG
 docs/                       아키텍처, ADR, 스펙
@@ -421,3 +413,9 @@ curl http://localhost:3000/api/health
 
 - 메인테이너: 최우형 / [whchoi98](https://github.com/whchoi98)
 - 이슈: [GitHub Issues](https://github.com/whchoi98/kiro-dashboard/issues)
+
+<!-- harness-eval-badge:start -->
+![Harness Score](https://img.shields.io/badge/harness-6.5%2F10-orange)
+![Harness Grade](https://img.shields.io/badge/grade-C+-orange)
+![Last Eval](https://img.shields.io/badge/eval-2026--04--22-blue)
+<!-- harness-eval-badge:end -->
