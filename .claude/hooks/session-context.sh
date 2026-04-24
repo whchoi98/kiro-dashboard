@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # SessionStart hook: loads project context summary at the start of each session
+# This hook is informational-only and must never block session start.
 
-set -euo pipefail
+set -uo pipefail
+trap 'exit 0' ERR
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
@@ -18,7 +20,7 @@ echo ""
 # Show git status summary (if git repo exists)
 if git -C "$PROJECT_ROOT" rev-parse --git-dir &>/dev/null; then
   BRANCH=$(git -C "$PROJECT_ROOT" branch --show-current 2>/dev/null || echo "unknown")
-  MODIFIED=$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  MODIFIED=$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null | wc -l | tr -d ' ' || echo "0")
   echo " Git: branch=$BRANCH, modified_files=$MODIFIED"
 else
   echo " Git: not initialized"

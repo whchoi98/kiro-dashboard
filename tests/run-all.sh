@@ -62,30 +62,39 @@ assert_contains() {
 }
 
 # ---------------------------------------------------------------
-# Run all test suites
+# Run all test suites, capturing exit codes
 # ---------------------------------------------------------------
+SUITE_FAILURES=0
+
 echo "TAP version 13"
 echo ""
+
 echo "# Running: hook tests"
-bash "$PROJECT_ROOT/tests/hooks/test-hooks.sh" 2>/dev/null || true
+if ! bash "$PROJECT_ROOT/tests/hooks/test-hooks.sh" 2>/dev/null; then
+  SUITE_FAILURES=$((SUITE_FAILURES + 1))
+fi
 
 echo ""
 echo "# Running: secret pattern tests"
-bash "$PROJECT_ROOT/tests/hooks/test-secret-patterns.sh" 2>/dev/null || true
+if ! bash "$PROJECT_ROOT/tests/hooks/test-secret-patterns.sh" 2>/dev/null; then
+  SUITE_FAILURES=$((SUITE_FAILURES + 1))
+fi
 
 echo ""
 echo "# Running: structure tests"
-bash "$PROJECT_ROOT/tests/structure/test-plugin-structure.sh" 2>/dev/null || true
+if ! bash "$PROJECT_ROOT/tests/structure/test-plugin-structure.sh" 2>/dev/null; then
+  SUITE_FAILURES=$((SUITE_FAILURES + 1))
+fi
 
 # ---------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------
 echo ""
 echo "# Test Summary"
-echo "# Total: $TOTAL, Passed: $PASS, Failed: $FAIL"
+echo "# Suites run: 3, Suite failures: $SUITE_FAILURES"
 
-if [[ $FAIL -gt 0 ]]; then
-  echo "# RESULT: FAILED"
+if [[ $SUITE_FAILURES -gt 0 ]]; then
+  echo "# RESULT: FAILED ($SUITE_FAILURES suite(s) had failures)"
   exit 1
 else
   echo "# RESULT: ALL PASSED"

@@ -2,24 +2,46 @@
   "hooks": {
     "SessionStart": [
       {
-        "command": "bash .claude/hooks/session-context.sh"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-context.sh"
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Write|Edit",
-        "command": "bash .claude/hooks/secret-scan.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/secret-scan.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
-        "command": "bash .claude/hooks/check-doc-sync.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-doc-sync.sh"
+          }
+        ]
       }
     ],
     "Notification": [
       {
-        "command": "bash .claude/hooks/notify.sh"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/notify.sh"
+          }
+        ]
       }
     ]
   },

@@ -1,3 +1,7 @@
+---
+description: Refactor Skill — guides safe refactoring of Athena SQL patterns, React components, and TypeScript types with validation steps
+---
+
 # Refactor Skill
 
 ## Trigger

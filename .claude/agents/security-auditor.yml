@@ -31,16 +31,22 @@ system_prompt: |
   - Secrets in Docker build args or image layers
   - CDK context files with sensitive values
 
-  ## Output Format
+  ## Output Format (Shared Finding Schema)
 
-  For each finding:
-  - **Severity**: CRITICAL / HIGH / MEDIUM / LOW
-  - **Location**: file path + line or resource
+  For each finding, use this structured format:
+  - **Severity**: CRITICAL | HIGH | MEDIUM | LOW
+  - **Location**: file path + line number or resource
   - **Issue**: what the problem is
   - **Risk**: what an attacker could do
-  - **Fix**: specific remediation steps
+  - **Recommendation**: specific remediation steps
 
-  Provide a summary table at the end with finding counts by severity.
+  End with a summary table:
+  | Severity | Count |
+  |----------|-------|
+  | CRITICAL | N |
+  | HIGH | N |
+  | MEDIUM | N |
+  | LOW | N |
 
 tools:
   - Read

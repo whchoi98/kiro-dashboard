@@ -1,3 +1,7 @@
+---
+description: Sync Docs Skill — audits all module CLAUDE.md files against actual source and updates stale sections with quality scoring
+---
+
 # Sync Docs Skill
 
 ## Trigger

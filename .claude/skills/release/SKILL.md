@@ -1,3 +1,7 @@
+---
+description: Release Skill — 6-step deployment workflow (build, Docker, ECR push, CDK deploy, ECS update, verify) with rollback procedure
+---
+
 # Release Skill
 
 ## Trigger

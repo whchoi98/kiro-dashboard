@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
@@ -5,6 +6,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export interface EcsStackProps extends cdk.StackProps {
@@ -20,7 +22,12 @@ export class EcsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props);
 
-    this.customSecret = `${this.stackName}-secret-${this.account}`;
+    this.customSecret = crypto.randomUUID();
+
+    const nextAuthSecret = new secretsmanager.Secret(this, 'NextAuthSecret', {
+      secretName: 'kiro-dashboard/nextauth-secret',
+      generateSecretString: { excludePunctuation: true, passwordLength: 64 },
+    });
 
     const repository = new ecr.Repository(this, 'Repository', {
       repositoryName: 'kiro-dashboard',
@@ -39,14 +46,60 @@ export class EcsStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    const athenaResultsBucket = 'whchoi01-titan-q-log';
+    const athenaResultsPrefix = 'athena-results';
+
     const taskRole = new iam.Role(this, 'TaskRole', {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonAthenaFullAccess'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonS3FullAccess'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AWSGlueConsoleFullAccess'),
-      ],
       inlinePolicies: {
+        AthenaQuery: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: [
+                'athena:StartQueryExecution',
+                'athena:GetQueryExecution',
+                'athena:GetQueryResults',
+                'athena:StopQueryExecution',
+                'athena:GetWorkGroup',
+              ],
+              resources: [`arn:aws:athena:*:${this.account}:workgroup/*`],
+            }),
+          ],
+        }),
+        S3DataAccess: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: ['s3:GetObject', 's3:ListBucket', 's3:GetBucketLocation'],
+              resources: [
+                `arn:aws:s3:::${athenaResultsBucket}`,
+                `arn:aws:s3:::${athenaResultsBucket}/*`,
+              ],
+            }),
+            new iam.PolicyStatement({
+              actions: ['s3:PutObject', 's3:GetObject'],
+              resources: [
+                `arn:aws:s3:::${athenaResultsBucket}/${athenaResultsPrefix}/*`,
+              ],
+            }),
+          ],
+        }),
+        GlueCatalog: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: [
+                'glue:GetTable',
+                'glue:GetTables',
+                'glue:GetDatabase',
+                'glue:GetPartitions',
+              ],
+              resources: [
+                `arn:aws:glue:*:${this.account}:catalog`,
+                `arn:aws:glue:*:${this.account}:database/titanlog`,
+                `arn:aws:glue:*:${this.account}:table/titanlog/*`,
+              ],
+            }),
+          ],
+        }),
         IdentityStorePolicy: new iam.PolicyDocument({
           statements: [
             new iam.PolicyStatement({
@@ -101,7 +154,9 @@ export class EcsStack extends cdk.Stack {
         GLUE_TABLE_NAME: 'user_report',
         IDENTITY_STORE_ID: 'd-90663be888',
         NEXTAUTH_URL: '',
-        NEXTAUTH_SECRET: 'change-me-in-production',
+      },
+      secrets: {
+        NEXTAUTH_SECRET: ecs.Secret.fromSecretsManager(nextAuthSecret),
       },
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'kiro-dashboard',
@@ -179,9 +234,9 @@ export class EcsStack extends cdk.Stack {
       exportName: `${this.stackName}-ECRRepositoryUri`,
     });
 
-    new cdk.CfnOutput(this, 'CustomHeaderSecret', {
-      value: this.customSecret,
-      exportName: `${this.stackName}-CustomHeaderSecret`,
+    new cdk.CfnOutput(this, 'NextAuthSecretArn', {
+      value: nextAuthSecret.secretArn,
+      exportName: `${this.stackName}-NextAuthSecretArn`,
     });
   }
 }

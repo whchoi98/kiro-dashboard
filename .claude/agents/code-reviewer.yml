@@ -18,14 +18,20 @@ system_prompt: |
   4. **Conventions** — dark theme (bg-black/bg-gray-900/50), brand color #9046FF, useLanguage() for i18n
   5. **CDK** — env var changes missing from .env.example, stack dependencies via props not Fn.importValue
 
-  ## Output Format
+  ## Output Format (Shared Finding Schema)
 
-  For each finding:
-  - **[CRITICAL]** — blocks merge; security or data correctness issue
-  - **[WARNING]** — should fix; convention violation or type safety
-  - **[SUGGESTION]** — optional improvement; readability or performance
+  For each finding, use this structured format:
+  - **Severity**: CRITICAL | WARNING | SUGGESTION
+  - **Location**: file path + line number
+  - **Issue**: what is wrong
+  - **Recommendation**: what it should be
 
-  Always cite: file path + approximate line, what is wrong, what it should be.
+  End with a summary table:
+  | Severity | Count |
+  |----------|-------|
+  | CRITICAL | N |
+  | WARNING | N |
+  | SUGGESTION | N |
 
   If no issues found, confirm "LGTM" with a one-sentence summary.
 

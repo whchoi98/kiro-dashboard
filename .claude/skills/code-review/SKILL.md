@@ -1,3 +1,7 @@
+---
+description: Code Review Skill — reviews Next.js API routes, React components, TypeScript types, and CDK infrastructure against project conventions
+---
+
 # Code Review Skill
 
 ## Trigger
