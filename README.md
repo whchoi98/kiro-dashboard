@@ -66,6 +66,7 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - AWS CLI v2 (configured with appropriate credentials)
 - AWS CDK CLI (`npm install -g aws-cdk`)
 - AWS Account with access to: ECS, ECR, CloudFront, ALB, Athena, Glue, S3, Cognito, IAM Identity Center, Bedrock
+- **Kiro IDE "User Activity Report" enabled** for your account — the dashboard queries the CSV files that this report drops into S3. Enable it in the Kiro console (see [Viewing per-user activity](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/)). Without it the Glue table exists but is empty and every page renders as an empty table.
 
 ## Installation
 
@@ -96,11 +97,23 @@ npm run dev
 npm run build
 
 # Deploy to AWS (first time)
+# 1) Copy the deploy-time env template and fill in your values
+cp .env.deploy.example .env.deploy
+# edit .env.deploy — set CDK_DEFAULT_ACCOUNT, ATHENA_DATA_BUCKET_NAME,
+# S3_REPORT_PREFIX, IDENTITY_STORE_ID, ATHENA_RESULTS_BUCKET_NAME, ...
+# (every override is documented in .env.deploy.example itself and the
+# "Configuration" section below)
+
+# 2) Load it into your shell, then deploy
+set -a; source .env.deploy; set +a
 cd infra
-export CDK_DEFAULT_ACCOUNT=<your-account-id>
-export CDK_DEFAULT_REGION=ap-northeast-2
 npx cdk bootstrap
 npx cdk deploy --all
+# Setting ATHENA_DATA_BUCKET_NAME also triggers the opt-in
+# `KiroDashboardCatalog` stack which registers the `titanlog.user_report`
+# Glue table over your S3 prefix — a fresh account now boots without a
+# manual Glue crawler. `.env.deploy` is git-ignored so your account
+# values never get committed.
 
 # Build and push Docker image
 docker build -t kiro-dashboard .
@@ -116,14 +129,50 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 
 ## Configuration
 
-| Variable | Description | Default |
+### Runtime container env (ECS task)
+
+These values end up on the Fargate container via `EcsStack`. Maintainer
+defaults are baked in; forks override them by exporting the CDK-time env
+vars listed in the next table before running `npx cdk deploy`.
+
+| Container variable | Description | Default |
 |----------|-------------|---------|
 | `AWS_REGION` | AWS region for Athena/Glue/Identity Store | `us-east-1` |
 | `ATHENA_DATABASE` | Glue database name | `titanlog` |
 | `ATHENA_OUTPUT_BUCKET` | S3 path for Athena query results | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | Primary Glue table name | `user_report` |
-| `IDENTITY_STORE_ID` | IAM Identity Center store ID | `` |
+| `IDENTITY_STORE_ID` | IAM Identity Center store ID | `d-90663be888` |
 | `S3_REPORT_PREFIX` | S3 prefix for user_report CSV files | `q-user-log/AWSLogs/.../user_report/us-east-1/` |
+
+### CDK-time overrides (read by `infra/bin/app.ts`)
+
+Export these before `npx cdk deploy` to point the stack at your own
+account. Omit them to keep the upstream maintainer defaults.
+
+| CDK env | Overrides | Also used by |
+|---------|-----------|--------------|
+| `ATHENA_DATA_BUCKET_NAME` | S3 bucket holding Kiro User Activity Report CSV files | Enables the opt-in `KiroDashboardCatalog` stack |
+| `ATHENA_RESULTS_BUCKET_NAME` | Bucket that Athena writes query results into | — |
+| `ATHENA_RESULTS_PREFIX` | Prefix within the results bucket | — |
+| `ATHENA_DATABASE_NAME` | Glue database name | `KiroDashboardCatalog` |
+| `GLUE_TABLE_NAME_OVERRIDE` | Glue table name | `KiroDashboardCatalog` |
+| `S3_REPORT_PREFIX` | S3 prefix under the data bucket | `KiroDashboardCatalog` |
+| `IDENTITY_STORE_ID` | IAM Identity Center store ID | — |
+
+When `ATHENA_DATA_BUCKET_NAME` is set, a 6th CDK stack —
+`KiroDashboardCatalog` — is instantiated. It creates the Glue database
+and the `user_report` external table with the 11 fixed columns documented
+in `docs/kiro-user-activity-report-schema.md`. If you'd rather manage the
+catalog outside CDK, the same DDL lives in
+`infra/sql/user-report-table.sql` (substitute `<DATA_BUCKET>` /
+`<REPORT_PREFIX>` and run in Athena).
+
+### Empty-state behaviour
+
+Until the first User Activity Report CSV lands in your S3 prefix, every
+page renders as an **empty table** instead of a 500 error page. Routes
+detect the underlying "missing table / empty data" signal and return a
+200 with a well-shaped empty payload.
 
 ## Project Structure
 
@@ -272,6 +321,7 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - AWS CLI v2 (적절한 자격 증명으로 설정)
 - AWS CDK CLI (`npm install -g aws-cdk`)
 - AWS 계정: ECS, ECR, CloudFront, ALB, Athena, Glue, S3, Cognito, IAM Identity Center, Bedrock 접근 권한 필요
+- **Kiro IDE "User Activity Report" 활성화 필요** — 대시보드는 이 리포트가 S3에 떨어뜨리는 CSV 파일을 조회합니다. Kiro 콘솔에서 활성화하세요 ([Viewing per-user activity](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/)). 활성화 전에는 Glue 테이블은 존재해도 데이터가 없어 모든 페이지가 빈 표로 렌더링됩니다.
 
 ## 설치 방법
 
@@ -302,11 +352,23 @@ npm run dev
 npm run build
 
 # AWS에 배포 (최초)
+# 1) 배포용 환경 템플릿을 복사하고 값을 채웁니다
+cp .env.deploy.example .env.deploy
+# .env.deploy 편집 — CDK_DEFAULT_ACCOUNT, ATHENA_DATA_BUCKET_NAME,
+# S3_REPORT_PREFIX, IDENTITY_STORE_ID, ATHENA_RESULTS_BUCKET_NAME 등
+# (모든 오버라이드는 .env.deploy.example 파일과 아래 "환경 설정"
+# 섹션에 문서화되어 있음)
+
+# 2) 셸에 로드한 뒤 배포
+set -a; source .env.deploy; set +a
 cd infra
-export CDK_DEFAULT_ACCOUNT=<계정-ID>
-export CDK_DEFAULT_REGION=ap-northeast-2
 npx cdk bootstrap
 npx cdk deploy --all
+# `ATHENA_DATA_BUCKET_NAME`을 설정하면 옵트-인 스택인
+# `KiroDashboardCatalog`도 생성되어 `titanlog.user_report` Glue 테이블이
+# 자신의 S3 프리픽스 위에 등록됩니다. 별도 Glue 크롤러 없이 바로
+# 동작합니다. `.env.deploy`는 git 추적에서 제외되므로 계정별 값이
+# 커밋되지 않습니다.
 
 # Docker 이미지 빌드 및 푸시
 docker build -t kiro-dashboard .
@@ -322,14 +384,49 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 
 ## 환경 설정
 
-| 변수명 | 설명 | 기본값 |
+### 런타임 컨테이너 환경 변수 (ECS task)
+
+이 값들은 `EcsStack`을 통해 Fargate 컨테이너에 주입됩니다. 메인테이너
+기본값이 내장되어 있으며, 포크는 아래 "CDK 배포 시 오버라이드" 섹션의
+환경 변수를 `npx cdk deploy` 실행 전에 export하여 덮어씁니다.
+
+| 컨테이너 변수 | 설명 | 기본값 |
 |--------|------|--------|
 | `AWS_REGION` | Athena/Glue/Identity Store AWS 리전 | `us-east-1` |
 | `ATHENA_DATABASE` | Glue 데이터베이스 이름 | `titanlog` |
 | `ATHENA_OUTPUT_BUCKET` | Athena 쿼리 결과 S3 경로 | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | 기본 Glue 테이블 이름 | `user_report` |
-| `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | `` |
+| `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | `d-90663be888` |
 | `S3_REPORT_PREFIX` | user_report CSV 파일 S3 경로 프리픽스 | `q-user-log/AWSLogs/.../user_report/us-east-1/` |
+
+### CDK 배포 시 오버라이드 (`infra/bin/app.ts`가 읽음)
+
+자신의 계정을 대상으로 배포할 때 다음 변수를 `npx cdk deploy` 전에
+export 하세요. 지정하지 않으면 업스트림 메인테이너 기본값이 유지됩니다.
+
+| CDK 환경 변수 | 덮어쓰는 대상 | 추가 효과 |
+|---------|-----------|--------------|
+| `ATHENA_DATA_BUCKET_NAME` | Kiro User Activity Report CSV가 있는 S3 버킷 | 옵트-인 스택 `KiroDashboardCatalog` 활성화 |
+| `ATHENA_RESULTS_BUCKET_NAME` | Athena가 쿼리 결과를 쓰는 버킷 | — |
+| `ATHENA_RESULTS_PREFIX` | 결과 버킷 내 프리픽스 | — |
+| `ATHENA_DATABASE_NAME` | Glue 데이터베이스 이름 | `KiroDashboardCatalog` |
+| `GLUE_TABLE_NAME_OVERRIDE` | Glue 테이블 이름 | `KiroDashboardCatalog` |
+| `S3_REPORT_PREFIX` | 데이터 버킷 내 프리픽스 | `KiroDashboardCatalog` |
+| `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | — |
+
+`ATHENA_DATA_BUCKET_NAME`을 설정하면 6번째 CDK 스택인
+`KiroDashboardCatalog`가 인스턴스화됩니다. 이 스택은
+`docs/kiro-user-activity-report-schema.md`에 정의된 11개 고정 컬럼으로
+Glue 데이터베이스와 `user_report` 외부 테이블을 생성합니다. 카탈로그를
+CDK 바깥에서 관리하고 싶다면 동일한 DDL이
+`infra/sql/user-report-table.sql`에 있으니 `<DATA_BUCKET>` /
+`<REPORT_PREFIX>`를 치환해 Athena에서 직접 실행하면 됩니다.
+
+### 데이터 없음(empty-state) 동작
+
+User Activity Report CSV가 S3에 도착하기 전까지는 500 에러 페이지 대신
+각 페이지가 **빈 표**로 렌더링됩니다. API 라우트가 "테이블 없음 / 데이터
+없음" 시그널을 감지해 200 + 올바른 shape의 빈 payload를 반환합니다.
 
 ## 프로젝트 구조
 

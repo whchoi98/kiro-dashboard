@@ -13,6 +13,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `EcsDashboardConfig` prop on `EcsStack` so forks can override every
+  account-specific env (S3 buckets, Glue database/table, IdC store, report
+  prefix) without editing the source. Maintainer defaults unchanged.
+- Opt-in `KiroDashboardCatalog` CDK stack that provisions the Glue database
+  and `user_report` external table over a fork-owned S3 bucket. Activated by
+  setting `ATHENA_DATA_BUCKET_NAME` at `cdk deploy` time.
+- `infra/sql/user-report-table.sql` — manual DDL alternative to the opt-in
+  Catalog stack.
+- README + `.env.example` now document the Kiro User Activity Report
+  prerequisite and every CDK-time override env var.
+- `.env.deploy.example` template (git-ignored as `.env.deploy`) bundles
+  every CDK-time env var in one place so operators can
+  `cp .env.deploy.example .env.deploy` → `set -a; source .env.deploy; set +a`
+  → `cdk deploy` instead of repeating long `export` blocks at the
+  command line.
+
+### Fixed
+
+- Dashboard API routes (`/api/users`, `/api/trends`, `/api/credits`,
+  `/api/engagement`, `/api/productivity`, `/api/metrics`, `/api/client-dist`)
+  no longer surface a 500 when the underlying Glue table does not exist
+  yet. They detect missing-table errors via `isMissingTableError` and
+  return a 200 with an empty but well-shaped payload, so fresh accounts
+  render empty tables instead of an "Application error" crash page.
+- `app/users/page.tsx` and `app/trends/page.tsx` additionally gained
+  `Array.isArray` guards around API responses to prevent `.map()` TypeErrors
+  if any future route regresses to returning `{ error }`.
+
 ## [1.1.0] - 2026-04-24
 
 ### Added
@@ -98,6 +128,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+### 추가됨
+
+- `EcsStack`에 `EcsDashboardConfig` prop 도입 — 포크가 계정별 값(S3
+  버킷, Glue DB/테이블, IdC 스토어, 리포트 프리픽스)을 소스 수정 없이
+  덮어쓸 수 있음. 메인테이너 기본값은 그대로 유지.
+- 옵트-인 CDK 스택 `KiroDashboardCatalog` 추가 — `ATHENA_DATA_BUCKET_NAME`
+  설정 시 포크 소유 S3 버킷 위에 Glue 데이터베이스와 `user_report`
+  외부 테이블을 생성.
+- `infra/sql/user-report-table.sql` — Catalog 스택을 쓰지 않는 경우의
+  수동 DDL 대안.
+- README와 `.env.example`에 Kiro User Activity Report 사전 요구 사항 및
+  CDK 배포 시 오버라이드 환경 변수 전체를 문서화.
+- `.env.deploy.example` 템플릿 추가 — CDK 배포 시 필요한 모든 환경 변수를
+  한 파일에 모아서 `cp .env.deploy.example .env.deploy` →
+  `set -a; source .env.deploy; set +a` → `cdk deploy` 순서로 배포할 수
+  있게 함. `.env.deploy`는 `.gitignore`에 포함되어 계정별 값이
+  커밋되지 않음.
+
+### 수정됨
+
+- 대시보드 API 라우트(`/api/users`, `/api/trends`, `/api/credits`,
+  `/api/engagement`, `/api/productivity`, `/api/metrics`, `/api/client-dist`)
+  가 Glue 테이블이 아직 프로비저닝되지 않았을 때 더 이상 500을 내지
+  않음. `isMissingTableError` 헬퍼로 감지해 200 + 빈 payload를 반환하여
+  새 계정에서도 "Application error" 크래시 대신 빈 표로 렌더링됨.
+- `app/users/page.tsx`, `app/trends/page.tsx`에 `Array.isArray` 가드 추가 —
+  향후 어떤 라우트가 `{ error }` 객체를 반환해도 `.map()` TypeError를
+  일으키지 않도록 방어선 강화.
 
 ## [1.1.0] - 2026-04-24
 

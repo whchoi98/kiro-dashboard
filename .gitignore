@@ -10,3 +10,4 @@ cdk.context.json
 .env.local
 .env.production
 .env*.local
+.env.deploy

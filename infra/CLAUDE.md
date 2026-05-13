@@ -13,6 +13,7 @@ AWS CDK TypeScript로 정의된 kiro-dashboard 인프라. 5개의 스택으로 �
 | `KiroDashboardEcs` | `lib/ecs-stack.ts` | ap-northeast-2 | ECR repo, ECS cluster, Fargate task, ALB |
 | `KiroDashboardCdn` | `lib/cdn-stack.ts` | ap-northeast-2 | CloudFront + Lambda@Edge + SSM config + Cognito callback |
 | `KiroDashboardEdgeLambda` | _(auto-generated)_ | us-east-1 | Lambda@Edge function (created by `cloudfront.experimental.EdgeFunction`) |
+| `KiroDashboardCatalog` | `lib/catalog-stack.ts` | ap-northeast-2 | **Opt-in.** Glue database + `user_report` table over a fork-owned S3 bucket. Only instantiated when `ATHENA_DATA_BUCKET_NAME` is set — maintainer deploys keep their existing 5-stack topology. |
 
 ## Deployment Order
 
