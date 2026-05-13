@@ -7,6 +7,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+  modulePaths: ['<rootDir>/infra/node_modules'],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       diagnostics: false,

@@ -24,12 +24,26 @@ const securityStack = new SecurityStack(app, 'KiroDashboardSecurity', {
   vpc: networkStack.vpc,
 });
 
+// Dashboard overrides: unset → upstream maintainer defaults (back-compat).
+// Forks/operators set these to point the task at their own bucket / catalog.
+const dashboardOverrides = {
+  athenaResultsBucket: process.env.ATHENA_RESULTS_BUCKET_NAME,
+  athenaResultsPrefix: process.env.ATHENA_RESULTS_PREFIX,
+  athenaDatabase: process.env.ATHENA_DATABASE_NAME,
+  glueTableName: process.env.GLUE_TABLE_NAME_OVERRIDE,
+  identityStoreId: process.env.IDENTITY_STORE_ID,
+  s3ReportPrefix: process.env.S3_REPORT_PREFIX,
+  athenaDataBucket: process.env.ATHENA_DATA_BUCKET_NAME,
+};
+const hasDashboardOverride = Object.values(dashboardOverrides).some((v) => v !== undefined);
+
 const ecsStack = new EcsStack(app, 'KiroDashboardEcs', {
   env,
   description: 'Kiro Dashboard - ECS Fargate, ALB, Auto Scaling',
   vpc: networkStack.vpc,
   albSg: securityStack.albSg,
   ecsSg: securityStack.ecsSg,
+  dashboard: hasDashboardOverride ? dashboardOverrides : undefined,
 });
 
 new CdnStack(app, 'KiroDashboardCdn', {

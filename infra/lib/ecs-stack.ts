@@ -9,10 +9,33 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
+/**
+ * Optional dashboard configuration. When provided, the ECS task's environment
+ * variables, S3 IAM scope, and Glue IAM scope are overridden so a fork can
+ * point at its own account's Kiro User Activity Report bucket / Glue catalog.
+ * When undefined, the upstream maintainer defaults are used unchanged — a
+ * fresh `cdk deploy` on the maintainer's account continues to work.
+ */
+export interface EcsDashboardConfig {
+  athenaResultsBucket?: string;
+  athenaResultsPrefix?: string;
+  athenaDatabase?: string;
+  glueTableName?: string;
+  identityStoreId?: string;
+  s3ReportPrefix?: string;
+  /**
+   * Separate bucket holding the Kiro User Activity Report CSV files. Usually
+   * the same as `athenaResultsBucket`; only set when the data bucket differs
+   * from the Athena query-results bucket. When set, it is granted S3 read IAM.
+   */
+  athenaDataBucket?: string;
+}
+
 export interface EcsStackProps extends cdk.StackProps {
   vpc: ec2.IVpc;
   albSg: ec2.SecurityGroup;
   ecsSg: ec2.SecurityGroup;
+  dashboard?: EcsDashboardConfig;
 }
 
 export class EcsStack extends cdk.Stack {
@@ -46,8 +69,27 @@ export class EcsStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    const athenaResultsBucket = 'whchoi01-titan-q-log';
-    const athenaResultsPrefix = 'athena-results';
+    // Maintainer defaults — unchanged when no dashboard config is provided.
+    // Fork/operator-specific overrides flow in through `props.dashboard`.
+    const athenaResultsBucket = props.dashboard?.athenaResultsBucket ?? 'whchoi01-titan-q-log';
+    const athenaResultsPrefix = props.dashboard?.athenaResultsPrefix ?? 'athena-results';
+    const athenaDatabase = props.dashboard?.athenaDatabase ?? 'titanlog';
+    const glueTableName = props.dashboard?.glueTableName ?? 'user_report';
+    const identityStoreId = props.dashboard?.identityStoreId ?? 'd-90663be888';
+    const s3ReportPrefix =
+      props.dashboard?.s3ReportPrefix ?? 'q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/';
+    const athenaDataBucket = props.dashboard?.athenaDataBucket;
+
+    const s3ReadResources = [
+      `arn:aws:s3:::${athenaResultsBucket}`,
+      `arn:aws:s3:::${athenaResultsBucket}/*`,
+    ];
+    if (athenaDataBucket && athenaDataBucket !== athenaResultsBucket) {
+      s3ReadResources.push(
+        `arn:aws:s3:::${athenaDataBucket}`,
+        `arn:aws:s3:::${athenaDataBucket}/*`,
+      );
+    }
 
     const taskRole = new iam.Role(this, 'TaskRole', {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -70,10 +112,7 @@ export class EcsStack extends cdk.Stack {
           statements: [
             new iam.PolicyStatement({
               actions: ['s3:GetObject', 's3:ListBucket', 's3:GetBucketLocation'],
-              resources: [
-                `arn:aws:s3:::${athenaResultsBucket}`,
-                `arn:aws:s3:::${athenaResultsBucket}/*`,
-              ],
+              resources: s3ReadResources,
             }),
             new iam.PolicyStatement({
               actions: ['s3:PutObject', 's3:GetObject'],
@@ -94,8 +133,8 @@ export class EcsStack extends cdk.Stack {
               ],
               resources: [
                 `arn:aws:glue:*:${this.account}:catalog`,
-                `arn:aws:glue:*:${this.account}:database/titanlog`,
-                `arn:aws:glue:*:${this.account}:table/titanlog/*`,
+                `arn:aws:glue:*:${this.account}:database/${athenaDatabase}`,
+                `arn:aws:glue:*:${this.account}:table/${athenaDatabase}/*`,
               ],
             }),
           ],
@@ -149,11 +188,11 @@ export class EcsStack extends cdk.Stack {
       environment: {
         HOSTNAME: '0.0.0.0',
         AWS_REGION: 'us-east-1',
-        ATHENA_DATABASE: 'titanlog',
-        ATHENA_OUTPUT_BUCKET: 's3://whchoi01-titan-q-log/athena-results/',
-        GLUE_TABLE_NAME: 'user_report',
-        IDENTITY_STORE_ID: 'd-90663be888',
-        S3_REPORT_PREFIX: 'q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/',
+        ATHENA_DATABASE: athenaDatabase,
+        ATHENA_OUTPUT_BUCKET: `s3://${athenaResultsBucket}/${athenaResultsPrefix}/`,
+        GLUE_TABLE_NAME: glueTableName,
+        IDENTITY_STORE_ID: identityStoreId,
+        S3_REPORT_PREFIX: s3ReportPrefix,
         NEXTAUTH_URL: '',
       },
       secrets: {
