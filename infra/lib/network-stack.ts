@@ -8,9 +8,19 @@ export class NetworkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const useExistingVpc = this.node.tryGetContext('useExistingVpc') === 'true';
-    const vpcId: string = this.node.tryGetContext('vpcId') ?? '';
-    const vpcCidr: string = this.node.tryGetContext('vpcCidr') ?? '10.254.0.0/16';
+    // Env vars take precedence over cdk.json context so operators can point
+    // at their own VPC without editing the checked-in config. Treat empty
+    // strings as "not provided" so a fresh clone that doesn't set anything
+    // still falls through to the "create a new VPC" branch instead of
+    // attempting a doomed lookup for a blank ID.
+    const envVpcId = (process.env.EXISTING_VPC_ID ?? '').trim();
+    const envVpcCidr = (process.env.VPC_CIDR ?? '').trim();
+    const contextVpcId = (this.node.tryGetContext('vpcId') ?? '').trim();
+    const contextVpcCidr = (this.node.tryGetContext('vpcCidr') ?? '').trim();
+    const vpcId = envVpcId || contextVpcId;
+    const vpcCidr = envVpcCidr || contextVpcCidr || '10.254.0.0/16';
+    const useExistingVpc =
+      Boolean(envVpcId) || this.node.tryGetContext('useExistingVpc') === 'true';
 
     if (useExistingVpc && vpcId) {
       this.vpc = ec2.Vpc.fromLookup(this, 'Vpc', { vpcId });

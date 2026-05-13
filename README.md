@@ -158,6 +158,8 @@ account. Omit them to keep the upstream maintainer defaults.
 | `GLUE_TABLE_NAME_OVERRIDE` | Glue table name | `KiroDashboardCatalog` |
 | `S3_REPORT_PREFIX` | S3 prefix under the data bucket | `KiroDashboardCatalog` |
 | `IDENTITY_STORE_ID` | IAM Identity Center store ID | — |
+| `EXISTING_VPC_ID` | Reuse an existing VPC instead of creating a fresh one | `KiroDashboardNetwork` |
+| `VPC_CIDR` | CIDR block used when creating a new VPC | `KiroDashboardNetwork` |
 
 When `ATHENA_DATA_BUCKET_NAME` is set, a 6th CDK stack —
 `KiroDashboardCatalog` — is instantiated. It creates the Glue database
@@ -413,6 +415,8 @@ export 하세요. 지정하지 않으면 업스트림 메인테이너 기본값�
 | `GLUE_TABLE_NAME_OVERRIDE` | Glue 테이블 이름 | `KiroDashboardCatalog` |
 | `S3_REPORT_PREFIX` | 데이터 버킷 내 프리픽스 | `KiroDashboardCatalog` |
 | `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | — |
+| `EXISTING_VPC_ID` | 새 VPC를 만들지 않고 기존 VPC를 재사용할 때 지정 | `KiroDashboardNetwork` |
+| `VPC_CIDR` | 새 VPC 생성 시 사용할 CIDR 블록 | `KiroDashboardNetwork` |
 
 `ATHENA_DATA_BUCKET_NAME`을 설정하면 6번째 CDK 스택인
 `KiroDashboardCatalog`가 인스턴스화됩니다. 이 스택은

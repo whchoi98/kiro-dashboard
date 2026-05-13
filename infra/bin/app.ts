@@ -7,6 +7,11 @@ import { EcsStack } from '../lib/ecs-stack';
 import { CdnStack } from '../lib/cdn-stack';
 import { CatalogStack } from '../lib/catalog-stack';
 
+// NetworkStack reads `EXISTING_VPC_ID` / `VPC_CIDR` directly from
+// `process.env`, so fork operators can reuse an existing VPC without
+// editing `cdk.json`. Leaving both unset falls through to "create a
+// fresh VPC" which is what a first-time `cdk deploy` on a new account
+// expects.
 const app = new cdk.App();
 
 const env = {

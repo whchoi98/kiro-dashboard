@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New regression test `tests/api/hardcode-audit.test.ts` fails the CI if
   any runtime file under `app/` or `lib/` mentions the maintainer bucket
   or account id again.
+- `infra/cdk.json` no longer hardcodes `useExistingVpc=true` /
+  `vpcId=vpc-005338aca7ac5fb96` (maintainer's VPC). Default is now
+  "create a fresh 10.254.0.0/16 VPC" so a fresh-account `cdk deploy`
+  no longer fails VPC lookup. Operators that want to reuse an
+  existing VPC can set `EXISTING_VPC_ID` / `VPC_CIDR` — `bin/app.ts`
+  feeds them into CDK context.
 
 ## [1.1.0] - 2026-04-24
 
@@ -179,6 +185,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tests/api/hardcode-audit.test.ts` 회귀 가드 추가 — `app/`, `lib/`
   하위의 런타임 코드에 메인테이너 버킷/계정 ID가 다시 들어가면
   CI가 실패함.
+- `infra/cdk.json`의 `useExistingVpc=true` / `vpcId=vpc-005338aca7ac5fb96`
+  메인테이너 VPC 하드코딩 제거. 기본값은 "새 VPC 생성"(10.254.0.0/16)
+  으로 바뀌어 fresh 계정의 `cdk deploy`가 VPC lookup 실패 없이 성공.
+  기존 VPC 재사용은 `EXISTING_VPC_ID` / `VPC_CIDR` 환경 변수로 지정
+  (`bin/app.ts`가 CDK context로 주입).
 
 ## [1.1.0] - 2026-04-24
 
