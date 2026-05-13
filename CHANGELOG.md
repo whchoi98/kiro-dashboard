@@ -42,6 +42,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `app/users/page.tsx` and `app/trends/page.tsx` additionally gained
   `Array.isArray` guards around API responses to prevent `.map()` TypeErrors
   if any future route regresses to returning `{ error }`.
+- `app/api/analyze/route.ts` system prompt no longer embeds the maintainer's
+  `whchoi01-titan-q-log` bucket or `d-90663be888` IdC store. It now reads
+  `ATHENA_DATABASE` + `ATHENA_OUTPUT_BUCKET` from the environment and tells
+  the LLM to normalize any `d-xxxxxxxxxxxx.` prefix generically.
+- `app/api/model-usage/route.ts` no longer falls back to the maintainer's
+  `q-user-log/AWSLogs/120443221648/...` prefix when `S3_REPORT_PREFIX` is
+  unset. Missing bucket/prefix now returns an empty-but-valid payload
+  instead of issuing S3 calls against the wrong account.
+- New regression test `tests/api/hardcode-audit.test.ts` fails the CI if
+  any runtime file under `app/` or `lib/` mentions the maintainer bucket
+  or account id again.
 
 ## [1.1.0] - 2026-04-24
 
@@ -157,6 +168,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `app/users/page.tsx`, `app/trends/page.tsx`에 `Array.isArray` 가드 추가 —
   향후 어떤 라우트가 `{ error }` 객체를 반환해도 `.map()` TypeError를
   일으키지 않도록 방어선 강화.
+- `app/api/analyze/route.ts`의 Bedrock 시스템 프롬프트에서 메인테이너
+  버킷 `whchoi01-titan-q-log`와 IdC 스토어 `d-90663be888` 하드코딩 제거.
+  이제 `ATHENA_DATABASE` / `ATHENA_OUTPUT_BUCKET` 환경 변수를 읽어
+  구성하며, UserId 프리픽스 패턴도 `d-xxxxxxxxxxxx.` 로 일반화.
+- `app/api/model-usage/route.ts`가 `S3_REPORT_PREFIX` 미설정 시 메인테이너의
+  `q-user-log/AWSLogs/120443221648/...` 경로로 폴백하던 동작 제거. 대신
+  버킷/프리픽스가 비어 있으면 빈 payload를 반환하여 엉뚱한 계정에
+  S3 요청이 나가는 상황을 원천 차단.
+- `tests/api/hardcode-audit.test.ts` 회귀 가드 추가 — `app/`, `lib/`
+  하위의 런타임 코드에 메인테이너 버킷/계정 ID가 다시 들어가면
+  CI가 실패함.
 
 ## [1.1.0] - 2026-04-24
 

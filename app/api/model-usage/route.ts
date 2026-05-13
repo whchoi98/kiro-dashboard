@@ -4,11 +4,19 @@ import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
 import { ModelUsageData, ModelDistribution, ModelTrendPoint, ModelUserPreference } from '@/types/dashboard';
 
+// The response depends on the live contents of the Kiro UAR S3 prefix, which
+// grows daily. Next.js 14's default for GET route handlers caches forever
+// (and caches the first response even if it's an empty payload returned
+// from the guard below). Force every request to run the handler so
+// operators don't see a "model-usage is empty" from a stale cache.
+export const dynamic = 'force-dynamic';
+
 const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
 const BUCKET = (process.env.ATHENA_OUTPUT_BUCKET || '').replace('s3://', '').split('/')[0];
-const REPORT_PREFIX = process.env.S3_REPORT_PREFIX
-  || 'q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/';
+// Must come from env — hardcoding the maintainer prefix here would cause
+// fresh accounts to issue S3 List/Get against a bucket they don't own.
+const REPORT_PREFIX = process.env.S3_REPORT_PREFIX || '';
 const USERID_PREFIX_RE = /^d-[a-z0-9]+\./;
 
 function prettifyModelName(col: string): string {
@@ -65,6 +73,16 @@ async function readCsvFromS3(key: string): Promise<string> {
 
 export async function GET(req: NextRequest) {
   try {
+    if (!BUCKET || !REPORT_PREFIX) {
+      // Fresh account that hasn't wired ATHENA_OUTPUT_BUCKET + S3_REPORT_PREFIX
+      // yet. Return a well-shaped empty payload so the /model-usage page renders
+      // as an empty table rather than crashing with S3/SDK errors.
+      console.warn('[/api/model-usage] bucket or prefix not configured — returning empty data');
+      return NextResponse.json({
+        distribution: [], trend: [], userPreferences: [], availableModels: [],
+      } satisfies ModelUsageData);
+    }
+
     const { searchParams } = new URL(req.url);
     const days = Math.min(Math.max(1, Math.ceil(parseFloat(searchParams.get('days') ?? '90'))), 180);
 
