@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
@@ -47,6 +47,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(users);
   } catch (err) {
+    if (isMissingTableError(err)) {
+      console.warn('[/api/users] table not yet provisioned — returning empty list');
+      return NextResponse.json([]);
+    }
     console.error('[/api/users] Error:', err);
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
   }

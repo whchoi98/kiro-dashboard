@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeInt, NORMALIZE_USERID } from '@/lib/athena';
+import { executeQuery, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { EngagementData, EngagementSegment, EngagementTier, FunnelStep } from '@/types/dashboard';
 
@@ -91,6 +91,10 @@ export async function GET(req: NextRequest) {
     const result: EngagementData = { segments, funnel };
     return NextResponse.json(result);
   } catch (err) {
+    if (isMissingTableError(err)) {
+      console.warn('[/api/engagement] table not yet provisioned — returning empty data');
+      return NextResponse.json({ segments: [], funnel: [] });
+    }
     console.error('[/api/engagement] Error:', err);
     return NextResponse.json({ error: 'Failed to fetch engagement data' }, { status: 500 });
   }

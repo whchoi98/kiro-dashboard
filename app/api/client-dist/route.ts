@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { ClientDistribution } from '@/types/dashboard';
 
@@ -40,6 +40,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err) {
+    if (isMissingTableError(err)) {
+      console.warn('[/api/client-dist] table not yet provisioned — returning empty list');
+      return NextResponse.json([]);
+    }
     console.error('[/api/client-dist] Error:', err);
     return NextResponse.json({ error: 'Failed to fetch client distribution' }, { status: 500 });
   }

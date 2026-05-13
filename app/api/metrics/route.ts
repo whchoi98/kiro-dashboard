@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { OverviewMetrics } from '@/types/dashboard';
 
@@ -75,6 +75,24 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(metrics);
   } catch (err) {
+    if (isMissingTableError(err)) {
+      console.warn('[/api/metrics] table not yet provisioned — returning zeros');
+      const zero: OverviewMetrics = {
+        totalUsers: 0,
+        totalMessages: 0,
+        totalConversations: 0,
+        totalCredits: 0,
+        totalOverageCredits: 0,
+        changeRates: {
+          totalUsers: 0,
+          totalMessages: 0,
+          totalConversations: 0,
+          totalCredits: 0,
+          totalOverageCredits: 0,
+        },
+      };
+      return NextResponse.json(zero);
+    }
     console.error('[/api/metrics] Error:', err);
     return NextResponse.json({ error: 'Failed to fetch metrics' }, { status: 500 });
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
@@ -81,6 +81,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(analysis);
   } catch (err) {
+    if (isMissingTableError(err)) {
+      console.warn('[/api/credits] table not yet provisioned — returning empty analysis');
+      const empty: CreditAnalysis = {
+        topUsers: [],
+        baseVsOverage: { base: 0, overage: 0 },
+        byTier: [],
+      };
+      return NextResponse.json(empty);
+    }
     console.error('[/api/credits] Error:', err);
     return NextResponse.json({ error: 'Failed to fetch credit analysis' }, { status: 500 });
   }

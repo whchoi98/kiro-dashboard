@@ -23,8 +23,11 @@ export default function UsersPage() {
     ])
       .then(([t10, t100]) => {
         if (!cancelled) {
-          setTop10(t10 ?? []);
-          setTop100(t100 ?? []);
+          // API may return `{ error: ... }` on failure — don't pass that to children
+          // that expect an array. The backend also returns an empty array when the
+          // underlying Glue table is not provisioned yet.
+          setTop10(Array.isArray(t10) ? t10 : []);
+          setTop100(Array.isArray(t100) ? t100 : []);
         }
       })
       .catch(() => {

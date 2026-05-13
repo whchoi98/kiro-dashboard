@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeInt, NORMALIZE_USERID } from '@/lib/athena';
+import { executeQuery, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
 
@@ -120,6 +120,26 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ summary, topUsers, dailyTrend });
   } catch (err) {
+    if (isMissingTableError(err)) {
+      console.warn('[/api/productivity] table not yet provisioned — returning empty data');
+      const emptySummary = {
+        activeUsers: 0,
+        chatMessages: 0,
+        aiCodeLines: 0,
+        inlineSuggestions: 0,
+        inlineAcceptances: 0,
+        inlineCodeLines: 0,
+        inlineChatSessions: 0,
+        inlineChatAccepts: 0,
+        devEvents: 0,
+        devAcceptedLines: 0,
+        codeReviewFindings: 0,
+        testsGenerated: 0,
+        testsAccepted: 0,
+        docEvents: 0,
+      };
+      return NextResponse.json({ summary: emptySummary, topUsers: [], dailyTrend: [] });
+    }
     console.error('[/api/productivity] Error:', err);
     return NextResponse.json({ error: 'Failed to fetch productivity data' }, { status: 500 });
   }

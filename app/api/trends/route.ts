@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID } from '@/lib/athena';
+import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { DailyTrend } from '@/types/dashboard';
 
@@ -35,6 +35,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(trends);
   } catch (err) {
+    if (isMissingTableError(err)) {
+      console.warn('[/api/trends] table not yet provisioned — returning empty trend');
+      return NextResponse.json([]);
+    }
     console.error('[/api/trends] Error:', err);
     return NextResponse.json({ error: 'Failed to fetch trends' }, { status: 500 });
   }

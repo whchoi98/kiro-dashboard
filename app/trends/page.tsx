@@ -16,7 +16,7 @@ export default function TrendsPage() {
     fetch(`/api/trends?days=${days}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled) setTrends(data ?? []);
+        if (!cancelled) setTrends(Array.isArray(data) ? data : []);
       })
       .catch(() => {
         // Keep existing data on error
