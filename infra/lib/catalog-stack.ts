@@ -140,11 +140,15 @@ export class CatalogStack extends cdk.Stack {
     table.addDependency(database);
 
     // Legacy by_user_analytic table — feeds /api/productivity. Delivered by
-    // Kiro as a sibling of user_report under KiroLogs/.
+    // Kiro as a sibling of user_report under KiroLogs/. Match the bounded
+    // /user_report/ path segment — a bare substring match would rewrite
+    // unrelated segments like "team-user_reports/" and silently point the
+    // table at a prefix that doesn't exist.
+    const userReportSegment = /(^|\/)user_report(\/)/;
     const byUserAnalyticPrefix =
       props.byUserAnalyticPrefix ??
-      (props.reportPrefix.includes('user_report')
-        ? props.reportPrefix.replace('user_report', 'by_user_analytic')
+      (userReportSegment.test(props.reportPrefix)
+        ? props.reportPrefix.replace(userReportSegment, '$1by_user_analytic$2')
         : undefined);
 
     if (byUserAnalyticPrefix) {

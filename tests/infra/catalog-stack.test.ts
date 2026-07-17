@@ -147,4 +147,30 @@ describe('CatalogStack — legacy by_user_analytic table', () => {
     const template = synthCatalog({ reportPrefix: 'my/custom/prefix/' });
     template.resourceCountIs('AWS::Glue::Table', 1);
   });
+
+  it('replaces the user_report PATH SEGMENT, not the first substring occurrence', () => {
+    // A prefix whose earlier segment merely contains the substring
+    // (team-user_reports) must not be rewritten — only the real
+    // /user_report/ path segment swaps.
+    const template = synthCatalog({
+      reportPrefix: 'team-user_reports/KiroLogs/user_report/us-east-1/',
+    });
+    template.hasResourceProperties('AWS::Glue::Table', {
+      TableInput: Match.objectLike({
+        Name: 'by_user_analytic',
+        StorageDescriptor: Match.objectLike({
+          Location:
+            's3://my-kiro-logs-bucket/team-user_reports/KiroLogs/by_user_analytic/us-east-1/',
+        }),
+      }),
+    });
+  });
+
+  it('skips the legacy table when user_report appears only inside another segment', () => {
+    // 'kiro-user_reports' contains the substring but is not a user_report
+    // path segment — deriving here would point the table at a nonexistent
+    // prefix, so the stack must fall back to skip-with-warning instead.
+    const template = synthCatalog({ reportPrefix: 'exports/kiro-user_reports/us-east-1/' });
+    template.resourceCountIs('AWS::Glue::Table', 1);
+  });
 });

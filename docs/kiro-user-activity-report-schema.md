@@ -40,7 +40,7 @@
 | 7 | `Overage_Credits_Used` | double | 사용자가 사용한 총 초과 크레딧 |
 | 8 | `Overage_Enabled` | string | 초과 사용 활성화 여부 (`true`/`false`) |
 | 9 | `ProfileId` | string | 사용자 활동과 연결된 프로필 |
-| 10 | `Subscription_Tier` | string | Kiro 구독 플랜: `Pro`, `ProPlus`, `Power` |
+| 10 | `Subscription_Tier` | string | Kiro 구독 플랜: `Pro`, `ProPlus`, `ProMax`, `Power` (`ProMax`는 공식 문서 기준 — 현재 S3 데이터에서는 미확인) |
 | 11 | `Total_Messages` | integer | Kiro와 주고받은 총 메시지 수 (사용자 프롬프트 + 툴 콜 + Kiro 응답 포함) |
 
 ### A-2. 동적 모델 컬럼 (2026-03-12~)

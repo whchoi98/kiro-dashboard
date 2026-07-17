@@ -110,10 +110,10 @@ cd infra
 npx cdk bootstrap
 npx cdk deploy --all
 # Setting ATHENA_DATA_BUCKET_NAME also triggers the opt-in
-# `KiroDashboardCatalog` stack which registers the `titanlog.user_report`
-# Glue table over your S3 prefix — a fresh account now boots without a
-# manual Glue crawler. `.env.deploy` is git-ignored so your account
-# values never get committed.
+# `KiroDashboardCatalog` stack which registers the `user_report` and
+# legacy `by_user_analytic` Glue tables over your S3 prefixes — a fresh
+# account now boots without a manual Glue crawler. `.env.deploy` is
+# git-ignored so your account values never get committed.
 
 # Build and push Docker image
 docker build -t kiro-dashboard .
@@ -142,7 +142,8 @@ vars listed in the next table before running `npx cdk deploy`.
 | `ATHENA_OUTPUT_BUCKET` | S3 path for Athena query results | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | Primary Glue table name | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center store ID | `d-90663be888` |
-| `S3_REPORT_PREFIX` | S3 prefix for user_report CSV files | `q-user-log/AWSLogs/.../user_report/us-east-1/` |
+| `S3_REPORT_PREFIX` | S3 prefix for user_report CSV files | `q-user-log/AWSLogs/<deploy-account>/user_report/us-east-1/` (account-derived) |
+| `S3_DATA_BUCKET` | UAR data bucket for `/api/model-usage` | only set when `ATHENA_DATA_BUCKET_NAME` is configured (two-bucket setups) |
 
 ### CDK-time overrides (read by `infra/bin/app.ts`)
 
@@ -157,6 +158,7 @@ account. Omit them to keep the upstream maintainer defaults.
 | `ATHENA_DATABASE_NAME` | Glue database name | `KiroDashboardCatalog` |
 | `GLUE_TABLE_NAME_OVERRIDE` | Glue table name | `KiroDashboardCatalog` |
 | `S3_REPORT_PREFIX` | S3 prefix under the data bucket | `KiroDashboardCatalog` |
+| `BY_USER_ANALYTIC_PREFIX` | Prefix of the legacy `by_user_analytic` report (default: derived from `S3_REPORT_PREFIX`) | `KiroDashboardCatalog` |
 | `IDENTITY_STORE_ID` | IAM Identity Center store ID | — |
 | `EXISTING_VPC_ID` | Reuse an existing VPC instead of creating a fresh one | `KiroDashboardNetwork` |
 | `VPC_CIDR` | CIDR block used when creating a new VPC | `KiroDashboardNetwork` |
@@ -170,12 +172,15 @@ account. Omit them to keep the upstream maintainer defaults.
 > about to create a new VPC.
 
 When `ATHENA_DATA_BUCKET_NAME` is set, a 6th CDK stack —
-`KiroDashboardCatalog` — is instantiated. It creates the Glue database
-and the `user_report` external table with the 11 fixed columns documented
-in `docs/kiro-user-activity-report-schema.md`. If you'd rather manage the
-catalog outside CDK, the same DDL lives in
-`infra/sql/user-report-table.sql` (substitute `<DATA_BUCKET>` /
-`<REPORT_PREFIX>` and run in Athena).
+`KiroDashboardCatalog` — is instantiated. It creates the Glue database,
+the `user_report` external table (11 fixed columns), and the legacy
+`by_user_analytic` table (46 columns, feeds `/productivity`), all
+documented in `docs/kiro-user-activity-report-schema.md`. The
+`by_user_analytic` S3 prefix is derived by swapping the `user_report`
+path segment in `S3_REPORT_PREFIX`, or set explicitly via
+`BY_USER_ANALYTIC_PREFIX`. If you'd rather manage the catalog outside
+CDK, the `user_report` DDL lives in `infra/sql/user-report-table.sql`
+(substitute `<DATA_BUCKET>` / `<REPORT_PREFIX>` and run in Athena).
 
 ### Empty-state behaviour
 
@@ -375,10 +380,10 @@ cd infra
 npx cdk bootstrap
 npx cdk deploy --all
 # `ATHENA_DATA_BUCKET_NAME`을 설정하면 옵트-인 스택인
-# `KiroDashboardCatalog`도 생성되어 `titanlog.user_report` Glue 테이블이
-# 자신의 S3 프리픽스 위에 등록됩니다. 별도 Glue 크롤러 없이 바로
-# 동작합니다. `.env.deploy`는 git 추적에서 제외되므로 계정별 값이
-# 커밋되지 않습니다.
+# `KiroDashboardCatalog`도 생성되어 `user_report`와 레거시
+# `by_user_analytic` Glue 테이블이 자신의 S3 프리픽스 위에 등록됩니다.
+# 별도 Glue 크롤러 없이 바로 동작합니다. `.env.deploy`는 git 추적에서
+# 제외되므로 계정별 값이 커밋되지 않습니다.
 
 # Docker 이미지 빌드 및 푸시
 docker build -t kiro-dashboard .
@@ -407,7 +412,8 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 | `ATHENA_OUTPUT_BUCKET` | Athena 쿼리 결과 S3 경로 | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | 기본 Glue 테이블 이름 | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | `d-90663be888` |
-| `S3_REPORT_PREFIX` | user_report CSV 파일 S3 경로 프리픽스 | `q-user-log/AWSLogs/.../user_report/us-east-1/` |
+| `S3_REPORT_PREFIX` | user_report CSV 파일 S3 경로 프리픽스 | `q-user-log/AWSLogs/<배포 계정>/user_report/us-east-1/` (계정에서 자동 유도) |
+| `S3_DATA_BUCKET` | `/api/model-usage`가 읽는 UAR 데이터 버킷 | `ATHENA_DATA_BUCKET_NAME` 설정 시에만 주입 (버킷 분리 구성용) |
 
 ### CDK 배포 시 오버라이드 (`infra/bin/app.ts`가 읽음)
 
@@ -422,6 +428,7 @@ export 하세요. 지정하지 않으면 업스트림 메인테이너 기본값�
 | `ATHENA_DATABASE_NAME` | Glue 데이터베이스 이름 | `KiroDashboardCatalog` |
 | `GLUE_TABLE_NAME_OVERRIDE` | Glue 테이블 이름 | `KiroDashboardCatalog` |
 | `S3_REPORT_PREFIX` | 데이터 버킷 내 프리픽스 | `KiroDashboardCatalog` |
+| `BY_USER_ANALYTIC_PREFIX` | 레거시 `by_user_analytic` 리포트 프리픽스 (기본: `S3_REPORT_PREFIX`에서 유도) | `KiroDashboardCatalog` |
 | `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | — |
 | `EXISTING_VPC_ID` | 새 VPC를 만들지 않고 기존 VPC를 재사용할 때 지정 | `KiroDashboardNetwork` |
 | `VPC_CIDR` | 새 VPC 생성 시 사용할 CIDR 블록 | `KiroDashboardNetwork` |
@@ -435,11 +442,15 @@ export 하세요. 지정하지 않으면 업스트림 메인테이너 기본값�
 
 `ATHENA_DATA_BUCKET_NAME`을 설정하면 6번째 CDK 스택인
 `KiroDashboardCatalog`가 인스턴스화됩니다. 이 스택은
-`docs/kiro-user-activity-report-schema.md`에 정의된 11개 고정 컬럼으로
-Glue 데이터베이스와 `user_report` 외부 테이블을 생성합니다. 카탈로그를
-CDK 바깥에서 관리하고 싶다면 동일한 DDL이
-`infra/sql/user-report-table.sql`에 있으니 `<DATA_BUCKET>` /
-`<REPORT_PREFIX>`를 치환해 Athena에서 직접 실행하면 됩니다.
+`docs/kiro-user-activity-report-schema.md`에 정의된 스키마대로 Glue
+데이터베이스, `user_report` 외부 테이블(고정 11컬럼), 그리고
+`/productivity`가 사용하는 레거시 `by_user_analytic` 테이블(46컬럼)을
+생성합니다. `by_user_analytic` 프리픽스는 `S3_REPORT_PREFIX`의
+`user_report` 경로 세그먼트를 치환해 유도하며, `BY_USER_ANALYTIC_PREFIX`로
+직접 지정할 수도 있습니다. 카탈로그를 CDK 바깥에서 관리하고 싶다면
+`user_report` DDL이 `infra/sql/user-report-table.sql`에 있으니
+`<DATA_BUCKET>` / `<REPORT_PREFIX>`를 치환해 Athena에서 직접 실행하면
+됩니다.
 
 ### 데이터 없음(empty-state) 동작
 
