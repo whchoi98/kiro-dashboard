@@ -67,12 +67,13 @@ if (process.env.ATHENA_DATA_BUCKET_NAME) {
   const catalogRegion = process.env.ATHENA_REGION ?? 'us-east-1';
   new CatalogStack(app, 'KiroDashboardCatalog', {
     env: { account: env.account, region: catalogRegion },
-    description: 'Kiro Dashboard - Glue Data Catalog (user_report)',
+    description: 'Kiro Dashboard - Glue Data Catalog (user_report + by_user_analytic)',
     databaseName: process.env.ATHENA_DATABASE_NAME ?? 'titanlog',
     tableName: process.env.GLUE_TABLE_NAME_OVERRIDE ?? 'user_report',
     dataBucket: process.env.ATHENA_DATA_BUCKET_NAME,
     reportPrefix:
       process.env.S3_REPORT_PREFIX ?? `q-user-log/AWSLogs/${env.account}/KiroLogs/user_report/us-east-1/`,
+    byUserAnalyticPrefix: process.env.BY_USER_ANALYTIC_PREFIX,
   });
 }
 

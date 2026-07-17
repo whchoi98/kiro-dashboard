@@ -7,6 +7,7 @@ function synthCatalog(overrides?: {
   tableName?: string;
   dataBucket?: string;
   reportPrefix?: string;
+  byUserAnalyticPrefix?: string;
 }) {
   const app = new cdk.App();
   const stack = new CatalogStack(app, 'KiroDashboardCatalog', {
@@ -17,6 +18,7 @@ function synthCatalog(overrides?: {
     tableName: overrides?.tableName ?? 'user_report',
     dataBucket: overrides?.dataBucket ?? 'my-kiro-logs-bucket',
     reportPrefix: overrides?.reportPrefix ?? 'q-user-log/AWSLogs/111111111111/KiroLogs/user_report/us-east-1/',
+    byUserAnalyticPrefix: overrides?.byUserAnalyticPrefix,
   });
   return Template.fromStack(stack);
 }
@@ -90,5 +92,59 @@ describe('CatalogStack', () => {
         }),
       }),
     });
+  });
+});
+
+describe('CatalogStack — legacy by_user_analytic table', () => {
+  // /productivity queries by_user_analytic; without this table a fresh
+  // account renders that page permanently empty even after CSVs arrive.
+
+  it('provisions by_user_analytic with the 46 documented columns, gated on the database', () => {
+    const template = synthCatalog();
+    template.resourceCountIs('AWS::Glue::Table', 2);
+
+    const tables = template.findResources('AWS::Glue::Table');
+    const byUser = Object.values(tables).find(
+      (t: any) => t.Properties.TableInput.Name === 'by_user_analytic',
+    ) as any;
+    expect(byUser).toBeDefined();
+
+    const columns = byUser.Properties.TableInput.StorageDescriptor.Columns;
+    expect(columns).toHaveLength(46);
+    expect(columns[0]).toEqual({ Name: 'userid', Type: 'string' });
+    expect(columns[1]).toEqual({ Name: 'date', Type: 'string' });
+    expect(byUser.DependsOn).toContain('Database');
+  });
+
+  it('derives the by_user_analytic S3 location from the user_report prefix', () => {
+    // Kiro delivers the legacy report as a sibling of user_report:
+    // .../KiroLogs/user_report/<region>/ → .../KiroLogs/by_user_analytic/<region>/
+    const template = synthCatalog();
+    template.hasResourceProperties('AWS::Glue::Table', {
+      TableInput: Match.objectLike({
+        Name: 'by_user_analytic',
+        StorageDescriptor: Match.objectLike({
+          Location:
+            's3://my-kiro-logs-bucket/q-user-log/AWSLogs/111111111111/KiroLogs/by_user_analytic/us-east-1/',
+        }),
+      }),
+    });
+  });
+
+  it('honors an explicit byUserAnalyticPrefix over derivation', () => {
+    const template = synthCatalog({ byUserAnalyticPrefix: 'legacy/reports/' });
+    template.hasResourceProperties('AWS::Glue::Table', {
+      TableInput: Match.objectLike({
+        Name: 'by_user_analytic',
+        StorageDescriptor: Match.objectLike({
+          Location: 's3://my-kiro-logs-bucket/legacy/reports/',
+        }),
+      }),
+    });
+  });
+
+  it('skips the legacy table when the location cannot be derived from a custom prefix', () => {
+    const template = synthCatalog({ reportPrefix: 'my/custom/prefix/' });
+    template.resourceCountIs('AWS::Glue::Table', 1);
   });
 });

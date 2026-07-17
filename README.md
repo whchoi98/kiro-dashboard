@@ -161,6 +161,14 @@ account. Omit them to keep the upstream maintainer defaults.
 | `EXISTING_VPC_ID` | Reuse an existing VPC instead of creating a fresh one | `KiroDashboardNetwork` |
 | `VPC_CIDR` | CIDR block used when creating a new VPC | `KiroDashboardNetwork` |
 
+> **⚠ Redeploying an existing environment?** Deployments created before the
+> VPC default changed (including the upstream maintainer environment, which
+> imported an existing VPC via `cdk.json`) **must** set `EXISTING_VPC_ID` to
+> their current VPC id. Without it, `cdk deploy` now synthesizes a brand-new
+> VPC and forces replacement of the ALB/ECS/CloudFront resources attached to
+> the old one. `NetworkStack` prints a synth-time warning whenever it is
+> about to create a new VPC.
+
 When `ATHENA_DATA_BUCKET_NAME` is set, a 6th CDK stack —
 `KiroDashboardCatalog` — is instantiated. It creates the Glue database
 and the `user_report` external table with the 11 fixed columns documented
@@ -417,6 +425,13 @@ export 하세요. 지정하지 않으면 업스트림 메인테이너 기본값�
 | `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | — |
 | `EXISTING_VPC_ID` | 새 VPC를 만들지 않고 기존 VPC를 재사용할 때 지정 | `KiroDashboardNetwork` |
 | `VPC_CIDR` | 새 VPC 생성 시 사용할 CIDR 블록 | `KiroDashboardNetwork` |
+
+> **⚠ 기존 환경을 재배포하나요?** VPC 기본값이 바뀌기 전에 배포된 환경
+> (`cdk.json`으로 기존 VPC를 가져오던 업스트림 메인테이너 환경 포함)은
+> **반드시** `EXISTING_VPC_ID`에 현재 VPC id를 설정해야 합니다. 설정하지
+> 않으면 `cdk deploy`가 새 VPC를 합성해 기존 VPC에 붙어 있던
+> ALB/ECS/CloudFront 리소스의 교체를 강제합니다. `NetworkStack`은 새 VPC를
+> 만들기 직전 synth 단계에서 경고를 출력합니다.
 
 `ATHENA_DATA_BUCKET_NAME`을 설정하면 6번째 CDK 스택인
 `KiroDashboardCatalog`가 인스턴스화됩니다. 이 스택은

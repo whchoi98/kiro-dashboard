@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Annotations, Match, Template } from 'aws-cdk-lib/assertions';
 import { NetworkStack } from '../../infra/lib/network-stack';
 
 function synth(options?: { vpcCidr?: string; envVpcCidr?: string }) {
@@ -53,5 +53,21 @@ describe('NetworkStack — default (fresh account)', () => {
     const template = synth();
     // Three interface endpoints: SSM, SSM_MESSAGES, EC2_MESSAGES
     template.resourceCountIs('AWS::EC2::VPCEndpoint', 3);
+  });
+
+  it('emits a synth-time warning naming EXISTING_VPC_ID when a new VPC will be created', () => {
+    // An operator whose environment previously imported an existing VPC (the
+    // upstream maintainer deployment) would otherwise replace their entire
+    // network layer on the next deploy without any signal at synth time.
+    delete process.env.EXISTING_VPC_ID;
+    delete process.env.VPC_CIDR;
+    const app = new cdk.App({
+      context: { useExistingVpc: 'false', vpcId: '', vpcCidr: '' },
+    });
+    const stack = new NetworkStack(app, 'KiroDashboardNetwork', {
+      env: { account: '111111111111', region: 'ap-northeast-2' },
+    });
+
+    Annotations.fromStack(stack).hasWarning('*', Match.stringLikeRegexp('EXISTING_VPC_ID'));
   });
 });

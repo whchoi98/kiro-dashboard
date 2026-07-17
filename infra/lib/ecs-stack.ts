@@ -71,13 +71,23 @@ export class EcsStack extends cdk.Stack {
 
     // Maintainer defaults — unchanged when no dashboard config is provided.
     // Fork/operator-specific overrides flow in through `props.dashboard`.
-    const athenaResultsBucket = props.dashboard?.athenaResultsBucket ?? 'whchoi01-titan-q-log';
+    // When only the data bucket is overridden, Athena results default into
+    // that same bucket (the buckets are usually one and the same) rather
+    // than the maintainer's bucket, which a fork account cannot write to.
+    const athenaResultsBucket =
+      props.dashboard?.athenaResultsBucket ??
+      props.dashboard?.athenaDataBucket ??
+      'whchoi01-titan-q-log';
     const athenaResultsPrefix = props.dashboard?.athenaResultsPrefix ?? 'athena-results';
     const athenaDatabase = props.dashboard?.athenaDatabase ?? 'titanlog';
     const glueTableName = props.dashboard?.glueTableName ?? 'user_report';
     const identityStoreId = props.dashboard?.identityStoreId ?? 'd-90663be888';
+    // Kiro delivers UAR CSVs under AWSLogs/<subscriber-account>/, which is
+    // always the account being deployed to — on the maintainer account this
+    // resolves to the exact former hardcoded value, and on forks it matches
+    // the CatalogStack reportPrefix default computed in bin/app.ts.
     const s3ReportPrefix =
-      props.dashboard?.s3ReportPrefix ?? 'q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/';
+      props.dashboard?.s3ReportPrefix ?? `q-user-log/AWSLogs/${this.account}/KiroLogs/user_report/us-east-1/`;
     const athenaDataBucket = props.dashboard?.athenaDataBucket;
 
     const s3ReadResources = [
@@ -193,6 +203,9 @@ export class EcsStack extends cdk.Stack {
         GLUE_TABLE_NAME: glueTableName,
         IDENTITY_STORE_ID: identityStoreId,
         S3_REPORT_PREFIX: s3ReportPrefix,
+        // /api/model-usage lists UAR CSVs S3-direct; in a two-bucket setup it
+        // must target the data bucket, not the Athena results bucket.
+        ...(athenaDataBucket ? { S3_DATA_BUCKET: athenaDataBucket } : {}),
         NEXTAUTH_URL: '',
       },
       secrets: {

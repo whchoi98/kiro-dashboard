@@ -49,7 +49,33 @@ describe('EcsStack — default maintainer configuration', () => {
     expect(byName.ATHENA_OUTPUT_BUCKET).toBe('s3://whchoi01-titan-q-log/athena-results/');
     expect(byName.GLUE_TABLE_NAME).toBe('user_report');
     expect(byName.IDENTITY_STORE_ID).toBe('d-90663be888');
-    expect(byName.S3_REPORT_PREFIX).toBe('q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/');
+  });
+
+  it('derives the S3_REPORT_PREFIX default from the deploying account, matching CatalogStack', () => {
+    // Kiro delivers UAR CSVs under AWSLogs/<subscriber-account>/ — always the
+    // account being deployed to. On the maintainer account (120443221648) this
+    // resolves to the exact upstream value; on a fork it matches the Glue
+    // table LOCATION that bin/app.ts computes for CatalogStack, instead of
+    // silently pointing /api/model-usage at the maintainer's account path.
+    const template = synthEcsStack();
+    const env = getContainerEnv(template);
+    const byName = Object.fromEntries(env.map((e) => [e.Name, e.Value]));
+
+    expect(byName.S3_REPORT_PREFIX).toBe(
+      'q-user-log/AWSLogs/111111111111/KiroLogs/user_report/us-east-1/'
+    );
+  });
+
+  it('derives S3_REPORT_PREFIX from the account even when other overrides are set', () => {
+    const template = synthEcsStack({
+      dashboard: { athenaDataBucket: 'my-kiro-logs-bucket' },
+    });
+    const env = getContainerEnv(template);
+    const byName = Object.fromEntries(env.map((e) => [e.Name, e.Value]));
+
+    expect(byName.S3_REPORT_PREFIX).toBe(
+      'q-user-log/AWSLogs/111111111111/KiroLogs/user_report/us-east-1/'
+    );
   });
 });
 
@@ -88,6 +114,25 @@ describe('EcsStack — opt-in dashboard overrides', () => {
     expect(serialized).not.toContain('database/titanlog"');
   });
 
+  it('derives the Athena results bucket from the data bucket when only the data bucket is set', () => {
+    // A fork that opts in with just ATHENA_DATA_BUCKET_NAME must not have its
+    // Athena results written to (and its PutObject IAM scoped to) the
+    // maintainer's bucket, which its account cannot access. The config
+    // comment says the data bucket is "usually the same" bucket — make that
+    // the default instead of the maintainer fallback.
+    const template = synthEcsStack({
+      dashboard: { athenaDataBucket: 'my-kiro-logs-bucket' },
+    });
+    const env = getContainerEnv(template);
+    const byName = Object.fromEntries(env.map((e) => [e.Name, e.Value]));
+
+    expect(byName.ATHENA_OUTPUT_BUCKET).toBe('s3://my-kiro-logs-bucket/athena-results/');
+
+    const roles = template.findResources('AWS::IAM::Role');
+    const serialized = JSON.stringify(roles);
+    expect(serialized).not.toContain('whchoi01-titan-q-log');
+  });
+
   it('includes the data bucket in S3 read resources when athenaDataBucket is provided', () => {
     const template = synthEcsStack({
       dashboard: { athenaDataBucket: 'my-kiro-logs-bucket' },
@@ -96,5 +141,27 @@ describe('EcsStack — opt-in dashboard overrides', () => {
     const serialized = JSON.stringify(roles);
     expect(serialized).toContain('arn:aws:s3:::my-kiro-logs-bucket');
     expect(serialized).toContain('arn:aws:s3:::my-kiro-logs-bucket/*');
+  });
+
+  it('exposes S3_DATA_BUCKET to the container when the data bucket differs from the results bucket', () => {
+    // /api/model-usage lists UAR CSVs directly from S3. It derives its bucket
+    // from ATHENA_OUTPUT_BUCKET, so in a two-bucket setup it would list the
+    // results bucket (where no CSVs live) and silently render empty. The
+    // container needs the data bucket name explicitly.
+    const template = synthEcsStack({
+      dashboard: { athenaDataBucket: 'my-data-bucket', athenaResultsBucket: 'my-results-bucket' },
+    });
+    const env = getContainerEnv(template);
+    const byName = Object.fromEntries(env.map((e) => [e.Name, e.Value]));
+
+    expect(byName.S3_DATA_BUCKET).toBe('my-data-bucket');
+  });
+
+  it('omits S3_DATA_BUCKET when no data bucket override is provided', () => {
+    const template = synthEcsStack();
+    const env = getContainerEnv(template);
+    const byName = Object.fromEntries(env.map((e) => [e.Name, e.Value]));
+
+    expect(byName.S3_DATA_BUCKET).toBeUndefined();
   });
 });

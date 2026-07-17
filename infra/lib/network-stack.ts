@@ -25,6 +25,16 @@ export class NetworkStack extends cdk.Stack {
     if (useExistingVpc && vpcId) {
       this.vpc = ec2.Vpc.fromLookup(this, 'Vpc', { vpcId });
     } else {
+      // Replacing an imported VPC with a stack-owned one forces replacement
+      // of every VPC-attached resource downstream (ALB, ECS service, CDN
+      // origin). Surface that loudly at synth time so an operator whose
+      // environment previously used an existing VPC does not find out at
+      // deploy time.
+      cdk.Annotations.of(this).addWarningV2(
+        'kiro-dashboard:new-vpc',
+        `Creating a NEW VPC (${vpcCidr}). If this environment previously imported an existing VPC, set EXISTING_VPC_ID to that VPC id before deploying — otherwise the network layer (and everything attached to it) will be replaced.`,
+      );
+
       const newVpc = new ec2.Vpc(this, 'Vpc', {
         ipAddresses: ec2.IpAddresses.cidr(vpcCidr),
         maxAzs: 2,
