@@ -10,7 +10,7 @@
 components/
   layout/
     Header.tsx          Top navigation bar — language switcher, user info
-    Sidebar.tsx         Left nav sidebar — page links, logout button, language switcher
+    Sidebar.tsx         Left nav sidebar — page links, logout button, language switcher, app version footer
     KiroLogo.tsx        Kiro logo SVG component
   charts/
     BarChart.tsx        Recharts bar chart wrapper

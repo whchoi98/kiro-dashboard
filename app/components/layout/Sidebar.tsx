@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import KiroLogo from './KiroLogo';
 import { useI18n } from '@/lib/i18n';
+import { APP_VERSION } from '@/lib/version';
 
 function MiniKiro({ size = 20, active = false, accentColor = '#9046FF' }: { size?: number; active?: boolean; accentColor?: string }) {
   const [blink, setBlink] = useState(false);
@@ -128,6 +129,9 @@ export default function Sidebar() {
             EN
           </button>
         </div>
+        <p className="mt-2 text-center text-[10px] font-medium tracking-wide text-gray-600">
+          v{APP_VERSION}
+        </p>
       </div>
     </aside>
   );

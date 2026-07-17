@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cp .env.deploy.example .env.deploy` → `set -a; source .env.deploy; set +a`
   → `cdk deploy` instead of repeating long `export` blocks at the
   command line.
+- Sidebar footer now displays the app version (`v1.1.0`), read from
+  `package.json` via `lib/version.ts`. A new `version-sync` test keeps
+  `package.json`, `CHANGELOG.md` (both languages), `CLAUDE.md`, and the
+  sidebar display in lockstep.
 
 ### Fixed
 
@@ -163,6 +167,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `set -a; source .env.deploy; set +a` → `cdk deploy` 순서로 배포할 수
   있게 함. `.env.deploy`는 `.gitignore`에 포함되어 계정별 값이
   커밋되지 않음.
+- 사이드바 하단에 앱 버전(`v1.1.0`) 표기 — `lib/version.ts`를 통해
+  `package.json`에서 읽어옴. 새 `version-sync` 테스트가 `package.json`,
+  `CHANGELOG.md`(양 언어), `CLAUDE.md`, 사이드바 표기를 동기화 상태로
+  강제함.
 
 ### 수정됨
 
