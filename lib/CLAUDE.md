@@ -26,6 +26,7 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 | `NORMALIZE_USERID` | `string` | SQL snippet: `REGEXP_REPLACE(userid, '^d-[a-z0-9]+\.', '')` |
 | `safeFloat(val)` | `(string) => number` | Parse float, return 0 on NaN |
 | `safeInt(val)` | `(string) => number` | Parse int, return 0 on NaN |
+| `isMissingTableError(err)` | `(unknown) => boolean` | True when an error means the Glue table/database doesn't exist yet (Athena `TABLE_NOT_FOUND`/`COLUMN_NOT_FOUND`, "does not exist", Glue `EntityNotFoundException`) — API routes use it to return 200 + empty payload instead of a 500 on fresh accounts |
 
 **Environment Variables Used:**
 - `AWS_REGION` — Athena client region (default: `us-east-1`)

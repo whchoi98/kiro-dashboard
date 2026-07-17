@@ -13,7 +13,7 @@ AWS CDK TypeScript로 정의된 kiro-dashboard 인프라. 5개의 스택으로 �
 | `KiroDashboardEcs` | `lib/ecs-stack.ts` | ap-northeast-2 | ECR repo, ECS cluster, Fargate task, ALB |
 | `KiroDashboardCdn` | `lib/cdn-stack.ts` | ap-northeast-2 | CloudFront + Lambda@Edge + SSM config + Cognito callback |
 | `KiroDashboardEdgeLambda` | _(auto-generated)_ | us-east-1 | Lambda@Edge function (created by `cloudfront.experimental.EdgeFunction`) |
-| `KiroDashboardCatalog` | `lib/catalog-stack.ts` | ap-northeast-2 | **Opt-in.** Glue database + `user_report` table over a fork-owned S3 bucket. Only instantiated when `ATHENA_DATA_BUCKET_NAME` is set — maintainer deploys keep their existing 5-stack topology. |
+| `KiroDashboardCatalog` | `lib/catalog-stack.ts` | us-east-1 (via `ATHENA_REGION`) | **Opt-in.** Glue database + `user_report` + legacy `by_user_analytic` tables over a fork-owned S3 bucket. Only instantiated when `ATHENA_DATA_BUCKET_NAME` is set — maintainer deploys keep their existing 5-stack topology. The `by_user_analytic` prefix is derived from `S3_REPORT_PREFIX` (swap the `user_report` segment) or set explicitly via `BY_USER_ANALYTIC_PREFIX`. |
 
 ## Deployment Order
 
@@ -44,9 +44,16 @@ Defined in `lib/ecs-stack.ts` — `taskDefinition.addContainer(...)` environment
 | `ATHENA_OUTPUT_BUCKET` | `s3://whchoi01-titan-q-log/athena-results/` | Athena result output |
 | `GLUE_TABLE_NAME` | `user_report` | Primary Glue table |
 | `IDENTITY_STORE_ID` | `d-90663be888` | IAM Identity Center store ID |
-| `S3_REPORT_PREFIX` | `q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/` | S3 prefix for user_report CSV files (model-usage API) |
+| `S3_REPORT_PREFIX` | `q-user-log/AWSLogs/<deploy-account>/KiroLogs/user_report/us-east-1/` | S3 prefix for user_report CSV files (model-usage API) — account-derived default, matches CatalogStack |
+| `S3_DATA_BUCKET` | _(only when `ATHENA_DATA_BUCKET_NAME` is set)_ | UAR data bucket for `/api/model-usage` in two-bucket deployments |
 
-**To change env vars:** edit `infra/lib/ecs-stack.ts` and run `npx cdk deploy KiroDashboardEcs`.
+All values above are the defaults — each is overridable per deploy via the
+env vars documented in `.env.deploy.example` (read by `bin/app.ts`). When
+only `ATHENA_DATA_BUCKET_NAME` is set, the Athena results bucket defaults to
+that same bucket rather than the maintainer's.
+
+**To change env vars:** edit `infra/lib/ecs-stack.ts` (or export the
+`.env.deploy` overrides) and run `npx cdk deploy KiroDashboardEcs`.
 
 ## IAM Permissions (ECS Task Role)
 

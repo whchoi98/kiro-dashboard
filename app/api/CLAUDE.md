@@ -17,7 +17,7 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/productivity` | `productivity/route.ts` | Productivity metrics: code accepted, inline suggestions (masked) |
 | `GET /api/analyze` | `analyze/route.ts` | Bedrock AI streaming analysis (SSE / ReadableStream) |
 | `GET /api/idc-users` | `idc-users/route.ts` | IAM Identity Center user list via IdentityStore SDK (masked) |
-| `GET /api/user-detail` | `user-detail/route.ts` | Single-user detail from `by_user_analytic` table (masked) |
+| `GET /api/user-detail` | `user-detail/route.ts` | Single-user credit/message detail from `user_report` (via `resolveTableName()`, masked) |
 | `GET /api/model-usage` | `model-usage/route.ts` | AI model message distribution — reads S3 CSV directly (masked) |
 | `GET /api/client-dist` | `client-dist/route.ts` | Client distribution breakdown (IDE version, OS, etc.) |
 
@@ -48,6 +48,11 @@ export async function GET(req: NextRequest) {
     const rows = await executeQuery(sql);         // from lib/athena.ts
     return NextResponse.json(transformedData);
   } catch (error) {
+    if (isMissingTableError(error)) {             // from lib/athena.ts
+      // Fresh account whose Glue catalog isn't provisioned yet — degrade to
+      // an empty-but-well-shaped payload so the page renders an empty table.
+      return NextResponse.json(emptyPayload);
+    }
     console.error('[api/endpoint]', error);
     return NextResponse.json({ error: 'Query failed' }, { status: 500 });
   }
@@ -65,7 +70,8 @@ export async function GET(req: NextRequest) {
 - `by_user_analytic` table uses `MM-DD-YYYY` date format — cast accordingly
 - The `analyze` endpoint uses `BedrockRuntimeClient` with response streaming (ReadableStream)
 - The `idc-users` endpoint uses `IdentityStoreClient` from `lib/identity.ts` — no Athena
-- The `model-usage` endpoint reads S3 CSV files directly via `@aws-sdk/client-s3` — dynamic model columns cannot be queried through Glue/Athena due to OpenCSVSerDe positional mapping
+- The `model-usage` endpoint reads S3 CSV files directly via `@aws-sdk/client-s3` — dynamic model columns cannot be queried through Glue/Athena due to OpenCSVSerDe positional mapping. It reads from `S3_DATA_BUCKET` when set (two-bucket deployments), falling back to the bucket in `ATHENA_OUTPUT_BUCKET`
+- The `productivity` endpoint queries `by_user_analytic` unqualified — `executeQuery` supplies the database from `ATHENA_DATABASE`, so never prefix table names with a database in SQL
 - User-facing routes (users, credits, productivity, user-detail, idc-users) return masked identifiers via `lib/mask.ts`
 - Authentication is handled by Lambda@Edge at the CDN layer — no auth middleware in API routes
 

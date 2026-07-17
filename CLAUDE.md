@@ -125,14 +125,15 @@ Always cast dates appropriately when building WHERE clauses for each table.
 - KiroLogo and KiroMascot SVG assets in `app/components/ui/`
 
 ### Environment Variables
-ECS task environment variables are defined in `infra/lib/ecs-stack.ts`:
+ECS task environment variables are defined in `infra/lib/ecs-stack.ts` (defaults shown; all overridable per deploy via `.env.deploy` — see `.env.deploy.example`):
 ```
 AWS_REGION          = us-east-1
 ATHENA_DATABASE     = titanlog
 ATHENA_OUTPUT_BUCKET= s3://whchoi01-titan-q-log/athena-results/
 GLUE_TABLE_NAME     = user_report
 IDENTITY_STORE_ID   = d-90663be888
-S3_REPORT_PREFIX    = q-user-log/AWSLogs/120443221648/KiroLogs/user_report/us-east-1/
+S3_REPORT_PREFIX    = q-user-log/AWSLogs/<deploy-account>/KiroLogs/user_report/us-east-1/   (account-derived)
+S3_DATA_BUCKET      = (only set when ATHENA_DATA_BUCKET_NAME is configured — two-bucket deployments)
 ```
 
 For local development, copy `.env.example` to `.env.local` and fill in values.
