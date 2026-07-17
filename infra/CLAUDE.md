@@ -47,8 +47,11 @@ Defined in `lib/ecs-stack.ts` — `taskDefinition.addContainer(...)` environment
 | `S3_REPORT_PREFIX` | `q-user-log/AWSLogs/<deploy-account>/KiroLogs/user_report/us-east-1/` | S3 prefix for user_report CSV files (model-usage API) — account-derived default, matches CatalogStack |
 | `S3_DATA_BUCKET` | _(only when `ATHENA_DATA_BUCKET_NAME` is set)_ | UAR data bucket for `/api/model-usage` in two-bucket deployments |
 
-All values above are the defaults — each is overridable per deploy via the
-env vars documented in `.env.deploy.example` (read by `bin/app.ts`). When
+All values above are the defaults — overridable per deploy via the env vars
+documented in `.env.deploy.example` (read by `bin/app.ts`), except `HOSTNAME`
+and `AWS_REGION`, which are hardcoded literals in `infra/lib/ecs-stack.ts`
+(changing the runtime region requires editing `EcsStack`; `ATHENA_REGION`
+only relocates the Catalog stack). When
 only `ATHENA_DATA_BUCKET_NAME` is set, the Athena results bucket defaults to
 that same bucket rather than the maintainer's.
 

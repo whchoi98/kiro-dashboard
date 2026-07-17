@@ -125,7 +125,7 @@ Always cast dates appropriately when building WHERE clauses for each table.
 - KiroLogo and KiroMascot SVG assets in `app/components/ui/`
 
 ### Environment Variables
-ECS task environment variables are defined in `infra/lib/ecs-stack.ts` (defaults shown; all overridable per deploy via `.env.deploy` — see `.env.deploy.example`):
+ECS task environment variables are defined in `infra/lib/ecs-stack.ts` (defaults shown; overridable per deploy via `.env.deploy` — see `.env.deploy.example` — except `AWS_REGION`, which is hardcoded to `us-east-1` in `EcsStack`):
 ```
 AWS_REGION          = us-east-1
 ATHENA_DATABASE     = titanlog

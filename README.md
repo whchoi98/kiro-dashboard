@@ -142,7 +142,7 @@ vars listed in the next table before running `npx cdk deploy`.
 | `ATHENA_OUTPUT_BUCKET` | S3 path for Athena query results | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | Primary Glue table name | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center store ID | `d-90663be888` |
-| `S3_REPORT_PREFIX` | S3 prefix for user_report CSV files | `q-user-log/AWSLogs/<deploy-account>/user_report/us-east-1/` (account-derived) |
+| `S3_REPORT_PREFIX` | S3 prefix for user_report CSV files | `q-user-log/AWSLogs/<deploy-account>/KiroLogs/user_report/us-east-1/` (account-derived) |
 | `S3_DATA_BUCKET` | UAR data bucket for `/api/model-usage` | only set when `ATHENA_DATA_BUCKET_NAME` is configured (two-bucket setups) |
 
 ### CDK-time overrides (read by `infra/bin/app.ts`)
@@ -412,7 +412,7 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 | `ATHENA_OUTPUT_BUCKET` | Athena 쿼리 결과 S3 경로 | `s3://whchoi01-titan-q-log/athena-results/` |
 | `GLUE_TABLE_NAME` | 기본 Glue 테이블 이름 | `user_report` |
 | `IDENTITY_STORE_ID` | IAM Identity Center 스토어 ID | `d-90663be888` |
-| `S3_REPORT_PREFIX` | user_report CSV 파일 S3 경로 프리픽스 | `q-user-log/AWSLogs/<배포 계정>/user_report/us-east-1/` (계정에서 자동 유도) |
+| `S3_REPORT_PREFIX` | user_report CSV 파일 S3 경로 프리픽스 | `q-user-log/AWSLogs/<배포 계정>/KiroLogs/user_report/us-east-1/` (계정에서 자동 유도) |
 | `S3_DATA_BUCKET` | `/api/model-usage`가 읽는 UAR 데이터 버킷 | `ATHENA_DATA_BUCKET_NAME` 설정 시에만 주입 (버킷 분리 구성용) |
 
 ### CDK 배포 시 오버라이드 (`infra/bin/app.ts`가 읽음)
