@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(testgeneration_generatedtests AS INTEGER)) AS tests_generated,
         SUM(CAST(testgeneration_acceptedtests AS INTEGER)) AS tests_accepted,
         SUM(CAST(docgeneration_eventcount AS INTEGER)) AS doc_events
-      FROM titanlog.by_user_analytic
+      FROM by_user_analytic
       WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
     `;
 
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(inline_aicodelines AS INTEGER)) AS inline_code_lines,
         SUM(CAST(inlinechat_acceptanceeventcount AS INTEGER)) AS inline_chat_accepts,
         SUM(CAST(dev_acceptedlines AS INTEGER)) AS dev_accepted_lines
-      FROM titanlog.by_user_analytic
+      FROM by_user_analytic
       WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
       GROUP BY ${NORMALIZE_USERID}
       ORDER BY ai_code_lines DESC
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(inline_acceptancecount AS INTEGER)) AS inline_acceptances,
         SUM(CAST(chat_messagessent AS INTEGER)) AS chat_messages,
         COUNT(DISTINCT ${NORMALIZE_USERID}) AS active_users
-      FROM titanlog.by_user_analytic
+      FROM by_user_analytic
       WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
       GROUP BY date
       ORDER BY date

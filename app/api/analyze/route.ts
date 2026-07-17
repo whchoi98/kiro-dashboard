@@ -23,7 +23,7 @@ You have access to two Athena tables in the '${ATHENA_DATABASE}' database:
 1. user_report — Kiro credit and usage metrics (11 columns):
    date(YYYY-MM-DD), userid(UUID), client_type(KIRO_IDE/KIRO_CLI), chat_conversations(int),
    credits_used(double), overage_cap(double), overage_credits_used(double),
-   overage_enabled(true/false), profileid(string), subscription_tier(POWER/PRO/PROPLUS),
+   overage_enabled(true/false), profileid(string), subscription_tier(POWER/PRO/PROPLUS/PROMAX),
    total_messages(int)
 
 2. by_user_analytic — IDE productivity metrics (46 columns):
@@ -46,7 +46,7 @@ const tools: Tool[] = [
     toolSpec: {
       name: 'query_athena',
       description:
-        'Execute an Athena SQL query against the titanlog database. Returns query results as JSON array of rows.',
+        `Execute an Athena SQL query against the '${ATHENA_DATABASE}' database. Returns query results as JSON array of rows.`,
       inputSchema: {
         json: {
           type: 'object',

@@ -13,7 +13,13 @@ export const dynamic = 'force-dynamic';
 
 const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
-const BUCKET = (process.env.ATHENA_OUTPUT_BUCKET || '').replace('s3://', '').split('/')[0];
+// The UAR CSVs live in the data bucket, which in two-bucket deployments
+// differs from the Athena results bucket carried by ATHENA_OUTPUT_BUCKET.
+// Prefer the explicit S3_DATA_BUCKET (set by EcsStack when configured) and
+// fall back to the results bucket for single-bucket setups.
+const BUCKET =
+  process.env.S3_DATA_BUCKET ||
+  (process.env.ATHENA_OUTPUT_BUCKET || '').replace('s3://', '').split('/')[0];
 // Must come from env — hardcoding the maintainer prefix here would cause
 // fresh accounts to issue S3 List/Get against a bucket they don't own.
 const REPORT_PREFIX = process.env.S3_REPORT_PREFIX || '';
