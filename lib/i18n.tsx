@@ -142,6 +142,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'analyze.saveMd': 'Markdown 저장',
     'analyze.savePdf': 'PDF 저장',
     'analyze.savingPdf': 'PDF 생성 중...',
+    'analyze.pdfError': 'PDF 생성 실패 — 페이지를 새로고침 후 다시 시도하세요',
   },
   en: {
     'nav.overview': 'Overview',
@@ -280,6 +281,7 @@ const translations: Record<Locale, Record<string, string>> = {
     'analyze.saveMd': 'Save Markdown',
     'analyze.savePdf': 'Save PDF',
     'analyze.savingPdf': 'Generating PDF...',
+    'analyze.pdfError': 'PDF generation failed — refresh the page and retry',
   },
 };
 

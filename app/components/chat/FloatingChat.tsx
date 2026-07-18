@@ -40,8 +40,12 @@ export default function FloatingChat() {
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      const handle = (e.target as HTMLElement).closest('[data-chat-drag-handle]');
-      if (!handle) return;
+      if (!e.isPrimary || e.button !== 0) return;
+      const target = e.target as HTMLElement;
+      // Buttons live inside the drag header; capturing their pointerdown
+      // retargets the subsequent click to the panel and they never fire.
+      if (target.closest('button')) return;
+      if (!target.closest('[data-chat-drag-handle]')) return;
       dragRef.current = {
         startX: e.clientX,
         startY: e.clientY,
@@ -75,12 +79,33 @@ export default function FloatingChat() {
     [clamp]
   );
 
+  // Touch pans and suppressed pointerups (context menu) end drags with
+  // pointercancel/lostpointercapture instead of pointerup — drop the drag
+  // and restore the committed offset, or the panel later follows a bare
+  // cursor with stale start coordinates.
+  const onPointerCancel = useCallback(() => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    if (panelRef.current) {
+      panelRef.current.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+    }
+  }, [offset]);
+
   // Keep the committed offset applied when not dragging.
   useEffect(() => {
     if (panelRef.current) {
       panelRef.current.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
     }
   }, [offset, open]);
+
+  // Re-clamp when the viewport shrinks so a panel dragged far left/up on a
+  // large screen cannot end up entirely off-screen after a resize.
+  useEffect(() => {
+    if (!open) return;
+    const onResize = () => setOffset((o) => clamp(o.x, o.y));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [open, clamp]);
 
   // The /analyze page hosts the full-page chat — no widget there.
   if (pathname === '/analyze') return null;
@@ -106,6 +131,8 @@ export default function FloatingChat() {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onLostPointerCapture={onPointerCancel}
       className="fixed bottom-5 right-5 z-40 flex flex-col rounded-2xl border border-gray-700 bg-gray-950 shadow-2xl shadow-black/60 overflow-hidden"
       style={{ width: PANEL_W, height: PANEL_H, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100vh - 16px)' }}
     >

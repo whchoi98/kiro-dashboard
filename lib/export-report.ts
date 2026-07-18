@@ -44,17 +44,42 @@ export function exportMarkdown(content: string, titleHint?: string) {
   URL.revokeObjectURL(url);
 }
 
+const PDF_BG = '#0b0b12';
+
 export async function exportPdf(element: HTMLElement): Promise<void> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import('html2canvas-pro'),
     import('jspdf'),
   ]);
 
+  // Wide Athena tables live in overflow-x-auto wrappers; a plain capture
+  // paints only the visible clip window and silently drops the scrolled-out
+  // columns. Measure the widest overflow and widen the cloned card so the
+  // capture contains the full tables.
+  const overflowExtra = Math.max(
+    0,
+    ...Array.from(element.querySelectorAll<HTMLElement>('*')).map((d) =>
+      d.scrollWidth > d.clientWidth + 1 ? d.scrollWidth - d.clientWidth : 0
+    )
+  );
+  const captureWidth = Math.ceil(element.getBoundingClientRect().width + overflowExtra);
+
   const canvas = await html2canvas(element, {
-    backgroundColor: '#0b0b12',
+    backgroundColor: PDF_BG,
     scale: 2,
     useCORS: true,
     logging: false,
+    width: captureWidth,
+    windowWidth: Math.max(document.documentElement.clientWidth, captureWidth + 100),
+    onclone: (_doc: Document, cloned: HTMLElement) => {
+      cloned.style.width = `${captureWidth}px`;
+      cloned.style.maxWidth = 'none';
+      cloned.querySelectorAll<HTMLElement>('.overflow-x-auto').forEach((d) => {
+        d.style.overflow = 'visible';
+        d.style.width = 'max-content';
+        d.style.maxWidth = 'none';
+      });
+    },
   });
 
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
@@ -65,11 +90,15 @@ export async function exportPdf(element: HTMLElement): Promise<void> {
   const imgData = canvas.toDataURL('image/png');
 
   // Paginate a tall capture by re-drawing the full image shifted up on
-  // each page; the page viewport crops it to the visible slice.
+  // each page; the page viewport crops it to the visible slice. Pre-fill
+  // each page with the capture background so the final partial page does
+  // not end in a white block under dark content.
   let offsetY = 0;
   let page = 0;
   while (offsetY < imgHeight) {
     if (page > 0) pdf.addPage();
+    pdf.setFillColor(PDF_BG);
+    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
     pdf.addImage(imgData, 'PNG', 0, -offsetY, imgWidth, imgHeight);
     offsetY += pageHeight;
     page++;

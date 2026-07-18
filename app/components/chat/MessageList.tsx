@@ -24,6 +24,7 @@ export default function MessageList({
   const endRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [exportErrorId, setExportErrorId] = useState<string | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,10 +41,14 @@ export default function MessageList({
     const el = cardRefs.current[msg.id];
     if (!el || exportingId) return;
     setExportingId(msg.id);
+    setExportErrorId(null);
     try {
       await exportPdf(el);
     } catch (err) {
+      // Surfaces stale-chunk 404s after a redeploy and capture failures —
+      // a silent flip back to the idle label reads as "button is broken".
       console.error('[export-pdf]', err);
+      setExportErrorId(msg.id);
     } finally {
       setExportingId(null);
     }
@@ -138,6 +143,11 @@ export default function MessageList({
                       ? t('analyze.savingPdf')
                       : t('analyze.savePdf')}
                   </button>
+                  {exportErrorId === msg.id && (
+                    <span className="self-center text-xs text-red-400">
+                      {t('analyze.pdfError')}
+                    </span>
+                  )}
                 </div>
               )}
 

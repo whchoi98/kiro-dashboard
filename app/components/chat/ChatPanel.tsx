@@ -35,6 +35,7 @@ export default function ChatPanel({ chat, variant, onClose }: ChatPanelProps) {
         <div
           data-chat-drag-handle
           className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/90 rounded-t-2xl cursor-move select-none"
+          style={{ touchAction: 'none' }}
         >
           <div className="flex items-center gap-2">
             <KiroMascot size={26} mood="happy" theme="analyze" />
