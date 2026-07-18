@@ -62,7 +62,7 @@ p{margin:0;}
 .hero h1 em{font-style:normal;color:var(--purple-hi);
   background:linear-gradient(120deg,var(--purple-hi),var(--purple));
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
-.lede{color:var(--muted);font-size:clamp(16px,2vw,19px);max-width:44ch;margin-top:22px;}
+.lede{color:var(--muted);font-size:clamp(16px,2vw,19px);max-width:none;margin-top:22px;text-wrap:pretty;}
 .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px;}
 .meta .pill{font-family:var(--mono);font-size:12px;letter-spacing:.02em;color:var(--text);
   background:var(--surf);border:1px solid var(--line2);border-radius:999px;padding:7px 14px;}
@@ -100,9 +100,12 @@ p{margin:0;}
 
 /* ---- section frame ---- */
 section.blk{padding:88px 0;}
-.shead{margin-bottom:46px;max-width:60ch;}
+/* max-width dropped: the ch unit is sized on the digit 0 (~8px), so 60ch is
+   only ~480px for Korean (~16px/char), chopping sentences into narrow
+   columns. Let sentences use the full .wrap width (one line on desktop). */
+.shead{margin-bottom:46px;max-width:none;}
 .shead h2{font-size:clamp(27px,3.6vw,40px);letter-spacing:-.02em;margin-top:14px;}
-.shead p{color:var(--muted);margin-top:16px;font-size:16px;}
+.shead p{color:var(--muted);margin-top:16px;font-size:16px;text-wrap:pretty;}
 
 /* ---- architecture ---- */
 .archwrap{overflow-x:auto;}
