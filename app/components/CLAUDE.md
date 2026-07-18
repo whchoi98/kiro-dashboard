@@ -12,6 +12,12 @@ components/
     Header.tsx          Top navigation bar — language switcher, user info
     Sidebar.tsx         Left nav sidebar — page links, logout button, language switcher, app version footer (links to /changelog)
     KiroLogo.tsx        Kiro logo SVG component
+  chat/
+    FloatingChat.tsx    Global draggable chatbot widget (mounted in app/layout.tsx; hidden on /analyze)
+    ChatPanel.tsx       Chat container — variant 'page' | 'widget'; header, empty-state suggestions, composer
+    MessageList.tsx     Message bubbles, tool badges, typing dots, MD/PDF export buttons (page variant)
+    ChatComposer.tsx    Textarea + send/stop buttons (Enter sends, Shift+Enter newline)
+    ChatMarkdown.tsx    Dark-theme ReactMarkdown renderer shared by chat surfaces
   charts/
     BarChart.tsx        Recharts bar chart wrapper
     FunnelChart.tsx     Funnel visualization chart

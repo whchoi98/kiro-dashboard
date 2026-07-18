@@ -13,8 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-18
+
 ### Added
 
+- **Chatbot Agent** — global floating chat widget (structure borrowed from
+  claude-code-dashboard): draggable panel available on every page, backed
+  by the existing `/api/analyze` Bedrock agent (Athena SQL + IdC lookup
+  tools), multi-turn history with a 12-turn cap, stop/new-chat controls.
+  The `/analyze` page and the widget now share `lib/useChatStream.ts` and
+  the `app/components/chat/` component set.
+- **AI analysis export** — completed answers on `/analyze` can be saved as
+  Markdown (`.md` download with question/date header) or PDF
+  (`html2canvas-pro` + `jspdf` DOM capture — Korean text and dark-theme
+  tables render intact; libraries load on demand).
 - `EcsDashboardConfig` prop on `EcsStack` so forks can override every
   account-specific env (S3 buckets, Glue database/table, IdC store, report
   prefix) without editing the source. Maintainer defaults unchanged.
@@ -179,8 +191,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-18
+
 ### 추가됨
 
+- **Chatbot Agent** — 전역 플로팅 챗봇 위젯 (claude-code-dashboard 구조
+  차용): 모든 페이지에서 사용 가능한 드래그 패널, 기존 `/api/analyze`
+  Bedrock 에이전트(Athena SQL + IdC 조회 툴) 기반, 12턴 캡 멀티턴
+  히스토리, 중지/새 대화 컨트롤. `/analyze` 페이지와 위젯이
+  `lib/useChatStream.ts`와 `app/components/chat/` 컴포넌트를 공유.
+- **AI 분석 내보내기** — `/analyze`에서 완료된 답변을 Markdown(질문/날짜
+  헤더 포함 `.md` 다운로드) 또는 PDF(`html2canvas-pro` + `jspdf` DOM
+  캡처 — 한글과 다크 테마 표가 그대로 렌더링, 라이브러리는 클릭 시
+  로드)로 저장.
 - `EcsStack`에 `EcsDashboardConfig` prop 도입 — 포크가 계정별 값(S3
   버킷, Glue DB/테이블, IdC 스토어, 리포트 프리픽스)을 소스 수정 없이
   덮어쓸 수 있음. 메인테이너 기본값은 그대로 유지.

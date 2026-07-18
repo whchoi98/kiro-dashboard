@@ -15,6 +15,8 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 | `i18n.tsx` | Korean/English i18n context provider |
 | `version.ts` | Exports `APP_VERSION` from `package.json` (shown in Sidebar footer; sync enforced by `tests/structure/version-sync.test.ts`) |
 | `uar-s3.ts` | Shared UAR S3 helpers — bucket/prefix resolution, month-prefix parallel `listReportFiles(days)`, `readCsvFromS3`, `parseCsv`; used by `/api/model-usage` and `/api/adoption` |
+| `useChatStream.ts` | Client chat hook against `/api/analyze` SSE agent — 12-turn history cap, AbortController race guard, optimistic assistant message; shared by /analyze page and FloatingChat |
+| `export-report.ts` | Client exporters for AI answers — Markdown blob download; PDF via `html2canvas-pro` (NOT `html2canvas` — Tailwind v4 oklab/oklch colors) + `jspdf` DOM capture, dynamic imports |
 
 ---
 

@@ -40,6 +40,7 @@ app/
 `app/layout.tsx` wraps all pages with:
 - i18n `I18nProvider`
 - `Sidebar` and `Header` from `components/layout/`
+- `FloatingChat` from `components/chat/` — global chatbot widget (hidden on `/analyze`, which hosts the full-page chat)
 
 ## Auth
 
