@@ -55,21 +55,52 @@ function parseCsv(text: string): CsvRow[] {
   });
 }
 
-async function listReportFiles(days: number): Promise<string[]> {
+function fmtDatePath(d: Date): string {
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function listAllKeys(prefix: string): Promise<string[]> {
   const keys: string[] = [];
-  const now = new Date();
-
-  for (let d = 0; d < days; d++) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - d);
-    const prefix = `${REPORT_PREFIX}${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/`;
-
-    const resp = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix }));
+  let token: string | undefined;
+  do {
+    const resp = await s3.send(
+      new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: token })
+    );
     for (const obj of resp.Contents ?? []) {
       if (obj.Key?.endsWith('.csv')) keys.push(obj.Key);
     }
-  }
+    token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+  } while (token);
   return keys;
+}
+
+async function listReportFiles(days: number): Promise<string[]> {
+  const now = new Date();
+  const oldest = new Date(now);
+  oldest.setDate(oldest.getDate() - (days - 1));
+
+  // The container runs in ap-northeast-2 but the bucket lives in AWS_REGION
+  // (us-east-1), so every S3 round trip costs ~200ms. List one MONTH prefix
+  // at a time (≤7 calls at the 180-day cap) in parallel instead of one
+  // sequential call per day — the per-day loop cost ~20s for days=90.
+  const monthPrefixes: string[] = [];
+  const cursor = new Date(oldest.getFullYear(), oldest.getMonth(), 1);
+  while (cursor <= now) {
+    monthPrefixes.push(
+      `${REPORT_PREFIX}${cursor.getFullYear()}/${String(cursor.getMonth() + 1).padStart(2, '0')}/`
+    );
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  const minDate = fmtDatePath(oldest);
+  const maxDate = fmtDatePath(now);
+  const monthKeys = await Promise.all(monthPrefixes.map(listAllKeys));
+  return monthKeys.flat().filter((key) => {
+    // Keys are `${REPORT_PREFIX}YYYY/MM/DD/...`; zero-padded date paths
+    // compare correctly as strings.
+    const datePath = key.slice(REPORT_PREFIX.length, REPORT_PREFIX.length + 10);
+    return datePath >= minDate && datePath <= maxDate;
+  });
 }
 
 async function readCsvFromS3(key: string): Promise<string> {
