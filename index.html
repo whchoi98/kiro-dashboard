@@ -30,6 +30,9 @@ html{scroll-behavior:smooth;}
   font-weight:400; color:var(--text); background:var(--ink);
   line-height:1.6; -webkit-font-smoothing:antialiased;
   overflow-x:hidden; margin:0;
+  /* Korean must wrap at word (eojeol) boundaries, not mid-syllable —
+     the default breaks 데이터까지 into 데이터까 / 지. */
+  word-break:keep-all; overflow-wrap:break-word;
 }
 .page::selection,.page *::selection{background:var(--purple);color:#fff;}
 .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
