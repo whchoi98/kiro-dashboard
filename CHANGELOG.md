@@ -33,7 +33,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sidebar footer now displays the app version (`v1.1.0`), read from
   `package.json` via `lib/version.ts`. A new `version-sync` test keeps
   `package.json`, `CHANGELOG.md` (both languages), `CLAUDE.md`, and the
-  sidebar display in lockstep.
+  sidebar display in lockstep. The footer links to the new `/changelog` page.
+- **Executive** menu (`/exec`) — one-page leadership snapshot composing
+  existing APIs: KPI cards, daily active users & credits, model share,
+  credits by tier, top credit users.
+- **Subscription & Overage** menu (`/subscription`, `/api/subscription`) —
+  tier mix (users/credits/messages per `subscription_tier`), tier credit
+  share, and an overage governance watchlist (per-user
+  `overage_credits_used` vs `overage_cap` utilization).
+- **New Users & Adoption** menu (`/adoption`, `/api/adoption`) — daily new
+  users (UAR `New_User` flag), active users, cumulative-user trend, and a
+  recent-new-users table. Reads CSVs S3-direct with header-name parsing
+  because OpenCSVSerDe positional mapping makes the late-appended
+  `new_user` column unsafe to query through Athena.
+- **Dev Activity Detail** menu (`/dev-activity`, `/api/dev-activity`) —
+  five legacy `by_user_analytic` groups previously unused by the
+  dashboard: TestGen, DocGen, Transform, InlineChat, CodeFix (events,
+  generated vs accepted lines, acceptance rate, daily trend, top users).
+- **Changelog** page (`/changelog`) — renders this bilingual file at build
+  time (`force-static`), styled version cards with Added/Changed/Fixed
+  groups; language follows the KO/EN switcher.
+- `lib/uar-s3.ts` — shared UAR S3 helpers (bucket/prefix resolution,
+  month-prefix parallel listing, CSV parsing) extracted from the
+  model-usage route and reused by `/api/adoption`.
+
+### Performance
+
+- `/api/model-usage` dropped from ~20s to ~1.6s: the per-day sequential
+  `ListObjectsV2` loop (90 cross-region round trips) was replaced with
+  parallel month-prefix listing plus a date-window filter, with S3
+  pagination now handled.
 
 ### Fixed
 
@@ -170,7 +199,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 사이드바 하단에 앱 버전(`v1.1.0`) 표기 — `lib/version.ts`를 통해
   `package.json`에서 읽어옴. 새 `version-sync` 테스트가 `package.json`,
   `CHANGELOG.md`(양 언어), `CLAUDE.md`, 사이드바 표기를 동기화 상태로
-  강제함.
+  강제함. 버전 표기는 새 `/changelog` 페이지로 연결됨.
+- **Executive** 메뉴 (`/exec`) — 기존 API를 조합한 경영진용 원페이지
+  스냅샷: KPI 카드, 일별 활성 사용자·크레딧, 모델 점유율, 티어별
+  크레딧, 상위 크레딧 사용자.
+- **구독·초과사용** 메뉴 (`/subscription`, `/api/subscription`) — 구독
+  티어 구성(티어별 사용자/크레딧/메시지), 티어 크레딧 점유율, 사용자별
+  `overage_credits_used` 대비 `overage_cap` 사용률 워치리스트.
+- **신규 사용자·온보딩** 메뉴 (`/adoption`, `/api/adoption`) — UAR
+  `New_User` 플래그 기반 일별 신규 사용자, 활성 사용자, 누적 사용자
+  추이와 최근 신규 사용자 테이블. OpenCSVSerDe 위치 매핑 문제로
+  `new_user` 컬럼은 Athena로 조회할 수 없어 S3 직접 읽기(헤더 이름
+  기반 파싱)로 구현.
+- **개발활동 상세** 메뉴 (`/dev-activity`, `/api/dev-activity`) —
+  대시보드가 사용하지 않던 레거시 `by_user_analytic` 5개 그룹:
+  TestGen, DocGen, Transform, InlineChat, CodeFix (이벤트, 생성 대비
+  수락 라인, 수락률, 일별 추이, 상위 사용자).
+- **Changelog** 페이지 (`/changelog`) — 이 이중언어 파일을 빌드 타임에
+  렌더링(`force-static`), Added/Changed/Fixed 그룹별 버전 카드 스타일,
+  KO/EN 스위처를 따라 언어 전환.
+- `lib/uar-s3.ts` — model-usage 라우트에서 추출한 UAR S3 공용 헬퍼
+  (버킷/프리픽스 결정, 월 프리픽스 병렬 리스팅, CSV 파싱),
+  `/api/adoption`에서 재사용.
+
+### 성능
+
+- `/api/model-usage` 응답 시간 ~20초 → ~1.6초: 하루당 1회씩 순차
+  호출하던 `ListObjectsV2`(크로스 리전 90회 왕복)를 월 프리픽스 병렬
+  리스팅 + 기간 필터로 교체, S3 페이지네이션도 처리.
 
 ### 수정됨
 

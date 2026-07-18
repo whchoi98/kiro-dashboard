@@ -113,3 +113,73 @@ export interface ModelUsageData {
   userPreferences: ModelUserPreference[];
   availableModels: string[];
 }
+
+export interface TierSlice {
+  tier: string;
+  userCount: number;
+  totalCredits: number;
+  totalMessages: number;
+  creditShare: number;
+}
+
+export interface OverageUser {
+  userid: string;
+  displayName: string;
+  tier: string;
+  overageCredits: number;
+  overageCap: number;
+  utilization: number;
+}
+
+export interface SubscriptionData {
+  tiers: TierSlice[];
+  tierTrend: Array<{ date: string; [tier: string]: string | number }>;
+  overageSummary: {
+    enabledUsers: number;
+    totalUsers: number;
+    totalOverageCredits: number;
+    totalBaseCredits: number;
+  };
+  overageUsers: OverageUser[];
+}
+
+export interface AdoptionTrendPoint {
+  date: string;
+  newUsers: number;
+  activeUsers: number;
+  cumulativeUsers: number;
+}
+
+export interface NewUserRow {
+  userid: string;
+  displayName: string;
+  firstDate: string;
+  clientType: string;
+  totalMessages: number;
+  totalCredits: number;
+}
+
+export interface AdoptionData {
+  trend: AdoptionTrendPoint[];
+  totals: { newUsers: number; activeUsers: number };
+  recentNewUsers: NewUserRow[];
+}
+
+export interface DevActivityGroup {
+  key: string;
+  events: number;
+  generated: number;
+  accepted: number;
+  acceptanceRate: number;
+}
+
+export interface DevActivityData {
+  groups: DevActivityGroup[];
+  trend: Array<{ date: string; [group: string]: string | number }>;
+  topUsers: Array<{
+    userid: string;
+    displayName: string;
+    events: number;
+    acceptedLines: number;
+  }>;
+}

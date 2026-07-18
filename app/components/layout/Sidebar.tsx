@@ -56,10 +56,14 @@ function MiniKiro({ size = 20, active = false, accentColor = '#9046FF' }: { size
 
 const navItems = [
   { key: 'nav.overview', href: '/', accent: '#9046FF' },
+  { key: 'nav.exec', href: '/exec', accent: '#eab308' },
   { key: 'nav.users', href: '/users', accent: '#6366f1' },
+  { key: 'nav.adoption', href: '/adoption', accent: '#84cc16' },
   { key: 'nav.trends', href: '/trends', accent: '#0ea5e9' },
   { key: 'nav.credits', href: '/credits', accent: '#22d3ee' },
+  { key: 'nav.subscription', href: '/subscription', accent: '#f97316' },
   { key: 'nav.productivity', href: '/productivity', accent: '#22c55e' },
+  { key: 'nav.devActivity', href: '/dev-activity', accent: '#14b8a6' },
   { key: 'nav.engagement', href: '/engagement', accent: '#ec4899' },
   { key: 'nav.modelUsage', href: '/model-usage', accent: '#22d3ee' },
   { key: 'nav.analyze', href: '/analyze', accent: '#f59e0b' },
@@ -129,9 +133,12 @@ export default function Sidebar() {
             EN
           </button>
         </div>
-        <p className="mt-2 text-center text-[10px] font-medium tracking-wide text-gray-600">
+        <Link
+          href="/changelog"
+          className="mt-2 block text-center text-[10px] font-medium tracking-wide text-gray-600 hover:text-[#9046FF] transition-colors"
+        >
           v{APP_VERSION}
-        </p>
+        </Link>
       </div>
     </aside>
   );

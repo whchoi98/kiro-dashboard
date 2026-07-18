@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
+import { isUarConfigured, listReportFiles, readCsvFromS3, parseCsv } from '@/lib/uar-s3';
 import { ModelUsageData, ModelDistribution, ModelTrendPoint, ModelUserPreference } from '@/types/dashboard';
 
 // The response depends on the live contents of the Kiro UAR S3 prefix, which
@@ -11,18 +11,6 @@ import { ModelUsageData, ModelDistribution, ModelTrendPoint, ModelUserPreference
 // operators don't see a "model-usage is empty" from a stale cache.
 export const dynamic = 'force-dynamic';
 
-const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
-
-// The UAR CSVs live in the data bucket, which in two-bucket deployments
-// differs from the Athena results bucket carried by ATHENA_OUTPUT_BUCKET.
-// Prefer the explicit S3_DATA_BUCKET (set by EcsStack when configured) and
-// fall back to the results bucket for single-bucket setups.
-const BUCKET =
-  process.env.S3_DATA_BUCKET ||
-  (process.env.ATHENA_OUTPUT_BUCKET || '').replace('s3://', '').split('/')[0];
-// Must come from env — hardcoding the maintainer prefix here would cause
-// fresh accounts to issue S3 List/Get against a bucket they don't own.
-const REPORT_PREFIX = process.env.S3_REPORT_PREFIX || '';
 const USERID_PREFIX_RE = /^d-[a-z0-9]+\./;
 
 function prettifyModelName(col: string): string {
@@ -37,80 +25,9 @@ function isModelColumn(col: string): boolean {
   return col.endsWith('_messages') && col !== 'total_messages';
 }
 
-interface CsvRow {
-  date: string;
-  userid: string;
-  [key: string]: string;
-}
-
-function parseCsv(text: string): CsvRow[] {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-  return lines.slice(1).map((line) => {
-    const values = line.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => { row[h] = values[i] ?? ''; });
-    return row as CsvRow;
-  });
-}
-
-function fmtDatePath(d: Date): string {
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-}
-
-async function listAllKeys(prefix: string): Promise<string[]> {
-  const keys: string[] = [];
-  let token: string | undefined;
-  do {
-    const resp = await s3.send(
-      new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: token })
-    );
-    for (const obj of resp.Contents ?? []) {
-      if (obj.Key?.endsWith('.csv')) keys.push(obj.Key);
-    }
-    token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
-  } while (token);
-  return keys;
-}
-
-async function listReportFiles(days: number): Promise<string[]> {
-  const now = new Date();
-  const oldest = new Date(now);
-  oldest.setDate(oldest.getDate() - (days - 1));
-
-  // The container runs in ap-northeast-2 but the bucket lives in AWS_REGION
-  // (us-east-1), so every S3 round trip costs ~200ms. List one MONTH prefix
-  // at a time (≤7 calls at the 180-day cap) in parallel instead of one
-  // sequential call per day — the per-day loop cost ~20s for days=90.
-  const monthPrefixes: string[] = [];
-  const cursor = new Date(oldest.getFullYear(), oldest.getMonth(), 1);
-  while (cursor <= now) {
-    monthPrefixes.push(
-      `${REPORT_PREFIX}${cursor.getFullYear()}/${String(cursor.getMonth() + 1).padStart(2, '0')}/`
-    );
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-
-  const minDate = fmtDatePath(oldest);
-  const maxDate = fmtDatePath(now);
-  const monthKeys = await Promise.all(monthPrefixes.map(listAllKeys));
-  return monthKeys.flat().filter((key) => {
-    // Keys are `${REPORT_PREFIX}YYYY/MM/DD/...`; zero-padded date paths
-    // compare correctly as strings.
-    const datePath = key.slice(REPORT_PREFIX.length, REPORT_PREFIX.length + 10);
-    return datePath >= minDate && datePath <= maxDate;
-  });
-}
-
-async function readCsvFromS3(key: string): Promise<string> {
-  const resp = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-  return resp.Body?.transformToString() ?? '';
-}
-
 export async function GET(req: NextRequest) {
   try {
-    if (!BUCKET || !REPORT_PREFIX) {
+    if (!isUarConfigured()) {
       // Fresh account that hasn't wired ATHENA_OUTPUT_BUCKET + S3_REPORT_PREFIX
       // yet. Return a well-shaped empty payload so the /model-usage page renders
       // as an empty table rather than crashing with S3/SDK errors.

@@ -30,6 +30,9 @@
 | `ModelDistribution` | Per-model message count and percentage |
 | `ModelTrendPoint` | Daily model usage data point (dynamic keys per model) |
 | `ModelUserPreference` | Per-user model usage breakdown with primary model |
+| `SubscriptionData` | `/api/subscription` response — tier slices, tier trend, overage summary/watchlist |
+| `AdoptionData` | `/api/adoption` response — new/active user trend, totals, recent new users |
+| `DevActivityData` | `/api/dev-activity` response — five legacy metric groups, trend, top users |
 
 ---
 

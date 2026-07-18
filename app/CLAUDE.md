@@ -20,6 +20,11 @@ app/
   engagement/           Engagement metric dashboard page
   productivity/         Productivity metrics dashboard page
   model-usage/          AI model usage analysis page (S3 direct read)
+  exec/                 Executive one-page snapshot (composes existing APIs)
+  subscription/         Subscription tier & overage governance page
+  adoption/             New-user inflow & activation page (S3 direct read)
+  dev-activity/         Legacy deep dev metrics page (TestGen/DocGen/Transform/InlineChat/CodeFix)
+  changelog/            Bilingual changelog rendered from CHANGELOG.md at build time (force-static)
 ```
 
 ## Page Conventions
