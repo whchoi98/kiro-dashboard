@@ -29,7 +29,10 @@ html{scroll-behavior:smooth;}
   font-family:'NanumSquare',ui-sans-serif,system-ui,'Malgun Gothic',sans-serif;
   font-weight:400; color:var(--text); background:var(--ink);
   line-height:1.6; -webkit-font-smoothing:antialiased;
-  overflow-x:hidden; margin:0;
+  /* clip (not hidden): contains horizontal overflow WITHOUT promoting
+     overflow-y to auto, which would make .page a scroll container and trap
+     the wheel so the page appears unscrollable. */
+  overflow-x:clip; margin:0;
   /* Korean must wrap at word (eojeol) boundaries, not mid-syllable —
      the default breaks 데이터까지 into 데이터까 / 지. */
   word-break:keep-all; overflow-wrap:break-word;
