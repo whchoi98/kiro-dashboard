@@ -2,7 +2,7 @@
 
 ## Role
 
-AWS CDK TypeScript로 정의된 kiro-dashboard 인프라. 5개의 스택으로 구성됩니다.
+AWS CDK TypeScript로 정의된 kiro-dashboard 인프라. 6개의 스택으로 구성됩니다 (옵트-인 Catalog 스택 포함).
 
 ## Stack Composition
 

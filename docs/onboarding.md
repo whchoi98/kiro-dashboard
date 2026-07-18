@@ -1,8 +1,11 @@
 # Developer Onboarding — kiro-dashboard
 
-[![English](#english)](#english) [![한국어](#한국어)](#한국어)
+<a href="#english"><img src="https://img.shields.io/badge/lang-English-blue.svg" alt="English"></a>
+<a href="#korean"><img src="https://img.shields.io/badge/lang-한국어-red.svg" alt="Korean"></a>
 
 ---
+
+<a id="english"></a>
 
 ## English
 
@@ -57,7 +60,7 @@ See `.env.example` for all required variables. Key ones:
 app/api/          API route handlers — connect to Athena/Bedrock/IdC/S3
 app/components/   React UI components (charts, tables, layout)
 app/*/page.tsx    Dashboard pages (users, credits, trends, etc.)
-lib/              AWS SDK clients (athena.ts, glue.ts, identity.ts, mask.ts)
+lib/              AWS SDK clients + shared utils (athena.ts, glue.ts, identity.ts, mask.ts, uar-s3.ts, i18n.tsx, version.ts)
 types/            TypeScript interfaces for all data shapes
 infra/            AWS CDK stacks (network, security, ecs, cdn, edge-lambda)
 ```
@@ -69,7 +72,7 @@ Read each directory's `CLAUDE.md` for detailed conventions.
 1. **SQL columns are lowercase** — all Athena queries use lowercase column names
 2. **UserId normalization** — always use `NORMALIZE_USERID` from `lib/athena.ts`, not raw `userid`
 3. **Date formats differ** — `user_report` uses `YYYY-MM-DD`; `by_user_analytic` uses `MM-DD-YYYY`
-4. **i18n required** — all user-facing strings go through `useLanguage()` from `lib/i18n.tsx`
+4. **i18n required** — all user-facing strings go through `useI18n()` from `lib/i18n.tsx`
 5. **Dark theme only** — use `bg-black`, `bg-gray-900/50`, `text-white`; brand purple is `#9046FF`
 
 ### Running Tests
@@ -97,9 +100,12 @@ Quick deploy (app code only):
 ```bash
 npm run build
 docker build -t kiro-dashboard .
-# Push to ECR, then:
+# Push to ECR, then force a new deployment (the service name is
+# CDK-generated — look it up rather than hardcoding):
+SERVICE=$(aws ecs list-services --cluster kiro-dashboard-cluster \
+  --region ap-northeast-2 --query 'serviceArns[0]' --output text)
 aws ecs update-service --cluster kiro-dashboard-cluster \
-  --service kiro-dashboard-service --force-new-deployment --region ap-northeast-2
+  --service "$SERVICE" --force-new-deployment --region ap-northeast-2
 ```
 
 ### Getting Help
@@ -111,6 +117,8 @@ aws ecs update-service --cluster kiro-dashboard-cluster \
 - Operational issues → `docs/runbooks/`
 
 ---
+
+<a id="korean"></a>
 
 ## 한국어
 
@@ -152,7 +160,7 @@ npm run dev
 1. **SQL 컬럼명은 소문자** — 모든 Athena 쿼리에서 소문자 컬럼명 사용
 2. **UserId 정규화** — raw `userid` 대신 `lib/athena.ts`의 `NORMALIZE_USERID` 사용
 3. **날짜 형식 차이** — `user_report`는 `YYYY-MM-DD`, `by_user_analytic`는 `MM-DD-YYYY`
-4. **i18n 필수** — 모든 UI 텍스트는 `lib/i18n.tsx`의 `useLanguage()` 사용
+4. **i18n 필수** — 모든 UI 텍스트는 `lib/i18n.tsx`의 `useI18n()` 사용
 5. **다크 테마 전용** — `bg-black`, `bg-gray-900/50`, `text-white` 사용; 브랜드 색상은 `#9046FF`
 
 ### 도움말

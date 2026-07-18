@@ -128,9 +128,9 @@ npx cdk deploy KiroDashboardEcs --require-approval broadening
 # Test API health
 curl -s https://<cloudfront-domain>/api/health
 
-# Test a data endpoint
-curl -s "https://<cloudfront-domain>/api/metrics?period=7d"
-# Expected: JSON array with metric data
+# Test a data endpoint (the lookback param is `days`, not `period`)
+curl -s "https://<cloudfront-domain>/api/metrics?days=7"
+# Expected: JSON object with metric data
 ```
 
 ## Post-Incident

@@ -58,6 +58,11 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - **Lambda@Edge Authentication** — CDN-level Cognito PKCE authentication via Lambda@Edge; no auth logic in the app
 - **Data Masking** — Server-side masking of all user identifiers (names, emails, organizations) showing only first 2 characters
 - **Model Usage Analysis** — Per-model message distribution (Auto, Claude Opus, Claude Sonnet), daily trends, Auto vs manual selection ratio, and user model preference table via S3 direct CSV parsing
+- **Executive Snapshot** — One-page leadership view composing KPI cards, daily active users and credits, model share, tier mix, and top credit users
+- **Subscription & Overage Governance** — Tier mix (users/credits/messages per subscription tier), tier credit share, and a per-user overage watchlist tracking `overage_credits_used` against `overage_cap`
+- **New Users & Adoption** — Daily new-user inflow (UAR `New_User` flag), active and cumulative user trends, and a recent-new-users table via S3 direct CSV parsing
+- **Dev Activity Detail** — TestGen, DocGen, Transform, InlineChat, and CodeFix activity groups from the legacy report: events, generated vs accepted lines, acceptance rates, daily trends
+- **Changelog Page** — Bilingual in-app changelog rendered from `CHANGELOG.md` at build time; the sidebar version footer links to it
 
 ## Prerequisites
 
@@ -193,7 +198,7 @@ detect the underlying "missing table / empty data" signal and return a
 
 ```
 app/                        Next.js App Router
-  api/                      12 API routes
+  api/                      15 API routes
     analyze/                Bedrock AI analysis (SSE streaming)
     metrics/                KPI aggregations
     users/                  User rankings with IdC details
@@ -201,6 +206,9 @@ app/                        Next.js App Router
     credits/                Credit usage analysis
     engagement/             User segmentation and funnel
     productivity/           IDE productivity metrics
+    subscription/           Tier mix + overage governance
+    adoption/               New-user inflow (S3 direct read)
+    dev-activity/           Legacy deep dev metrics
     idc-users/              Identity Center user status
     user-detail/            Per-user activity drill-down
     client-dist/            Client type distribution
@@ -218,16 +226,23 @@ app/                        Next.js App Router
   engagement/               Engagement metrics page
   productivity/             IDE productivity page
   model-usage/              AI model usage analysis page
+  exec/                     Executive one-page snapshot
+  subscription/             Subscription & overage governance page
+  adoption/                 New users & adoption page
+  dev-activity/             Dev activity detail page
+  changelog/                Bilingual changelog page (build-time static)
 lib/                        Shared libraries
   athena.ts                 Athena query client + NORMALIZE_USERID
   glue.ts                   Glue table resolver
   identity.ts               Identity Center user resolver (with masking)
   mask.ts                   Data masking utilities
   i18n.tsx                  Korean/English i18n context
+  uar-s3.ts                 UAR S3 helpers (month-prefix parallel listing, CSV parsing)
+  version.ts                APP_VERSION single source (from package.json)
 types/                      TypeScript interfaces
   dashboard.ts              All data model types
 infra/                      AWS CDK infrastructure
-  bin/app.ts                CDK app entry (5 stacks)
+  bin/app.ts                CDK app entry (6 stacks incl. opt-in Catalog)
   lib/network-stack.ts      VPC (new or existing mgmt-vpc)
   lib/security-stack.ts     Security groups, Cognito, EdgeAuthClient
   lib/ecs-stack.ts          ECS Fargate, ALB, ECR, IAM, Auto Scaling
@@ -328,6 +343,11 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - **Lambda@Edge 인증** — CDN 레벨 Cognito PKCE 인증 (Lambda@Edge), 앱 내 인증 로직 없음
 - **데이터 마스킹** — 모든 사용자 식별자(이름, 이메일, 소속)를 서버 측에서 마스킹하여 첫 2글자만 표시
 - **모델 사용 분석** — 모델별 메시지 분포(Auto, Claude Opus, Claude Sonnet), 일별 트렌드, Auto vs 수동 선택 비율, 사용자별 모델 선호도 테이블 (S3 CSV 직접 파싱)
+- **Executive 스냅샷** — KPI 카드, 일별 활성 사용자·크레딧, 모델 점유율, 티어 구성, 상위 크레딧 사용자를 한 페이지로 구성한 경영진용 뷰
+- **구독·초과사용 거버넌스** — 구독 티어 구성(티어별 사용자/크레딧/메시지), 티어 크레딧 점유율, `overage_cap` 대비 `overage_credits_used`를 추적하는 사용자별 초과사용 워치리스트
+- **신규 사용자·온보딩** — 일별 신규 사용자 유입(UAR `New_User` 플래그), 활성·누적 사용자 추이, 최근 신규 사용자 테이블 (S3 CSV 직접 파싱)
+- **개발활동 상세** — 레거시 리포트의 TestGen, DocGen, Transform, InlineChat, CodeFix 그룹: 이벤트, 생성 대비 수락 라인, 수락률, 일별 추이
+- **Changelog 페이지** — 빌드 타임에 `CHANGELOG.md`를 렌더링하는 앱 내 이중언어 변경 이력, 사이드바 버전 표기에서 연결
 
 ## 사전 요구 사항
 
@@ -462,7 +482,7 @@ User Activity Report CSV가 S3에 도착하기 전까지는 500 에러 페이지
 
 ```
 app/                        Next.js App Router
-  api/                      12개 API 라우트
+  api/                      15개 API 라우트
     analyze/                Bedrock AI 분석 (SSE 스트리밍)
     metrics/                KPI 집계
     users/                  IdC 정보 포함 사용자 순위
@@ -470,6 +490,9 @@ app/                        Next.js App Router
     credits/                크레딧 사용 분석
     engagement/             사용자 세그먼트 및 퍼널
     productivity/           IDE 생산성 메트릭
+    subscription/           티어 구성 + 초과사용 거버넌스
+    adoption/               신규 사용자 유입 (S3 직접 읽기)
+    dev-activity/           레거시 개발활동 상세 메트릭
     idc-users/              Identity Center 사용자 상태
     user-detail/            개별 사용자 활동 드릴다운
     client-dist/            클라이언트 유형별 분포
@@ -487,16 +510,23 @@ app/                        Next.js App Router
   engagement/               참여도 메트릭 페이지
   productivity/             IDE 생산성 페이지
   model-usage/              AI 모델 사용 분석 페이지
+  exec/                     Executive 원페이지 스냅샷
+  subscription/             구독·초과사용 거버넌스 페이지
+  adoption/                 신규 사용자·온보딩 페이지
+  dev-activity/             개발활동 상세 페이지
+  changelog/                이중언어 변경 이력 페이지 (빌드 타임 정적)
 lib/                        공유 라이브러리
   athena.ts                 Athena 쿼리 클라이언트 + NORMALIZE_USERID
   glue.ts                   Glue 테이블 리졸버
   identity.ts               Identity Center 사용자 리졸버 (마스킹 포함)
   mask.ts                   데이터 마스킹 유틸리티
   i18n.tsx                  한국어/영어 i18n 컨텍스트
+  uar-s3.ts                 UAR S3 헬퍼 (월 프리픽스 병렬 리스팅, CSV 파싱)
+  version.ts                APP_VERSION 단일 소스 (package.json 기준)
 types/                      TypeScript 인터페이스
   dashboard.ts              전체 데이터 모델 타입
 infra/                      AWS CDK 인프라
-  bin/app.ts                CDK 앱 엔트리 (5개 스택)
+  bin/app.ts                CDK 앱 엔트리 (6개 스택, 옵트-인 Catalog 포함)
   lib/network-stack.ts      VPC (신규 또는 기존 mgmt-vpc)
   lib/security-stack.ts     보안 그룹, Cognito, EdgeAuthClient
   lib/ecs-stack.ts          ECS Fargate, ALB, ECR, IAM, 오토 스케일링

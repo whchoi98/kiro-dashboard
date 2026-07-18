@@ -22,7 +22,7 @@ Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.j
 | AWS Data | Athena, Glue, S3 |
 | AWS AI | Bedrock Runtime (Claude models) |
 | AWS Identity | IdentityStore (IAM Identity Center) |
-| Infrastructure | AWS CDK (TypeScript), 5 stacks (incl. EdgeLambda in us-east-1) |
+| Infrastructure | AWS CDK (TypeScript), 6 stacks (incl. EdgeLambda in us-east-1, opt-in Catalog) |
 | Container | Docker, ECS Fargate |
 | CDN | CloudFront + ALB |
 
@@ -45,7 +45,7 @@ docker run -p 3000:3000 --env-file .env kiro-dashboard
 cd infra
 npx cdk bootstrap      # First-time bootstrap (set CDK_DEFAULT_ACCOUNT + CDK_DEFAULT_REGION)
 npx cdk bootstrap aws://<account>/us-east-1  # Required for Lambda@Edge (one-time)
-npx cdk deploy --all   # Deploy all 5 stacks
+npx cdk deploy --all   # Deploy all stacks (set -a; source .env.deploy; set +a first — see docs/runbooks/production-deploy.md)
 npx cdk diff           # Preview changes
 npx cdk destroy --all  # Tear down
 
@@ -61,7 +61,7 @@ docker push <account>.dkr.ecr.ap-northeast-2.amazonaws.com/kiro-dashboard:latest
 
 ```
 app/                    Next.js App Router pages & API routes
-  api/                  12 API route handlers (see app/api/CLAUDE.md)
+  api/                  15 API route handlers (see app/api/CLAUDE.md)
   components/           Shared React components (see app/components/CLAUDE.md)
   analyze/              AI analysis chat page (Bedrock streaming)
   users/                User activity dashboard page
@@ -70,11 +70,16 @@ app/                    Next.js App Router pages & API routes
   engagement/           Engagement metrics dashboard page
   productivity/         Productivity metrics dashboard page
   model-usage/          AI model usage analysis page (S3 direct read)
+  exec/                 Executive one-page snapshot (composes existing APIs)
+  subscription/         Subscription tier & overage governance page
+  adoption/             New-user inflow & activation page (S3 direct read)
+  dev-activity/         Legacy deep dev metrics page (by_user_analytic)
+  changelog/            Bilingual changelog page (build-time static)
 lib/                    Shared AWS service clients (see lib/CLAUDE.md)
 types/                  TypeScript interfaces (see types/CLAUDE.md)
 public/                 Static assets (kiro-logo.svg)
 infra/                  AWS CDK infrastructure (see infra/CLAUDE.md)
-  bin/app.ts            CDK app entry — instantiates 5 stacks
+  bin/app.ts            CDK app entry — instantiates 6 stacks (incl. opt-in Catalog)
   lib/                  Stack definitions: network, security, ecs, cdn
   lambda/edge-auth/     Lambda@Edge Cognito auth function (PKCE + JWT)
 docs/                   Architecture docs, ADRs, runbooks
@@ -146,7 +151,7 @@ Most API routes follow this pattern:
 4. Execute via `executeQuery()` from `lib/athena.ts`
 5. Return `NextResponse.json(data)` or `NextResponse.json({ error }, { status: 500 })`
 
-Exception: `/api/model-usage` reads S3 CSV files directly via `@aws-sdk/client-s3` because dynamic `{Model_name}_Messages` columns cannot be queried through Glue/Athena (OpenCSVSerDe uses positional mapping, but model columns appear in different positions across files).
+Exception: `/api/model-usage` and `/api/adoption` read S3 CSV files directly via `lib/uar-s3.ts` because dynamic `{Model_name}_Messages` columns and the late-appended `New_User`/`User_Email` columns cannot be queried safely through Glue/Athena (OpenCSVSerDe uses positional mapping, but these columns appear in different positions across files; header-name CSV parsing sidesteps this).
 
 ### Authentication Flow
 - CloudFront Viewer Request triggers Lambda@Edge for every request
