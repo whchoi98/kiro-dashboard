@@ -39,8 +39,11 @@ app/
 
 `app/layout.tsx` wraps all pages with:
 - i18n `I18nProvider`
+- `ThemeProvider` from `lib/theme.tsx` (dark/light) — with a no-FOUC bootstrap `<script>` in `<head>` that applies the stored `kiro-theme` before hydration; `<html suppressHydrationWarning>`
 - `Sidebar` and `Header` from `components/layout/`
 - `FloatingChat` from `components/chat/` — global chatbot widget (hidden on `/analyze`, which hosts the full-page chat)
+- NanumSquare font via `next/font/local` (`app/fonts/*.woff2`, self-hosted, OFL) — exposed as `--font-nanum-square` and wired to the Tailwind sans stack in `globals.css` (`@theme inline`)
+- Responsive shell: `<main>` uses `ml-0 md:ml-[220px]` + `pt-16 md:pt-6` (mobile top bar from Sidebar); desktop layout unchanged at md+
 
 ## Auth
 

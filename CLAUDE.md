@@ -4,7 +4,7 @@
 
 **Name**: kiro-dashboard
 **Description**: Kiro IDE 사용자 분석 대시보드 — Next.js 14 (App Router) + CloudFront/ALB/ECS Fargate + Athena/Glue/S3 + Bedrock AI 분석
-**Version**: 1.2.0
+**Version**: 1.5.0
 **Language**: Korean (primary), English (secondary)
 
 Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.js 대시보드로 시각화하며, Amazon Bedrock으로 AI 인사이트를 제공하는 풀스택 분석 플랫폼.
@@ -125,8 +125,15 @@ Always cast dates appropriately when building WHERE clauses for each table.
 
 ### Branding & Theming
 - **Kiro brand color**: `#9046FF`
-- **Dark theme**: page background `bg-black`, cards `bg-gray-900/50`
-- All new components must use the dark theme
+- **Dark theme (default)**: page background `bg-black`, cards `bg-gray-900/50`
+- **Light theme** — approach A palette override (`lib/theme.tsx` + `.light` block in `globals.css`): `html.light` remaps the Tailwind color variables (stops inverted 50↔950 … 400↔600), so **components keep writing dark-first classes** and light mode comes free. Consequences:
+  - In light mode `text-white` renders near-black, `bg-gray-900` renders white — do NOT add `dark:`/`light:` variants
+  - Text that sits on accent-colored backgrounds must be theme-invariant: inside `bg-[#9046FF]` it is handled by a bridge rule in globals.css; elsewhere use `text-[#ffffff]` (arbitrary values never invert)
+  - Recharts props can't resolve CSS variables — use `useChartTheme()` from `lib/chart-theme.ts` for tick/tooltip colors; series accent fills stay invariant
+  - Theme state: `useTheme()` from `lib/theme.tsx`; persisted as `localStorage['kiro-theme']`; no-FOUC bootstrap script in `app/layout.tsx`
+- **Font**: NanumSquare (나눔스퀘어OTF web build) — self-hosted woff2 in `app/fonts/` (weights 300/400/700/800), loaded via `next/font/local` in `app/layout.tsx`, default sans stack via `@theme inline` in `globals.css`
+- **Responsive**: mobile-first below `md` (768px) — sidebar becomes an off-canvas drawer with a fixed top bar; desktop appearance at `md+` must stay unchanged; grids use `grid-cols-1 sm:grid-cols-2 md:grid-cols-N`
+- All new components are written dark-first (see Light theme above)
 - KiroLogo and KiroMascot SVG assets in `app/components/ui/`
 
 ### Environment Variables

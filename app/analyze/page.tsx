@@ -10,7 +10,7 @@ export default function AnalyzePage() {
   const chat = useChatStream();
 
   return (
-    <div className="flex flex-col h-[calc(100vh-48px)]">
+    <div className="flex flex-col h-[calc(100dvh-80px)] md:h-[calc(100vh-48px)]">
       {/* Header */}
       <div className="flex items-center gap-4 mb-4 flex-shrink-0">
         <KiroMascot

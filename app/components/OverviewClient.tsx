@@ -238,7 +238,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
       </div>
 
       {/* Active Insights Banner */}
-      <div className="rounded-lg border border-gray-800 bg-gray-900/30 px-4 py-2.5 flex items-center gap-4 text-xs">
+      <div className="rounded-lg border border-gray-800 bg-gray-900/30 px-4 py-2.5 flex flex-wrap md:flex-nowrap items-center gap-4 text-xs">
         <div className="flex items-center gap-2">
           <KiroIcon size={16} />
           <span className="text-gray-400 font-medium uppercase tracking-wider">{t('insights.title')}</span>
@@ -281,8 +281,8 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
 
       {/* Row 2: Charts */}
       <SectionLabel>{t('section.trends')}</SectionLabel>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-2 rounded-xl border border-gray-800 bg-gray-900/50 p-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="md:col-span-2 rounded-xl border border-gray-800 bg-gray-900/50 p-4">
           <h3 className="text-sm font-semibold text-gray-200 mb-3">{t('chart.dailyActivity')}</h3>
           <TrendChart data={trends} />
         </div>
@@ -293,7 +293,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
 
       {/* Row 3: Rankings & Funnel */}
       <SectionLabel>{t('section.users')}</SectionLabel>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
           <UserBarChart data={topUsers} title={t('chart.topUsers')} />
         </div>

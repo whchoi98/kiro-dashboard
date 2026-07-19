@@ -6,11 +6,21 @@ import MetricCard from '@/app/components/charts/MetricCard';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import { SubscriptionData, ClientDistribution } from '@/types/dashboard';
 
+// Left-border accent (decorative — inline hex is fine on any theme).
 const TIER_COLORS: Record<string, string> = {
   POWER: '#22d3ee',
   PRO: '#6366f1',
   PROPLUS: '#f97316',
   PROMAX: '#eab308',
+};
+
+// Tier label text uses palette classes (not inline hex) so the .light theme
+// inverts them to legible darker stops instead of washed-out brights.
+const TIER_TEXT: Record<string, string> = {
+  POWER: 'text-cyan-400',
+  PRO: 'text-indigo-400',
+  PROPLUS: 'text-orange-400',
+  PROMAX: 'text-yellow-400',
 };
 
 function formatNumber(n: number): string {
@@ -104,7 +114,7 @@ export default function SubscriptionPage() {
       {/* Subscription tier cards */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">Subscription Tiers</h3>
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {tiers.map((tier) => (
             <div
               key={tier.tier}
@@ -141,14 +151,15 @@ export default function SubscriptionPage() {
                 <div key={user.userid} className="flex items-center gap-3">
                   <span className="text-slate-500 text-sm w-5 text-right font-mono">#{index + 1}</span>
                   <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 mb-1">
                       <div className="flex items-center gap-2">
                         <span className={`text-base font-medium ${atRisk ? 'text-red-400' : 'text-slate-200'}`}>
                           {user.displayName}
                         </span>
                         <span
-                          className="text-xs px-1.5 py-0.5 rounded border border-dashboard-border"
-                          style={{ color: TIER_COLORS[user.tier.toUpperCase()] ?? '#94a3b8' }}
+                          className={`text-xs px-1.5 py-0.5 rounded border border-dashboard-border ${
+                            TIER_TEXT[user.tier.toUpperCase()] ?? 'text-slate-400'
+                          }`}
                         >
                           {user.tier}
                         </span>

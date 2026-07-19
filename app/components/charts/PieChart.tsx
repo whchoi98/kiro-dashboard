@@ -8,6 +8,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { ClientDistribution } from '@/types/dashboard';
+import { useChartTheme } from '@/lib/chart-theme';
 
 const COLORS = ['#f97316', '#6366f1', '#22d3ee', '#a78bfa', '#ec4899'];
 
@@ -17,6 +18,7 @@ interface PieChartProps {
 }
 
 export default function ClientPieChart({ data, title }: PieChartProps) {
+  const chartTheme = useChartTheme();
   return (
     <div className="flex flex-col gap-4">
       <h3 className="text-sm font-semibold text-slate-300">{title}</h3>
@@ -42,10 +44,10 @@ export default function ClientPieChart({ data, title }: PieChartProps) {
             </Pie>
             <Tooltip
               contentStyle={{
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
+                backgroundColor: chartTheme.tooltipBg,
+                border: `1px solid ${chartTheme.tooltipBorder}`,
                 borderRadius: 8,
-                color: '#f1f5f9',
+                color: chartTheme.tooltipText,
                 fontSize: 12,
               }}
               formatter={(value) => [typeof value === 'number' ? `${value.toFixed(1)}%` : `${value}%`, 'Share']}

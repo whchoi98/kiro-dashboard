@@ -1,0 +1,10 @@
+NanumSquare (나눔스퀘어) — Copyright (c) NAVER Corporation
+
+The NanumSquare fonts bundled here (NanumSquareL/R/B/EB .woff2, web build
+sourced from https://github.com/moonspam/NanumSquare) are distributed under
+the SIL Open Font License, Version 1.1 (OFL-1.1).
+
+You can use, modify, and redistribute these fonts freely, including for
+commercial use, but you may not sell the font files by themselves.
+
+Full license text: https://openfontlicense.org/open-font-license-official-text/

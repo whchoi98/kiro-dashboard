@@ -10,12 +10,12 @@
 components/
   layout/
     Header.tsx          Top navigation bar — language switcher, user info
-    Sidebar.tsx         Left nav sidebar — page links, logout button, language switcher, app version footer (links to /changelog)
+    Sidebar.tsx         Left nav sidebar — page links, logout button, theme (다크/라이트) + language switchers, app version footer (links to /changelog); off-canvas drawer + fixed hamburger top bar below md
     KiroLogo.tsx        Kiro logo SVG component
   chat/
-    FloatingChat.tsx    Global draggable chatbot widget (mounted in app/layout.tsx; hidden on /analyze)
-    ChatPanel.tsx       Chat container — variant 'page' | 'widget'; header, empty-state suggestions, composer
-    MessageList.tsx     Message bubbles, tool badges, typing dots, MD/PDF export buttons (page variant)
+    FloatingChat.tsx    Global draggable chatbot widget (mounted in app/layout.tsx; hidden on /analyze); full-screen sheet + drag disabled below md
+    ChatPanel.tsx       Chat container — variant 'page' | 'widget'; owns the scroll container + stick-to-bottom auto-follow (lib/chat-scroll.ts); quick-prompt suggestions in BOTH variants (page: wrapped pills, widget: horizontal chip row above composer)
+    MessageList.tsx     Message bubbles, tool badges, typing dots, MD/PDF export buttons (page variant) — no scroll logic (lives in ChatPanel)
     ChatComposer.tsx    Textarea + send/stop buttons (Enter sends, Shift+Enter newline)
     ChatMarkdown.tsx    Dark-theme ReactMarkdown renderer shared by chat surfaces
   charts/
@@ -46,7 +46,7 @@ components/
 ## Component Conventions
 
 - Client components must have `'use client'` directive at the top
-- All user-facing strings go through `useLanguage()` from `lib/i18n.tsx`
+- All user-facing strings go through `useI18n()` from `lib/i18n.tsx`
 - Chart components receive pre-processed data arrays (no direct Athena calls)
 - `MetricCard` accepts: `title`, `value`, `changeRate`, `trend` props
 - `DateRangePicker` emits ISO date strings (`YYYY-MM-DD`)

@@ -51,7 +51,8 @@ export default function ChatComposer({
         placeholder={t('analyze.placeholder')}
         disabled={isStreaming}
         rows={1}
-        className="flex-1 resize-none bg-gray-900/80 border border-gray-700 focus:border-[#9046FF] focus:ring-1 focus:ring-[#9046FF]/30 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all duration-150 disabled:opacity-50"
+        // text-base below md: 14px inputs trigger iOS Safari's focus auto-zoom
+        className="flex-1 resize-none bg-gray-900/80 border border-gray-700 focus:border-[#9046FF] focus:ring-1 focus:ring-[#9046FF]/30 rounded-xl px-4 py-3 text-base md:text-sm text-white placeholder-slate-500 outline-none transition-all duration-150 disabled:opacity-50"
         style={{ minHeight: '46px', maxHeight: '120px' }}
       />
       {isStreaming ? (

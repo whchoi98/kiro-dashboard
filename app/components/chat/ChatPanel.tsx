@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import KiroMascot from '@/app/components/ui/KiroMascot';
 import MessageList from './MessageList';
 import ChatComposer from './ChatComposer';
 import { ChatStream, CHAT_MODEL_ID } from '@/lib/useChatStream';
+import { isNearBottom } from '@/lib/chat-scroll';
 import { useI18n } from '@/lib/i18n';
 
 const EXAMPLE_KEYS = [
@@ -27,6 +29,46 @@ export default function ChatPanel({ chat, variant, onClose }: ChatPanelProps) {
   const hasMessages = messages.length > 0;
   const isWidget = variant === 'widget';
   const exampleKeys = isWidget ? EXAMPLE_KEYS.slice(0, 4) : EXAMPLE_KEYS;
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Whether the user currently sits at the bottom of the conversation.
+  // Ref (not state): scroll position must never trigger re-renders.
+  const pinnedRef = useRef(true);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (el) pinnedRef.current = isNearBottom(el.scrollTop, el.scrollHeight, el.clientHeight);
+  };
+
+  // Auto-follow the stream only while pinned; scrolling up to read must win.
+  // Instant scrollTop write — a smooth scrollIntoView per SSE chunk queues
+  // animations that yank the view back down and also scrolls ancestor
+  // containers (the page behind the widget).
+  // isStreaming is a dep because stream end mounts the quick-prompt chip row,
+  // shrinking this container without a messages change — a pinned view must
+  // re-bottom or the answer's last lines hide below the fold.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
+  }, [messages, isStreaming]);
+
+  // Sending a question is an explicit "take me to the answer".
+  const sendPinned = (text: string) => {
+    pinnedRef.current = true;
+    send(text);
+  };
+
+  const quickPromptButtons = exampleKeys.map((key) => (
+    <button
+      key={key}
+      onClick={() => sendPinned(t(key))}
+      className={`px-3 py-1 text-xs text-slate-400 bg-gray-800/40 hover:bg-gray-700/40 border border-gray-800 hover:border-[#9046FF]/40 rounded-full transition-all duration-150 ${
+        isWidget ? 'flex-shrink-0 whitespace-nowrap' : ''
+      }`}
+    >
+      {t(key)}
+    </button>
+  ));
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -71,7 +113,9 @@ export default function ChatPanel({ chat, variant, onClose }: ChatPanelProps) {
 
       {/* Conversation area */}
       <div
-        className={`flex-1 overflow-y-auto min-h-0 p-4 ${
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className={`flex-1 overflow-y-auto overscroll-contain min-h-0 p-4 ${
           isWidget
             ? 'bg-gray-950/95'
             : 'rounded-xl border border-gray-800 bg-gray-950/50'
@@ -84,11 +128,11 @@ export default function ChatPanel({ chat, variant, onClose }: ChatPanelProps) {
               <p className="text-white text-lg font-semibold">Kiro Analytics AI</p>
               <p className="text-slate-500 text-sm max-w-sm">{t('header.analyze.sub')}</p>
             </div>
-            <div className={`grid ${isWidget ? 'grid-cols-1' : 'grid-cols-2'} gap-2 ${isWidget ? 'w-full' : 'max-w-2xl w-full'}`}>
+            <div className={`grid ${isWidget ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-2 ${isWidget ? 'w-full' : 'max-w-2xl w-full'}`}>
               {exampleKeys.map((key) => (
                 <button
                   key={key}
-                  onClick={() => send(t(key))}
+                  onClick={() => sendPinned(t(key))}
                   className="px-4 py-2.5 text-sm text-slate-300 bg-gray-800/60 hover:bg-gray-800 border border-gray-700 hover:border-[#9046FF]/60 rounded-xl transition-all duration-150 text-left leading-snug"
                 >
                   {t(key)}
@@ -108,24 +152,23 @@ export default function ChatPanel({ chat, variant, onClose }: ChatPanelProps) {
         )}
       </div>
 
-      {/* Quick prompts (page variant only, after first exchange) */}
+      {/* Quick prompts after the first exchange (page variant: wrapped pills
+          below the conversation; widget: horizontal chip row lives inside the
+          composer tray below) */}
       {!isWidget && hasMessages && !isStreaming && (
         <div className="flex flex-wrap gap-1.5 mt-2 flex-shrink-0">
-          {EXAMPLE_KEYS.map((key) => (
-            <button
-              key={key}
-              onClick={() => send(t(key))}
-              className="px-3 py-1 text-xs text-slate-400 bg-gray-800/40 hover:bg-gray-700/40 border border-gray-800 hover:border-[#9046FF]/40 rounded-full transition-all duration-150"
-            >
-              {t(key)}
-            </button>
-          ))}
+          {quickPromptButtons}
         </div>
       )}
 
       {/* Composer */}
       <div className={`flex-shrink-0 ${isWidget ? 'p-3 border-t border-gray-800 bg-gray-900/90 rounded-b-2xl' : 'mt-3'}`}>
-        <ChatComposer isStreaming={isStreaming} onSend={send} onStop={stop} compact={isWidget} />
+        {isWidget && hasMessages && !isStreaming && (
+          <div className="flex gap-1.5 overflow-x-auto pb-2">
+            {quickPromptButtons}
+          </div>
+        )}
+        <ChatComposer isStreaming={isStreaming} onSend={sendPinned} onStop={stop} compact={isWidget} />
       </div>
     </div>
   );

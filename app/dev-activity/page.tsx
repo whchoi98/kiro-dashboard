@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import Header from '@/app/components/layout/Header';
 import { DevActivityData, DevActivityGroup } from '@/types/dashboard';
+import { useChartTheme } from '@/lib/chart-theme';
 
 const GROUP_ORDER = ['TestGen', 'DocGen', 'Transform', 'InlineChat', 'CodeFix'] as const;
 
@@ -35,6 +36,7 @@ export default function DevActivityPage() {
   const [days, setDays] = useState(90);
   const [data, setData] = useState<DevActivityData | null>(null);
   const [loading, setLoading] = useState(true);
+  const chartTheme = useChartTheme();
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +73,7 @@ export default function DevActivityPage() {
       />
 
       {/* Activity group cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {groups.map((group) => (
           <div key={group.key} className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
             <div className="flex items-center gap-2 mb-3">
@@ -116,28 +118,28 @@ export default function DevActivityPage() {
                 <XAxis
                   dataKey="date"
                   tickFormatter={(d: string) => d.slice(5)}
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   width={40}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
+                    backgroundColor: chartTheme.tooltipBg,
+                    border: `1px solid ${chartTheme.tooltipBorder}`,
                     borderRadius: 8,
-                    color: '#f1f5f9',
+                    color: chartTheme.tooltipText,
                     fontSize: 12,
                   }}
-                  labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                  labelStyle={{ color: chartTheme.tick, marginBottom: 4 }}
+                  cursor={{ fill: chartTheme.cursorFill }}
                 />
-                <Legend wrapperStyle={{ fontSize: 12, color: '#94a3b8', paddingTop: 8 }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: chartTheme.tick, paddingTop: 8 }} />
                 {GROUP_ORDER.map((key, index) => (
                   <Bar
                     key={key}
@@ -160,7 +162,8 @@ export default function DevActivityPage() {
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">Top 10 Users by Activity Events</h3>
         {data?.topUsers?.length ? (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="text-left text-slate-500 border-b border-dashboard-border">
                 <th className="pb-2 pr-4 font-medium w-10">#</th>
@@ -184,6 +187,7 @@ export default function DevActivityPage() {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <p className="text-slate-500 text-sm">No data available</p>
         )}

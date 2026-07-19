@@ -23,6 +23,8 @@ export default function FloatingChat() {
   const { t } = useI18n();
   const chat = useChatStream();
   const [open, setOpen] = useState(false);
+  // Below md the panel becomes a full-screen sheet and dragging is disabled.
+  const [isMobile, setIsMobile] = useState(false);
   // Drag offset from the bottom-right anchor; survives open/close.
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
@@ -91,12 +93,41 @@ export default function FloatingChat() {
     }
   }, [offset]);
 
-  // Keep the committed offset applied when not dragging.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
+  // Crossing into mobile mid-drag detaches the pointer handlers before
+  // pointerup can fire — drop the drag or a later hover resumes it with
+  // stale start coordinates.
+  useEffect(() => {
+    if (isMobile) dragRef.current = null;
+  }, [isMobile]);
+
+  // The mobile sheet covers the page — freeze the document behind it so
+  // overscroll doesn't chain into the dashboard.
+  useEffect(() => {
+    if (!(open && isMobile)) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open, isMobile]);
+
+  // Keep the committed offset applied when not dragging; the mobile sheet is
+  // anchored by inset classes and must not inherit a stale desktop offset.
   useEffect(() => {
     if (panelRef.current) {
-      panelRef.current.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+      panelRef.current.style.transform = isMobile
+        ? ''
+        : `translate(${offset.x}px, ${offset.y}px)`;
     }
-  }, [offset, open]);
+  }, [offset, open, isMobile]);
 
   // Re-clamp when the viewport shrinks so a panel dragged far left/up on a
   // large screen cannot end up entirely off-screen after a resize.
@@ -115,7 +146,9 @@ export default function FloatingChat() {
       <button
         onClick={() => setOpen(true)}
         aria-label={t('chat.open')}
-        className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 pl-2.5 pr-4 py-2 bg-gray-900/95 hover:bg-gray-800 border border-gray-700 hover:border-[#9046FF]/60 rounded-full shadow-xl shadow-black/40 transition-all duration-150 group"
+        // z-30: below modal backdrops (z-40) so the launcher dims and is
+        // inert while the nav drawer or UserDetailPanel is open.
+        className="fixed bottom-5 right-5 z-30 flex items-center gap-2.5 pl-2.5 pr-4 py-2 bg-gray-900/95 hover:bg-gray-800 border border-gray-700 hover:border-[#9046FF]/60 rounded-full shadow-xl shadow-[rgba(0,0,0,0.4)] transition-all duration-150 group"
       >
         <KiroMascot size={34} mood="happy" theme="analyze" />
         <span className="text-sm font-semibold text-slate-200 group-hover:text-white">
@@ -125,16 +158,30 @@ export default function FloatingChat() {
     );
   }
 
+  const dragHandlers = isMobile
+    ? {}
+    : {
+        onPointerDown,
+        onPointerMove,
+        onPointerUp,
+        onPointerCancel,
+        onLostPointerCapture: onPointerCancel,
+      };
+
   return (
     <div
       ref={panelRef}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
-      onLostPointerCapture={onPointerCancel}
-      className="fixed bottom-5 right-5 z-40 flex flex-col rounded-2xl border border-gray-700 bg-gray-950 shadow-2xl shadow-black/60 overflow-hidden"
-      style={{ width: PANEL_W, height: PANEL_H, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100vh - 16px)' }}
+      {...dragHandlers}
+      className={`fixed z-40 flex flex-col rounded-2xl border border-gray-700 bg-gray-950 shadow-2xl shadow-[rgba(0,0,0,0.6)] overflow-hidden ${
+        isMobile ? 'inset-2' : 'bottom-5 right-5'
+      }`}
+      style={
+        isMobile
+          ? // inset-2 anchors both edges to the visual viewport — height
+            // resolves natively even as mobile URL bars collapse/expand.
+            undefined
+          : { width: PANEL_W, height: PANEL_H, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100vh - 16px)' }
+      }
     >
       <ChatPanel chat={chat} variant="widget" onClose={() => setOpen(false)} />
     </div>

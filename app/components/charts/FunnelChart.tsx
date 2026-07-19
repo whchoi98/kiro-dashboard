@@ -31,7 +31,9 @@ export default function FunnelChart({ data, title }: FunnelChartProps) {
                   opacity: 0.9,
                 }}
               >
-                <span className="text-white text-xs font-semibold px-2 text-center leading-tight">
+                {/* theme-invariant white: sits on an accent-colored bar,
+                    must NOT invert with the .light palette */}
+                <span className="text-[#ffffff] text-xs font-semibold px-2 text-center leading-tight">
                   {step.label}
                 </span>
               </div>

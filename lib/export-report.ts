@@ -71,7 +71,11 @@ export async function exportPdf(element: HTMLElement): Promise<void> {
     logging: false,
     width: captureWidth,
     windowWidth: Math.max(document.documentElement.clientWidth, captureWidth + 100),
-    onclone: (_doc: Document, cloned: HTMLElement) => {
+    onclone: (doc: Document, cloned: HTMLElement) => {
+      // The exported report is always dark (PDF_BG). Force the clone to the
+      // dark palette so a user on the light theme doesn't capture light-mode
+      // computed colors that composite into a murky gray over PDF_BG.
+      doc.documentElement.classList.remove('light');
       cloned.style.width = `${captureWidth}px`;
       cloned.style.maxWidth = 'none';
       cloned.querySelectorAll<HTMLElement>('.overflow-x-auto').forEach((d) => {

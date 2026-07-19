@@ -16,6 +16,9 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 | `version.ts` | Exports `APP_VERSION` from `package.json` (shown in Sidebar footer; sync enforced by `tests/structure/version-sync.test.ts`) |
 | `uar-s3.ts` | Shared UAR S3 helpers — bucket/prefix resolution, month-prefix parallel `listReportFiles(days)`, `readCsvFromS3`, `parseCsv`; used by `/api/model-usage` and `/api/adoption` |
 | `useChatStream.ts` | Client chat hook against `/api/analyze` SSE agent — 12-turn history cap, AbortController race guard, optimistic assistant message; shared by /analyze page and FloatingChat |
+| `chat-scroll.ts` | Stick-to-bottom helper for streaming chat (`isNearBottom`, `PIN_THRESHOLD_PX`) — auto-follow only while the user is pinned to the bottom; used by `ChatPanel` |
+| `theme.tsx` | `ThemeProvider` + `useTheme()` — dark/light via `light` class on `<html>` (palette override in globals.css), persisted as `localStorage['kiro-theme']`, default dark |
+| `chart-theme.ts` | `useChartTheme()` — tick/tooltip colors for Recharts props (CSS variables can't reach SVG attrs/inline styles); DARK values match the original chart hexes |
 | `export-report.ts` | Client exporters for AI answers — Markdown blob download; PDF via `html2canvas-pro` (NOT `html2canvas` — Tailwind v4 oklab/oklch colors) + `jspdf` DOM capture, dynamic imports |
 
 ---

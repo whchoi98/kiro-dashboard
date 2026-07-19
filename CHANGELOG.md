@@ -13,6 +13,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Dark/light theme switching** — 다크/라이트 pill toggle in the sidebar
+  (default dark, persisted in `localStorage`, pre-hydration bootstrap so
+  there is no flash). Implemented as a Tailwind v4 palette override:
+  `html.light` remaps the color variables (stops inverted per hue), so
+  components keep their dark-first classes; charts read `useChartTheme()`
+  for the tooltip/tick colors CSS variables cannot reach.
+
+### Fixed
+
+- `/credits` crashed client-side ("Application error") when the credits API
+  returned an error payload — the response shape is now validated before
+  rendering, matching the guards `/users` and `/trends` already had.
+
+## [1.5.0] - 2026-07-18
+
+### Added
+
+- **NanumSquare font** — self-hosted woff2 (weights 300/400/700/800, OFL
+  license) loaded via `next/font/local` and wired into the Tailwind v4 sans
+  stack; no runtime CDN dependency behind CloudFront.
+- **Follow-up suggestion chips in the chat widget** — after an answer
+  completes, the floating widget now shows quick-prompt suggestions as a
+  horizontally scrollable chip row above the composer (previously
+  page-variant only).
+- **Mobile responsive layout** — below 768px the sidebar becomes an
+  off-canvas drawer with a fixed hamburger top bar, the chat widget expands
+  to a full-screen sheet (drag disabled), and grids/tables/filter rows
+  across all 12 dashboard pages stack or scroll instead of overflowing.
+  Desktop rendering at `md+` is unchanged.
+- **CloudFront custom domain support** — optional `CUSTOM_DOMAIN` +
+  `CUSTOM_DOMAIN_CERT_ARN` deploy vars add the distribution alias + ACM
+  certificate and whitelist the domain on the Cognito app client (the edge
+  auth derives `redirect_uri` from the request Host header). Live at
+  `kirodashboard.whchoi.net`.
+
+### Fixed
+
+- **Chat scroll hijack** — the conversation no longer yanks to the bottom on
+  every streamed chunk; auto-follow only runs while the user is pinned to
+  the bottom (`lib/chat-scroll.ts` stick-to-bottom helper), and the view
+  re-bottoms when the suggestion chip row appears at stream end.
+- **Cognito `redirect_mismatch` on the custom domain** — accessing the CNAME
+  showed Cognito's "An error was encountered with the requested page"
+  because the domain was missing from the app client callback whitelist.
+- iOS Safari focus auto-zoom on the chat composer (16px input below `md`).
+- Chat launcher stacked above modal backdrops — moved below the drawer and
+  user-detail panel so it dims and is inert while they are open.
+- Body scroll-through behind the open mobile drawer and chat sheet;
+  drawer footer (locale switcher, version link) clipped behind mobile
+  browser toolbars.
+
 ## [1.2.0] - 2026-07-18
 
 ### Added
@@ -177,7 +230,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bedrock model ID corrected to global inference profile (global.anthropic.claude-sonnet-4-6)
 - Bedrock IAM policy expanded to include inference-profile ARN pattern
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.2.0...v1.5.0
+[1.2.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/whchoi98/kiro-dashboard/releases/tag/v1.0.0
 
@@ -190,6 +245,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+### 추가됨
+
+- **다크/라이트 테마 전환** — 사이드바 다크/라이트 토글 (기본 다크,
+  `localStorage` 저장, hydration 전 부트스트랩으로 깜빡임 없음). Tailwind v4
+  팔레트 오버라이드 방식: `html.light`가 색상 변수를 재매핑(계열별 단계
+  반전)하므로 컴포넌트는 다크 기준 클래스를 그대로 유지; 차트는 CSS 변수가
+  닿지 않는 툴팁/눈금 색상을 `useChartTheme()`로 읽음.
+
+### 수정됨
+
+- credits API가 에러 페이로드를 반환하면 `/credits`가 클라이언트에서
+  크래시("Application error")하던 문제 수정 — `/users`, `/trends`와 동일한
+  응답 형태 검증 추가.
+
+## [1.5.0] - 2026-07-18
+
+### 추가됨
+
+- **나눔스퀘어 폰트** — woff2 4종(300/400/700/800, OFL 라이선스)을
+  `next/font/local`로 셀프호스팅하고 Tailwind v4 기본 산세리프 스택에 연결.
+  CloudFront 뒤에서 외부 CDN 런타임 의존 없음.
+- **챗봇 위젯 후속 추천 질문** — 답변 완료 후 플로팅 위젯에도 입력창 위
+  가로 스크롤 칩으로 추천 질문 표시 (기존에는 /analyze 페이지 전용).
+- **모바일 반응형 레이아웃** — 768px 미만에서 사이드바가 햄버거 상단바 +
+  오프캔버스 드로어로 전환, 챗봇 위젯은 풀스크린 시트로 확장(드래그
+  비활성), 12개 대시보드 페이지의 그리드/테이블/필터 행 스택·스크롤 처리.
+  `md+` 데스크톱 렌더링은 무변경.
+- **CloudFront 커스텀 도메인 지원** — 배포 변수 `CUSTOM_DOMAIN` +
+  `CUSTOM_DOMAIN_CERT_ARN`으로 배포판 별칭 + ACM 인증서 + Cognito 앱
+  클라이언트 허용 URL을 코드로 관리 (edge 인증이 Host 헤더로
+  `redirect_uri`를 생성). `kirodashboard.whchoi.net` 운영 중.
+
+### 수정됨
+
+- **챗봇 스크롤 하이재킹** — 스트리밍 청크마다 대화가 바닥으로 강제
+  스크롤되던 문제 수정; 사용자가 바닥에 있을 때만 자동 추적
+  (`lib/chat-scroll.ts` stick-to-bottom 헬퍼), 스트림 종료 시 추천 칩
+  등장에 맞춰 재정렬.
+- **커스텀 도메인 Cognito `redirect_mismatch`** — CNAME 접속 시 "An error
+  was encountered with the requested page" 에러가 나던 문제 수정 (앱
+  클라이언트 콜백 허용 목록에 도메인 등록).
+- iOS Safari에서 챗봇 입력창 포커스 시 자동 확대 문제 수정 (`md` 미만
+  16px 입력).
+- 챗봇 런처가 모달 백드롭 위에 떠 있던 z-order 충돌 수정 — 드로어/사용자
+  상세 패널이 열리면 런처가 어두워지고 비활성화.
+- 모바일 드로어·챗봇 시트 뒤 페이지 스크롤 관통 차단; 모바일 브라우저
+  툴바에 드로어 하단(언어 전환, 버전 링크)이 가려지던 문제 수정.
 
 ## [1.2.0] - 2026-07-18
 
@@ -350,6 +453,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bedrock 모델 ID 수정 (global inference profile global.anthropic.claude-sonnet-4-6 적용)
 - Bedrock IAM 정책 확장 (inference-profile ARN 패턴 추가)
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.2.0...v1.5.0
+[1.2.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/whchoi98/kiro-dashboard/releases/tag/v1.0.0

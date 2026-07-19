@@ -114,7 +114,7 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatCard
           label={t('idc.total')}
           value={data.total}

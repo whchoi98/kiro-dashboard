@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import ChatMarkdown from './ChatMarkdown';
 import { ChatMessage } from '@/lib/useChatStream';
 import { exportMarkdown, exportPdf } from '@/lib/export-report';
@@ -21,14 +21,12 @@ export default function MessageList({
   compact = false,
 }: MessageListProps) {
   const { t } = useI18n();
-  const endRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [exportErrorId, setExportErrorId] = useState<string | null>(null);
 
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Auto-scroll lives in ChatPanel (it owns the scroll container) — an
+  // unconditional scrollIntoView here per streamed chunk hijacked user scroll.
 
   const questionFor = (idx: number): string | undefined => {
     for (let i = idx - 1; i >= 0; i--) {
@@ -175,7 +173,6 @@ export default function MessageList({
           </div>
         );
       })}
-      <div ref={endRef} />
     </div>
   );
 }

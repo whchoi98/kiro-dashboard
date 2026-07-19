@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import KiroLogo from './KiroLogo';
 import { useI18n } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
 import { APP_VERSION } from '@/lib/version';
 
 function MiniKiro({ size = 20, active = false, accentColor = '#9046FF' }: { size?: number; active?: boolean; accentColor?: string }) {
@@ -72,17 +73,72 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { locale, setLocale, t } = useI18n();
+  const { theme, setTheme } = useTheme();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Tapping a nav link changes the route — close the drawer with it.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Freeze the page behind the open drawer so backdrop swipes don't scroll it.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
+  // Also closes on a tap that doesn't change the route (re-tapping the
+  // active item) — the pathname effect alone never fires for those.
+  const closeDrawer = () => setMobileOpen(false);
 
   return (
-    <aside className="fixed top-0 left-0 h-screen w-[220px] bg-dashboard-sidebar flex flex-col z-30 border-r border-gray-800/50">
+    <>
+      {/* Mobile top bar (hidden on md+ where the sidebar is always visible) */}
+      <div className="md:hidden fixed top-0 inset-x-0 h-12 z-40 flex items-center gap-3 px-3 bg-dashboard-sidebar border-b border-gray-800/50">
+        <button
+          onClick={() => setMobileOpen(true)}
+          aria-label={t('common.openMenu')}
+          className="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-white rounded-lg hover:bg-gray-800/50 transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <MiniKiro size={22} active accentColor="#9046FF" />
+        <span className="text-white text-sm font-bold">Kiro Analytics</span>
+      </div>
+
+      {/* Drawer backdrop */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-[rgba(0,0,0,0.6)]"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* top-0 bottom-0 (not h-screen): both edges track the visual viewport,
+          so the locale/version footer stays reachable above mobile URL bars */}
+      <aside
+        className={`fixed top-0 bottom-0 left-0 w-[220px] bg-dashboard-sidebar flex flex-col z-50 md:z-30 border-r border-gray-800/50 transform transition-transform duration-200 md:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
       <KiroLogo />
-      <nav className="flex flex-col gap-1 px-3 py-4 flex-1">
+      <nav className="flex flex-col gap-1 px-3 py-4 flex-1 overflow-y-auto overscroll-contain">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={closeDrawer}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
                 isActive
                   ? 'bg-[#9046FF] text-white shadow-lg shadow-purple-500/20'
@@ -111,6 +167,28 @@ export default function Sidebar() {
       </div>
 
       <div className="px-4 py-3 border-t border-gray-800/50">
+        <div className="flex rounded-lg bg-gray-900/80 p-0.5 mb-1.5">
+          <button
+            onClick={() => setTheme('dark')}
+            className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-all ${
+              theme === 'dark'
+                ? 'bg-[#9046FF] text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {t('common.themeDark')}
+          </button>
+          <button
+            onClick={() => setTheme('light')}
+            className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-all ${
+              theme === 'light'
+                ? 'bg-[#9046FF] text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {t('common.themeLight')}
+          </button>
+        </div>
         <div className="flex rounded-lg bg-gray-900/80 p-0.5">
           <button
             onClick={() => setLocale('ko')}
@@ -135,11 +213,13 @@ export default function Sidebar() {
         </div>
         <Link
           href="/changelog"
+          onClick={closeDrawer}
           className="mt-2 block text-center text-[10px] font-medium tracking-wide text-gray-600 hover:text-[#9046FF] transition-colors"
         >
           v{APP_VERSION}
         </Link>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

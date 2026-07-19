@@ -10,6 +10,7 @@ import {
   Cell,
 } from 'recharts';
 import { TopUser } from '@/types/dashboard';
+import { useChartTheme } from '@/lib/chart-theme';
 
 const TOP_COLORS = ['#f97316', '#6366f1', '#0ea5e9'];
 const DEFAULT_COLOR = '#64748b';
@@ -20,6 +21,7 @@ interface UserBarChartProps {
 }
 
 export default function UserBarChart({ data, title }: UserBarChartProps) {
+  const chartTheme = useChartTheme();
   return (
     <div className="flex flex-col gap-4">
       <h3 className="text-sm font-semibold text-slate-300">{title}</h3>
@@ -32,27 +34,27 @@ export default function UserBarChart({ data, title }: UserBarChartProps) {
           >
             <XAxis
               type="number"
-              tick={{ fill: '#94a3b8', fontSize: 11 }}
+              tick={{ fill: chartTheme.tick, fontSize: 11 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               type="category"
               dataKey="displayName"
-              tick={{ fill: '#94a3b8', fontSize: 11 }}
+              tick={{ fill: chartTheme.tick, fontSize: 11 }}
               axisLine={false}
               tickLine={false}
               width={120}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
+                backgroundColor: chartTheme.tooltipBg,
+                border: `1px solid ${chartTheme.tooltipBorder}`,
                 borderRadius: 8,
-                color: '#f1f5f9',
+                color: chartTheme.tooltipText,
                 fontSize: 12,
               }}
-              cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+              cursor={{ fill: chartTheme.cursorFill }}
             />
             <Bar dataKey="totalMessages" name="Messages" radius={[0, 4, 4, 0]}>
               {data.map((_, index) => (

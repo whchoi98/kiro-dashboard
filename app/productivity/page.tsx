@@ -15,6 +15,7 @@ import {
   Cell,
 } from 'recharts';
 import { useI18n } from '@/lib/i18n';
+import { useChartTheme } from '@/lib/chart-theme';
 
 interface ProductivitySummary {
   activeUsers: number;
@@ -71,6 +72,7 @@ function fmt(n: number): string {
 
 export default function ProductivityPage() {
   const { t } = useI18n();
+  const chartTheme = useChartTheme();
   const [days, setDays] = useState(90);
   const [data, setData] = useState<ProductivityData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +119,7 @@ export default function ProductivityPage() {
       />
 
       {/* Section 1: KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {/* AI Code Lines */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">{t('prod.aiCodeLines')}</p>
@@ -148,7 +150,7 @@ export default function ProductivityPage() {
       </div>
 
       {/* Section 2: Feature Usage Cards (3x2) */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {/* Chat */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-3">{t('prod.chat')}</p>
@@ -249,7 +251,7 @@ export default function ProductivityPage() {
               >
                 <XAxis
                   type="number"
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v: number) => fmt(v)}
@@ -257,20 +259,20 @@ export default function ProductivityPage() {
                 <YAxis
                   type="category"
                   dataKey="displayName"
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   width={130}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
+                    backgroundColor: chartTheme.tooltipBg,
+                    border: `1px solid ${chartTheme.tooltipBorder}`,
                     borderRadius: 8,
-                    color: '#f1f5f9',
+                    color: chartTheme.tooltipText,
                     fontSize: 12,
                   }}
-                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                  cursor={{ fill: chartTheme.cursorFill }}
                 />
                 <Bar dataKey="aiCodeLines" name="AI Code Lines" radius={[0, 4, 4, 0]}>
                   {topUsers.map((_, index) => (
@@ -298,12 +300,12 @@ export default function ProductivityPage() {
                 <XAxis
                   dataKey="date"
                   tickFormatter={(d: string) => d.slice(5)}
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   width={50}
@@ -311,17 +313,17 @@ export default function ProductivityPage() {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
+                    backgroundColor: chartTheme.tooltipBg,
+                    border: `1px solid ${chartTheme.tooltipBorder}`,
                     borderRadius: 8,
-                    color: '#f1f5f9',
+                    color: chartTheme.tooltipText,
                     fontSize: 12,
                   }}
-                  labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                  cursor={{ stroke: 'rgba(255,255,255,0.1)' }}
+                  labelStyle={{ color: chartTheme.tick, marginBottom: 4 }}
+                  cursor={{ stroke: chartTheme.cursorFill }}
                 />
                 <Legend
-                  wrapperStyle={{ fontSize: 12, color: '#94a3b8', paddingTop: 8 }}
+                  wrapperStyle={{ fontSize: 12, color: chartTheme.tick, paddingTop: 8 }}
                 />
                 <Line
                   type="monotone"

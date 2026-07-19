@@ -14,6 +14,7 @@ import {
   ModelUsageData,
   ClientDistribution,
 } from '@/types/dashboard';
+import { useChartTheme, type ChartTheme } from '@/lib/chart-theme';
 
 const TIER_COLORS: Record<string, string> = {
   POWER: '#22d3ee',
@@ -23,13 +24,13 @@ const TIER_COLORS: Record<string, string> = {
 
 const RANK_COLORS = ['#f97316', '#6366f1', '#0ea5e9', '#22d3ee', '#a78bfa'];
 
-const tooltipStyle = {
-  backgroundColor: '#1e293b',
-  border: '1px solid #334155',
+const tooltipStyle = (chartTheme: ChartTheme) => ({
+  backgroundColor: chartTheme.tooltipBg,
+  border: `1px solid ${chartTheme.tooltipBorder}`,
   borderRadius: 8,
-  color: '#f1f5f9',
+  color: chartTheme.tooltipText,
   fontSize: 12,
-};
+});
 
 function formatNumber(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -48,6 +49,7 @@ async function safeFetch<T>(url: string): Promise<T | null> {
 }
 
 export default function ExecPage() {
+  const chartTheme = useChartTheme();
   const [days, setDays] = useState(90);
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
   const [trends, setTrends] = useState<DailyTrend[]>([]);
@@ -108,7 +110,7 @@ export default function ExecPage() {
       />
 
       {/* Row 1: Headline KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Active Users"
           value={formatNumber(metrics?.totalUsers ?? 0)}
@@ -140,7 +142,7 @@ export default function ExecPage() {
       </div>
 
       {/* Row 2: Daily trend + model share */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
           <h3 className="text-lg font-semibold text-slate-300 mb-4">Daily Active Users &amp; Credits</h3>
           {trends.length > 0 ? (
@@ -150,13 +152,13 @@ export default function ExecPage() {
                   <XAxis
                     dataKey="date"
                     tickFormatter={(d: string) => d.slice(5)}
-                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                    tick={{ fill: chartTheme.tick, fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     yAxisId="credits"
-                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                    tick={{ fill: chartTheme.tick, fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                     width={44}
@@ -164,17 +166,17 @@ export default function ExecPage() {
                   <YAxis
                     yAxisId="users"
                     orientation="right"
-                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                    tick={{ fill: chartTheme.tick, fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                     width={36}
                   />
                   <Tooltip
-                    contentStyle={tooltipStyle}
-                    labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                    contentStyle={tooltipStyle(chartTheme)}
+                    labelStyle={{ color: chartTheme.tick, marginBottom: 4 }}
+                    cursor={{ fill: chartTheme.cursorFill }}
                   />
-                  <Legend wrapperStyle={{ fontSize: 12, color: '#94a3b8', paddingTop: 8 }} />
+                  <Legend wrapperStyle={{ fontSize: 12, color: chartTheme.tick, paddingTop: 8 }} />
                   <Bar
                     yAxisId="credits"
                     dataKey="credits"
@@ -212,7 +214,7 @@ export default function ExecPage() {
       </div>
 
       {/* Row 3: Credits by tier + top credit users */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
           <h3 className="text-lg font-semibold text-slate-300 mb-4">Credits by Tier</h3>
           <div className="flex flex-col gap-2">

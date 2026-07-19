@@ -99,13 +99,13 @@ export default function UserDetailPanel({ userId, days, onClose }: UserDetailPan
 
   // Compute max messages for client breakdown bars
   const maxMessages =
-    data?.clientBreakdown.reduce((m, c) => Math.max(m, c.messages), 1) ?? 1;
+    data?.clientBreakdown?.reduce((m, c) => Math.max(m, c.messages), 1) ?? 1;
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-[rgba(0,0,0,0.5)] z-40 transition-opacity duration-300 ${
           isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
@@ -113,7 +113,7 @@ export default function UserDetailPanel({ userId, days, onClose }: UserDetailPan
 
       {/* Slide-in panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-[480px] z-50 flex flex-col bg-[#0a0a0a] border-l border-gray-800 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-full max-w-[480px] z-50 flex flex-col bg-gray-950 border-l border-gray-800 shadow-2xl transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

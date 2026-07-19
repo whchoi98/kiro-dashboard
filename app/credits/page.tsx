@@ -22,7 +22,9 @@ export default function CreditsPage() {
     fetch(`/api/credits?days=${days}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled) setCredits(data ?? null);
+        // Error payloads ({ error }) lack baseVsOverage — storing them crashes
+        // the unguarded `credits?.baseVsOverage.base` reads below.
+        if (!cancelled) setCredits(data?.baseVsOverage ? data : null);
       })
       .catch(() => {
         // Keep existing data on error
@@ -80,7 +82,7 @@ export default function CreditsPage() {
               <div key={user.userid} className="flex items-center gap-3">
                 <span className="text-slate-500 text-sm w-5 text-right font-mono">#{index + 1}</span>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 mb-1">
                     <span className="text-slate-200 text-base font-medium">{user.displayName || user.username}</span>
                     <div className="flex items-center gap-3 text-sm">
                       <span className="text-slate-400">{user.totalCredits.toLocaleString()} credits</span>
@@ -102,14 +104,14 @@ export default function CreditsPage() {
               </div>
             );
           })}
-          {!credits?.topUsers.length && (
+          {!credits?.topUsers?.length && (
             <p className="text-slate-500 text-sm">No data available</p>
           )}
         </div>
       </div>
 
       {/* Base vs Overage pie + tier breakdown */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
           <ClientPieChart data={bvoPieData} title="Base vs Overage Credits" />
         </div>
@@ -132,7 +134,7 @@ export default function CreditsPage() {
                 </div>
               </div>
             ))}
-            {!credits?.byTier.length && (
+            {!credits?.byTier?.length && (
               <p className="text-slate-500 text-sm">No data available</p>
             )}
           </div>

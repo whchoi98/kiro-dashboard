@@ -28,15 +28,15 @@ export default function Header({
   const { t } = useI18n();
 
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-0 mb-6">
       <div className="flex items-center gap-4">
         <KiroMascot size={56} mood={mascotMood} theme={mascotTheme} message={mascotMessage} />
         <div>
-          <h1 className="text-2xl font-bold text-white">{t(titleKey)}</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-white">{t(titleKey)}</h1>
           <p className="text-slate-400 text-sm mt-0.5">{t(subtitleKey)}</p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <DateRangePicker value={days} onChange={onDaysChange} />
         <button
           onClick={() => router.refresh()}

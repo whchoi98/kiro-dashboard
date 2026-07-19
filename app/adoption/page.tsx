@@ -7,18 +7,19 @@ import {
 import Header from '@/app/components/layout/Header';
 import MetricCard from '@/app/components/charts/MetricCard';
 import { AdoptionData } from '@/types/dashboard';
+import { useChartTheme } from '@/lib/chart-theme';
 
 export const dynamic = 'force-dynamic';
 
-const tooltipStyle = {
-  backgroundColor: '#1e293b',
-  border: '1px solid #334155',
-  borderRadius: 8,
-  color: '#f1f5f9',
-  fontSize: 12,
-};
-
 export default function AdoptionPage() {
+  const chartTheme = useChartTheme();
+  const tooltipStyle = {
+    backgroundColor: chartTheme.tooltipBg,
+    border: `1px solid ${chartTheme.tooltipBorder}`,
+    borderRadius: 8,
+    color: chartTheme.tooltipText,
+    fontSize: 12,
+  };
   const [days, setDays] = useState(90);
   const [data, setData] = useState<AdoptionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +53,7 @@ export default function AdoptionPage() {
       />
 
       {/* Metric cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <MetricCard
           title="New Users"
           value={newUsers.toLocaleString()}
@@ -79,20 +80,20 @@ export default function AdoptionPage() {
       {/* New users + cumulative users trend */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">New Users & Cumulative Adoption</h3>
-        {(data?.trend.length ?? 0) > 0 ? (
+        {(data?.trend?.length ?? 0) > 0 ? (
           <div style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data!.trend} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                 <XAxis
                   dataKey="date"
                   tickFormatter={(d: string) => d.slice(5)}
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
                   yAxisId="left"
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   width={40}
@@ -100,17 +101,17 @@ export default function AdoptionPage() {
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tick={{ fill: chartTheme.tick, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   width={40}
                 />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                  labelStyle={{ color: chartTheme.tick, marginBottom: 4 }}
+                  cursor={{ fill: chartTheme.cursorFill }}
                 />
-                <Legend wrapperStyle={{ fontSize: 12, color: '#94a3b8', paddingTop: 8 }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: chartTheme.tick, paddingTop: 8 }} />
                 <Bar
                   yAxisId="left"
                   dataKey="newUsers"
@@ -138,9 +139,9 @@ export default function AdoptionPage() {
       {/* Recent new users table */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">Recent New Users</h3>
-        {(data?.recentNewUsers.length ?? 0) > 0 ? (
+        {(data?.recentNewUsers?.length ?? 0) > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full max-md:min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-dashboard-border">
                   <th className="text-left text-slate-400 font-medium py-2 px-3">#</th>
@@ -158,7 +159,7 @@ export default function AdoptionPage() {
                     <td className="py-2.5 px-3 text-slate-200">{user.displayName}</td>
                     <td className="py-2.5 px-3 text-slate-300 font-mono">{user.firstDate}</td>
                     <td className="py-2.5 px-3">
-                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-[#84cc16]/10 text-[#84cc16]">
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-[#84cc16]/10 text-lime-400">
                         {user.clientType || '-'}
                       </span>
                     </td>
