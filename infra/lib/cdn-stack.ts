@@ -4,6 +4,7 @@ import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cr from 'aws-cdk-lib/custom-resources';
@@ -15,6 +16,10 @@ export interface CdnStackProps extends cdk.StackProps {
   userPool: cognito.IUserPool;
   edgeClientId: string;
   userPoolDomain: string;
+  /** Alternate domain name (CNAME) for the distribution, e.g. kirodashboard.whchoi.net */
+  customDomain?: string;
+  /** ACM certificate ARN for customDomain — must live in us-east-1 (CloudFront requirement) */
+  customDomainCertArn?: string;
 }
 
 export class CdnStack extends cdk.Stack {
@@ -23,6 +28,12 @@ export class CdnStack extends cdk.Stack {
 
     const cognitoRegion = 'ap-northeast-2';
     const cognitoDomain = `${props.userPoolDomain}.auth.${cognitoRegion}.amazoncognito.com`;
+
+    if (props.customDomain && !props.customDomainCertArn) {
+      throw new Error(
+        'CUSTOM_DOMAIN requires CUSTOM_DOMAIN_CERT_ARN (an ACM certificate in us-east-1) — CloudFront aliases cannot be served with the default *.cloudfront.net certificate.'
+      );
+    }
 
     const ssmConfig = new cr.AwsCustomResource(this, 'SsmEdgeAuthConfig', {
       onCreate: {
@@ -136,7 +147,27 @@ export class CdnStack extends cdk.Stack {
         ],
       },
       priceClass: cloudfront.PriceClass.PRICE_CLASS_200,
+      ...(props.customDomain && props.customDomainCertArn
+        ? {
+            domainNames: [props.customDomain],
+            certificate: acm.Certificate.fromCertificateArn(
+              this,
+              'CustomDomainCert',
+              props.customDomainCertArn
+            ),
+          }
+        : {}),
     });
+
+    // The edge function builds redirect_uri from the request Host header, so
+    // EVERY domain the distribution serves must be whitelisted on the Cognito
+    // client — a missing entry surfaces as Cognito's redirect_mismatch
+    // ("An error was encountered with the requested page").
+    const authOrigins = [
+      `https://${distribution.distributionDomainName}`,
+      ...(props.customDomain ? [`https://${props.customDomain}`] : []),
+    ];
+    const callbackUrls = authOrigins.map((o) => `${o}/auth/callback`);
 
     new cr.AwsCustomResource(this, 'UpdateEdgeClientCallbackUrls', {
       onCreate: {
@@ -145,12 +176,8 @@ export class CdnStack extends cdk.Stack {
         parameters: {
           UserPoolId: props.userPool.userPoolId,
           ClientId: props.edgeClientId,
-          CallbackURLs: [
-            `https://${distribution.distributionDomainName}/auth/callback`,
-          ],
-          LogoutURLs: [
-            `https://${distribution.distributionDomainName}`,
-          ],
+          CallbackURLs: callbackUrls,
+          LogoutURLs: authOrigins,
           AllowedOAuthFlows: ['code'],
           AllowedOAuthScopes: ['openid', 'email', 'profile'],
           AllowedOAuthFlowsUserPoolClient: true,
@@ -165,12 +192,8 @@ export class CdnStack extends cdk.Stack {
         parameters: {
           UserPoolId: props.userPool.userPoolId,
           ClientId: props.edgeClientId,
-          CallbackURLs: [
-            `https://${distribution.distributionDomainName}/auth/callback`,
-          ],
-          LogoutURLs: [
-            `https://${distribution.distributionDomainName}`,
-          ],
+          CallbackURLs: callbackUrls,
+          LogoutURLs: authOrigins,
           AllowedOAuthFlows: ['code'],
           AllowedOAuthScopes: ['openid', 'email', 'profile'],
           AllowedOAuthFlowsUserPoolClient: true,
@@ -192,5 +215,13 @@ export class CdnStack extends cdk.Stack {
       description: 'CloudFront distribution URL',
       exportName: `${this.stackName}-CloudFrontURL`,
     });
+
+    if (props.customDomain) {
+      new cdk.CfnOutput(this, 'CustomDomainURL', {
+        value: `https://${props.customDomain}`,
+        description: 'Custom domain URL (CNAME to the distribution)',
+        exportName: `${this.stackName}-CustomDomainURL`,
+      });
+    }
   }
 }

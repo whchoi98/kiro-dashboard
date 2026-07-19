@@ -67,6 +67,25 @@ The Fargate task role uses least-privilege inline policies:
 - **IdentityStore**: `identitystore:ListUsers`, `DescribeUser` (inline)
 - **Bedrock**: `bedrock:InvokeModel`, `InvokeModelWithResponseStream` (inline, scoped to foundation models)
 
+## Custom Domain (CNAME)
+
+Set both in `.env.deploy` (see `.env.deploy.example`):
+
+```
+CUSTOM_DOMAIN=kirodashboard.whchoi.net
+CUSTOM_DOMAIN_CERT_ARN=arn:aws:acm:us-east-1:<account>:certificate/<id>   # must be us-east-1
+```
+
+CdnStack then (a) adds the alternate domain name + ACM cert to the distribution and
+(b) whitelists `https://<domain>/auth/callback` on the Cognito app client. Both are
+required because the edge function derives `redirect_uri` from the request **Host
+header** — a served domain missing from the Cognito CallbackURLs fails with Cognito's
+"An error was encountered with the requested page" (`redirect_mismatch`).
+
+**IMPORTANT:** once a custom domain is live, `CUSTOM_DOMAIN`/`CUSTOM_DOMAIN_CERT_ARN`
+must stay set on every subsequent deploy — deploying without them removes the alias
+and resets the Cognito whitelist back to only the cloudfront.net URL.
+
 ## Lambda@Edge Authentication
 
 - `infra/lambda/edge-auth/` contains the Lambda@Edge function (TypeScript, esbuild-bundled)

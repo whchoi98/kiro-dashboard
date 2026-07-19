@@ -85,6 +85,10 @@ new CdnStack(app, 'KiroDashboardCdn', {
   userPool: securityStack.userPool,
   edgeClientId: securityStack.edgeClientId,
   userPoolDomain: `kiro-dashboard-${env.account}`,
+  // Optional CNAME: both must be set together (cert must be in us-east-1).
+  // The edge auth flow whitelists every served domain on the Cognito client.
+  customDomain: process.env.CUSTOM_DOMAIN,
+  customDomainCertArn: process.env.CUSTOM_DOMAIN_CERT_ARN,
 });
 
 app.synth();
