@@ -1,7 +1,7 @@
 # kiro-dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.1.0-purple.svg)]()
+[![Version](https://img.shields.io/badge/version-1.5.0-purple.svg)]()
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)]()
 [![AWS CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-orange.svg)]()
 [![English](https://img.shields.io/badge/lang-English-blue.svg)](#english)
@@ -63,6 +63,12 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - **New Users & Adoption** — Daily new-user inflow (UAR `New_User` flag), active and cumulative user trends, and a recent-new-users table via S3 direct CSV parsing
 - **Dev Activity Detail** — TestGen, DocGen, Transform, InlineChat, and CodeFix activity groups from the legacy report: events, generated vs accepted lines, acceptance rates, daily trends
 - **Changelog Page** — Bilingual in-app changelog rendered from `CHANGELOG.md` at build time; the sidebar version footer links to it
+- **AI Chatbot Widget** — Global floating chat available on every page, backed by the same Bedrock agent as `/analyze`; multi-turn history, stop/new-chat, full-screen sheet on mobile
+- **AI Analysis Export** — Save completed AI answers as Markdown or PDF (`html2canvas-pro` + `jspdf`; Korean text and dark-theme tables render intact)
+- **Dark / Light Theme** — Sidebar toggle, default dark, persisted in the browser; implemented as a Tailwind palette override so components stay dark-first
+- **Mobile Responsive** — Below 768px the sidebar becomes an off-canvas drawer with a hamburger bar and grids/tables reflow; desktop layout unchanged
+- **Self-hosted NanumSquare Font** — Bundled as woff2 via `next/font/local`, no runtime CDN dependency behind CloudFront
+- **Custom Domain (optional)** — `CUSTOM_DOMAIN` + `CUSTOM_DOMAIN_CERT_ARN` add a CloudFront alias + ACM cert and whitelist it on the Cognito app client
 
 ## Prerequisites
 
@@ -215,7 +221,8 @@ app/                        Next.js App Router
     model-usage/            AI model usage analysis (S3 direct read)
     health/                 ECS health check
   components/               Shared React components
-    layout/                 Sidebar (with logout), Header, KiroLogo
+    layout/                 Sidebar (drawer + theme/lang toggles), Header, KiroLogo
+    chat/                   FloatingChat, ChatPanel, MessageList, ChatComposer, ChatMarkdown
     charts/                 MetricCard, TrendChart, PieChart, BarChart, FunnelChart, IdcUserStatus
     tables/                 UserTable (sortable, searchable)
     ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel
@@ -237,8 +244,14 @@ lib/                        Shared libraries
   identity.ts               Identity Center user resolver (with masking)
   mask.ts                   Data masking utilities
   i18n.tsx                  Korean/English i18n context
+  theme.tsx                 Dark/light theme context (localStorage, .light class)
+  chart-theme.ts            Theme-aware Recharts colors (tick/tooltip/cursor)
   uar-s3.ts                 UAR S3 helpers (month-prefix parallel listing, CSV parsing)
+  useChatStream.ts          Chat hook against /api/analyze SSE agent (shared by /analyze + widget)
+  chat-scroll.ts            Stick-to-bottom helper for streaming chat
+  export-report.ts          Markdown/PDF exporters for AI answers
   version.ts                APP_VERSION single source (from package.json)
+app/fonts/                  Self-hosted NanumSquare woff2 (next/font/local)
 types/                      TypeScript interfaces
   dashboard.ts              All data model types
 infra/                      AWS CDK infrastructure
@@ -348,6 +361,12 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - **신규 사용자·온보딩** — 일별 신규 사용자 유입(UAR `New_User` 플래그), 활성·누적 사용자 추이, 최근 신규 사용자 테이블 (S3 CSV 직접 파싱)
 - **개발활동 상세** — 레거시 리포트의 TestGen, DocGen, Transform, InlineChat, CodeFix 그룹: 이벤트, 생성 대비 수락 라인, 수락률, 일별 추이
 - **Changelog 페이지** — 빌드 타임에 `CHANGELOG.md`를 렌더링하는 앱 내 이중언어 변경 이력, 사이드바 버전 표기에서 연결
+- **AI 챗봇 위젯** — 모든 페이지에 뜨는 플로팅 대화창, `/analyze`와 동일한 Bedrock 에이전트 기반. 멀티턴 이력, 중지/새 대화, 모바일 풀스크린 시트
+- **AI 분석 내보내기** — 완료된 AI 답변을 Markdown 또는 PDF로 저장(`html2canvas-pro` + `jspdf`, 한국어·다크 테마 표 온전히 렌더링)
+- **다크 / 라이트 테마** — 사이드바 토글, 기본 다크, 브라우저에 저장. Tailwind 팔레트 오버라이드 방식이라 컴포넌트는 다크 기준 유지
+- **모바일 반응형** — 768px 미만에서 사이드바가 햄버거 바 + 오프캔버스 드로어로 전환, 그리드·표 재배치. 데스크톱 레이아웃은 무변경
+- **나눔스퀘어 서체 셀프호스팅** — woff2를 `next/font/local`로 번들, CloudFront 뒤에서 CDN 런타임 의존 없음
+- **커스텀 도메인 (선택)** — `CUSTOM_DOMAIN` + `CUSTOM_DOMAIN_CERT_ARN`으로 CloudFront 별칭 + ACM 인증서 추가 및 Cognito 앱 클라이언트 허용 목록 등록
 
 ## 사전 요구 사항
 
@@ -499,7 +518,8 @@ app/                        Next.js App Router
     model-usage/            AI 모델 사용 분석 (S3 직접 읽기)
     health/                 ECS 헬스 체크
   components/               공유 React 컴포넌트
-    layout/                 사이드바 (로그아웃 포함), 헤더, Kiro 로고
+    layout/                 사이드바 (드로어 + 테마/언어 토글), 헤더, Kiro 로고
+    chat/                   FloatingChat, ChatPanel, MessageList, ChatComposer, ChatMarkdown
     charts/                 MetricCard, TrendChart, PieChart, BarChart, FunnelChart, IdcUserStatus
     tables/                 UserTable (정렬, 검색 가능)
     ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel
@@ -521,8 +541,14 @@ lib/                        공유 라이브러리
   identity.ts               Identity Center 사용자 리졸버 (마스킹 포함)
   mask.ts                   데이터 마스킹 유틸리티
   i18n.tsx                  한국어/영어 i18n 컨텍스트
+  theme.tsx                 다크/라이트 테마 컨텍스트 (localStorage, .light 클래스)
+  chart-theme.ts            테마 대응 Recharts 색상 (눈금/툴팁/커서)
   uar-s3.ts                 UAR S3 헬퍼 (월 프리픽스 병렬 리스팅, CSV 파싱)
+  useChatStream.ts          /api/analyze SSE 에이전트 채팅 훅 (/analyze + 위젯 공유)
+  chat-scroll.ts            스트리밍 채팅 stick-to-bottom 헬퍼
+  export-report.ts          AI 답변 Markdown/PDF 내보내기
   version.ts                APP_VERSION 단일 소스 (package.json 기준)
+app/fonts/                  셀프호스팅 나눔스퀘어 woff2 (next/font/local)
 types/                      TypeScript 인터페이스
   dashboard.ts              전체 데이터 모델 타입
 infra/                      AWS CDK 인프라

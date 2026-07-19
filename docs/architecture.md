@@ -11,7 +11,7 @@
 
 ### System Overview
 
-kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user activity data stored in S3, processes it through AWS Glue/Athena, and presents it through a Next.js 14 dashboard with AI-powered insights via Amazon Bedrock. The application is containerized with Docker and deployed on ECS Fargate behind CloudFront.
+kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user activity data stored in S3, processes it through AWS Glue/Athena, and presents it through a Next.js 14 dashboard with AI-powered insights via Amazon Bedrock. The application is containerized with Docker and deployed on ECS Fargate behind CloudFront. The UI is bilingual (Korean/English), responsive down to mobile (off-canvas sidebar drawer below 768px), and offers a dark (default) / light theme; the self-hosted NanumSquare font ships as woff2 via `next/font/local`. An optional custom domain (`kirodashboard.whchoi.net`) is served as a CloudFront alias.
 
 ### Architecture Diagram
 
@@ -64,8 +64,9 @@ kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user ac
 │   │  └───────────────────┘              │               │          │
 │   │  lib/                               │               │          │
 │   │  ┌─────────────────────────────────────────────────┐│          │
-│   │  │ athena.ts │ glue.ts │ identity.ts │ mask.ts     ││          │
-│   │  │ uar-s3.ts │ i18n.tsx │ version.ts               ││          │
+│   │  │ athena · glue · identity · mask · uar-s3        ││          │
+│   │  │ i18n · version · useChatStream · export-report  ││          │
+│   │  │ theme · chart-theme · chat-scroll               ││          │
 │   │  └─────────────────────────────────────────────────┘│          │
 │   └─────────────────────────────────────────────────────┘          │
 └──────┬───────────┬───────────┬───────────┬──────────────────────────┘
@@ -128,7 +129,7 @@ User question → /api/analyze → Bedrock (Claude) streaming → SSE to browser
 
 5. **Two date formats** — `user_report` uses `YYYY-MM-DD` (standard ISO); `by_user_analytic` uses `MM-DD-YYYY` (legacy). All queries must account for this difference.
 
-6. **Dark-only UI** — The dashboard targets internal developer/ops audiences. A single dark theme reduces maintenance burden vs light/dark switching.
+6. **Dark-first UI with an opt-in light theme** — Dark is the default (internal developer/ops audience). A light theme is available via a sidebar toggle, implemented as a Tailwind v4 **palette override** on `html.light` (color variables remapped in `globals.css`) so components keep their dark-first classes — no `dark:`/`light:` variants. `useChartTheme()` (`lib/chart-theme.ts`) supplies the Recharts tick/tooltip/cursor colors that CSS variables cannot reach. Theme state lives in `lib/theme.tsx` (persisted to `localStorage`, no-FOUC bootstrap script). See ADR-0005. *(Supersedes the original "dark-only" decision.)*
 
 7. **Lambda@Edge + Cognito PKCE** — Authentication moved from NextAuth.js (in-app) to Lambda@Edge (CDN layer). All requests are authenticated before reaching the origin. Uses PKCE flow with a public Cognito client (no client secret) to avoid Lambda@Edge environment variable limitations. Config is stored in SSM Parameter Store (us-east-1) and cached on cold start.
 
@@ -196,7 +197,7 @@ AI 분석 경로:
 
 5. **두 가지 날짜 형식** — `user_report`는 `YYYY-MM-DD`(표준 ISO), `by_user_analytic`는 `MM-DD-YYYY`(레거시) 형식을 사용합니다. 모든 쿼리에서 이 차이를 반드시 처리해야 합니다.
 
-6. **다크 전용 UI** — 대시보드는 내부 개발자/운영팀을 대상으로 합니다. 단일 다크 테마로 라이트/다크 전환 대비 유지보수 부담을 줄입니다.
+6. **다크 우선 + 라이트 테마 옵션** — 기본은 다크(내부 개발자/운영팀 대상)이며, 사이드바 토글로 라이트 테마를 켤 수 있습니다. Tailwind v4 **팔레트 오버라이드** 방식으로 `html.light`에서 색상 변수를 재매핑(`globals.css`)하므로 컴포넌트는 다크 기준 클래스를 그대로 유지합니다 — `dark:`/`light:` 변형 없음. CSS 변수가 닿지 않는 Recharts 눈금/툴팁/커서 색상은 `useChartTheme()`(`lib/chart-theme.ts`)가 공급합니다. 테마 상태는 `lib/theme.tsx`(localStorage 저장, FOUC 방지 부트스트랩)에 있습니다. ADR-0005 참고. *(기존 "다크 전용" 결정을 대체함.)*
 
 7. **Lambda@Edge + Cognito PKCE** — 인증을 NextAuth.js(앱 내)에서 Lambda@Edge(CDN 레이어)로 이전했습니다. 모든 요청은 오리진에 도달하기 전에 인증됩니다. Lambda@Edge 환경변수 제한을 피하기 위해 공개 Cognito 클라이언트(시크릿 없음)와 PKCE 플로우를 사용합니다. 설정은 SSM Parameter Store(us-east-1)에 저장되며 콜드 스타트 시 캐싱됩니다.
 

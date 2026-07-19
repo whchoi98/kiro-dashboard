@@ -13,25 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **Dark/light theme switching** — 다크/라이트 pill toggle in the sidebar
-  (default dark, persisted in `localStorage`, pre-hydration bootstrap so
-  there is no flash). Implemented as a Tailwind v4 palette override:
-  `html.light` remaps the color variables (stops inverted per hue), so
-  components keep their dark-first classes; charts read `useChartTheme()`
-  for the tooltip/tick colors CSS variables cannot reach.
-
-### Fixed
-
-- `/credits` crashed client-side ("Application error") when the credits API
-  returned an error payload — the response shape is now validated before
-  rendering, matching the guards `/users` and `/trends` already had.
-
 ## [1.5.0] - 2026-07-18
 
 ### Added
 
+- **Dark/light theme switching** — 다크/라이트 toggle in the sidebar (default
+  dark, persisted in `localStorage`, pre-hydration bootstrap so there is no
+  flash). Tailwind v4 palette override: `html.light` remaps the color
+  variables so components keep their dark-first classes; charts read
+  `useChartTheme()` for the colors CSS variables cannot reach. See ADR-0005.
 - **NanumSquare font** — self-hosted woff2 (weights 300/400/700/800, OFL
   license) loaded via `next/font/local` and wired into the Tailwind v4 sans
   stack; no runtime CDN dependency behind CloudFront.
@@ -65,6 +55,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Body scroll-through behind the open mobile drawer and chat sheet;
   drawer footer (locale switcher, version link) clipped behind mobile
   browser toolbars.
+- **Client-side "Application error" crashes on error API payloads** — pages
+  that stored an `{ error }` response then read `data?.prop.length`/`.map`
+  crashed (optional chaining stops at `prop`, so the terminal access threw).
+  Guarded across `/engagement`, `/credits`, `/adoption`, `/model-usage`, and
+  the user-detail panel.
+- **Login self-heal** — the Lambda@Edge callback auto-retries once (via an
+  `auth_retry` cookie) when Cognito rejects the token exchange
+  (`invalid_grant`/`invalid_request`, a code↔PKCE-verifier mismatch) instead
+  of dead-ending on "Authentication failed"; the `state`→return-path decode
+  is hardened against open redirect (same-origin path only). See ADR-0006.
 
 ## [1.2.0] - 2026-07-18
 
@@ -246,24 +246,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 추가됨
-
-- **다크/라이트 테마 전환** — 사이드바 다크/라이트 토글 (기본 다크,
-  `localStorage` 저장, hydration 전 부트스트랩으로 깜빡임 없음). Tailwind v4
-  팔레트 오버라이드 방식: `html.light`가 색상 변수를 재매핑(계열별 단계
-  반전)하므로 컴포넌트는 다크 기준 클래스를 그대로 유지; 차트는 CSS 변수가
-  닿지 않는 툴팁/눈금 색상을 `useChartTheme()`로 읽음.
-
-### 수정됨
-
-- credits API가 에러 페이로드를 반환하면 `/credits`가 클라이언트에서
-  크래시("Application error")하던 문제 수정 — `/users`, `/trends`와 동일한
-  응답 형태 검증 추가.
-
 ## [1.5.0] - 2026-07-18
 
 ### 추가됨
 
+- **다크/라이트 테마 전환** — 사이드바 다크/라이트 토글 (기본 다크,
+  `localStorage` 저장, hydration 전 부트스트랩으로 깜빡임 없음). Tailwind v4
+  팔레트 오버라이드 방식: `html.light`가 색상 변수를 재매핑하므로 컴포넌트는
+  다크 기준 클래스를 그대로 유지; 차트는 CSS 변수가 닿지 않는 색상을
+  `useChartTheme()`로 읽음. ADR-0005 참고.
 - **나눔스퀘어 폰트** — woff2 4종(300/400/700/800, OFL 라이선스)을
   `next/font/local`로 셀프호스팅하고 Tailwind v4 기본 산세리프 스택에 연결.
   CloudFront 뒤에서 외부 CDN 런타임 의존 없음.
@@ -293,6 +284,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   상세 패널이 열리면 런처가 어두워지고 비활성화.
 - 모바일 드로어·챗봇 시트 뒤 페이지 스크롤 관통 차단; 모바일 브라우저
   툴바에 드로어 하단(언어 전환, 버전 링크)이 가려지던 문제 수정.
+- **에러 페이로드에서 클라이언트 "Application error" 크래시** — `{ error }`
+  응답을 저장한 뒤 `data?.prop.length`/`.map`을 읽으면 옵셔널 체이닝이
+  `prop`에서 멈춰 뒤 접근이 예외를 던지던 문제. `/engagement`, `/credits`,
+  `/adoption`, `/model-usage`, 사용자 상세 패널 전반에 가드 추가.
+- **로그인 자기치유** — Cognito가 토큰 교환을 거부할 때
+  (`invalid_grant`/`invalid_request`, 코드↔PKCE verifier 불일치) "Authentication
+  failed"로 막다르지 않고 Lambda@Edge 콜백이 `auth_retry` 쿠키로 1회 자동
+  재시도; `state`→복귀 경로 디코딩을 오픈 리다이렉트로부터 보호(same-origin
+  경로만 허용). ADR-0006 참고.
 
 ## [1.2.0] - 2026-07-18
 

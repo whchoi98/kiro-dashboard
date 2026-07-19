@@ -16,7 +16,7 @@ Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.j
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Next.js 14 (App Router), React 18, TypeScript |
-| Styling | Tailwind CSS v4, dark theme |
+| Styling | Tailwind CSS v4, dark/light theme (palette override), NanumSquare font, mobile-responsive |
 | Charts | Recharts |
 | Auth | Lambda@Edge + Cognito (PKCE, Hosted UI) |
 | AWS Data | Athena, Glue, S3 |
