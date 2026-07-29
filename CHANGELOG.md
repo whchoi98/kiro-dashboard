@@ -81,6 +81,93 @@ which are now recorded as the project's reference contract in `CLAUDE.md` and
 - `app/page.tsx` and `OverviewClient.tsx` now import `IdcUsersData` from
   `types/dashboard.ts` instead of each maintaining a local duplicate that
   silently dropped fields the route had started returning.
+- **`/api/dev-activity` DocGen and InlineChat rates will differ from the
+  numbers v1.5.0 displayed.** The denominators were wrong, not the data, so
+  historical figures were overstated (DocGen) and understated (InlineChat).
+  Nothing to migrate — but do not treat the shift as a regression.
+- `tests/api/route-empty-responses.test.ts` now covers `/api/rollout`,
+  `/api/idc-users`, and the two new `/api/productivity` degradation paths
+  (97 → 101 tests).
+
+### Upgrading from 1.5.0
+
+**No infrastructure change is required.** This release touches only `app/`,
+`lib/`, `types/`, `tests/`, and docs. Verified by `cdk diff` against a live
+v1.5.0 deployment: `KiroDashboardNetwork` and `KiroDashboardSecurity` report
+"no differences", and the only Ecs/Cdn delta is the `X-Custom-Secret` that
+`crypto.randomUUID()` re-rolls on every synth. **Deploying CDK to pick up
+v1.6.0 would rotate that secret for no benefit** — take the image path:
+
+```bash
+git pull                       # or merge the v1.6.0 tag into your branch
+npx jest && npm run build      # expect 16 suites / 101 tests
+
+docker build -t kiro-dashboard .
+ECR=<account>.dkr.ecr.<region>.amazonaws.com
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin "$ECR"
+docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:1.6.0"
+docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:latest"
+docker push "$ECR/kiro-dashboard:1.6.0" && docker push "$ECR/kiro-dashboard:latest"
+
+SERVICE=$(aws ecs list-services --cluster kiro-dashboard-cluster \
+  --region <region> --query 'serviceArns[0]' --output text)
+aws ecs update-service --cluster kiro-dashboard-cluster --service "$SERVICE" \
+  --force-new-deployment --region <region>
+aws ecs wait services-stable --cluster kiro-dashboard-cluster \
+  --services "$SERVICE" --region <region>
+```
+
+Tag the image with the version as well as `latest` — `latest` alone leaves a
+rollback with no named target.
+
+**Nothing else to do.** Each of these was checked rather than assumed:
+
+- **No new dependencies.** `package-lock.json` is byte-identical to v1.5.0;
+  the only `package.json` change is the version string. `npm ci` is harmless
+  but unnecessary.
+- **No new ECS environment variables.** Every `process.env` key the new code
+  reads (`ATHENA_DATABASE`, `ATHENA_OUTPUT_BUCKET`, `GLUE_TABLE_NAME`,
+  `IDENTITY_STORE_ID`, `S3_REPORT_PREFIX`, `S3_DATA_BUCKET`, `AWS_REGION`) is
+  already set by `EcsStack`.
+- **No new IAM permissions.** The new routes need `s3:GetObject` +
+  `s3:ListBucket` on the report prefix and `glue:GetTable`, all already
+  granted to the task role.
+- **No new CloudFront behaviour or cache invalidation.** `CdnStack` declares a
+  single catch-all `defaultBehavior` with `CACHING_DISABLED`, so `/rollout`
+  and `/ingest-health` are served without configuration.
+- **No Dockerfile, Node, or build-flag change** (`node:20-alpine`,
+  `output: 'standalone'` unchanged).
+- **No new i18n keys removed or renamed** — additive only, so fork
+  translations keep working.
+- **No sidebar wiring needed** — nav entries and their `nav.rollout` /
+  `nav.ingestHealth` keys ship in the same commit.
+
+**If you forked and customized v1.5.0**, two things need attention:
+
+- `IdcUsersData` moved to `types/dashboard.ts`. If your fork imported the local
+  copy that used to live in `app/page.tsx` or `OverviewClient.tsx`, switch to
+  `import { IdcUsersData } from '@/types/dashboard'`. No field was removed; the
+  duplicates were dropping fields the route already returned.
+- `/api/productivity`'s `summary` gained four `number | null` rate fields and a
+  `creditEfficiency` object. Existing fields are unchanged, so consumers that
+  ignore the new keys are unaffected — but any consumer that renders the new
+  rates must handle `null` as "not instrumented" rather than coercing to `0`.
+
+**New features stay empty until their data exists**, and they degrade rather
+than fail — `isMissingTableError` returns a well-shaped empty payload:
+
+| Feature | Needs | Without it |
+|---------|-------|-----------|
+| `/rollout` | `Client_Type` populated in `user_report` | empty charts, `dataStart: null` |
+| `/ingest-health` | `S3_REPORT_PREFIX` + S3 list/read on the report bucket | `configured: false`, empty inventory |
+| Dormancy & funnel | nothing new beyond v1.5.0's `IDENTITY_STORE_ID` | every user graded `never` |
+| Credits per line | the legacy `by_user_analytic` table | card reads "unavailable" (`creditsPerLine: null`) |
+
+Rollback is the same image path with the previous tag. `EXISTING_VPC_ID` still
+applies to any *future* CDK deploy you make: pin whatever VPC your stacks were
+originally created against, or `NetworkStack` synthesizes a new one and
+CloudFormation replaces every security group and target group. That trap is not
+specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 
 ## [1.5.0] - 2026-07-18
 
@@ -378,6 +465,89 @@ Kiro 공식 문서 4종(IDE 사용자 활동, CLI 사용자 활동, 프롬프트
 - `app/page.tsx`와 `OverviewClient.tsx`가 각자 로컬 중복 정의를 두는 대신
   `types/dashboard.ts`의 `IdcUsersData`를 가져옵니다. 기존 중복 정의는 라우트가
   새로 반환하기 시작한 필드를 조용히 누락시켰습니다.
+- **`/api/dev-activity`의 DocGen·InlineChat 수락률이 v1.5.0에서 보였던 값과
+  달라집니다.** 데이터가 아니라 분모가 틀렸던 것이므로, 기존 수치는 DocGen은
+  과대·InlineChat은 과소 표시되고 있었습니다. 마이그레이션할 것은 없지만 이
+  변화를 회귀로 오인하지 마십시오.
+- `tests/api/route-empty-responses.test.ts`가 `/api/rollout`, `/api/idc-users`,
+  그리고 `/api/productivity`의 새 폴백 경로 2개를 커버합니다 (97 → 101개 테스트).
+
+### 1.5.0에서 업그레이드하기
+
+**인프라 변경은 필요하지 않습니다.** 이번 릴리스는 `app/`, `lib/`, `types/`,
+`tests/`와 문서만 변경합니다. 운영 중인 v1.5.0 배포에 대해 `cdk diff`로 검증한
+결과, `KiroDashboardNetwork`와 `KiroDashboardSecurity`는 "no differences"이고
+Ecs/Cdn의 유일한 차이는 `crypto.randomUUID()`가 매 synth마다 새로 생성하는
+`X-Custom-Secret`뿐입니다. **v1.6.0을 반영하려고 CDK를 배포하면 아무 이득 없이
+이 시크릿만 회전됩니다** — 이미지 경로를 사용하세요:
+
+```bash
+git pull                       # 또는 v1.6.0 태그를 브랜치에 머지
+npx jest && npm run build      # 16 suites / 101 tests 예상
+
+docker build -t kiro-dashboard .
+ECR=<account>.dkr.ecr.<region>.amazonaws.com
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin "$ECR"
+docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:1.6.0"
+docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:latest"
+docker push "$ECR/kiro-dashboard:1.6.0" && docker push "$ECR/kiro-dashboard:latest"
+
+SERVICE=$(aws ecs list-services --cluster kiro-dashboard-cluster \
+  --region <region> --query 'serviceArns[0]' --output text)
+aws ecs update-service --cluster kiro-dashboard-cluster --service "$SERVICE" \
+  --force-new-deployment --region <region>
+aws ecs wait services-stable --cluster kiro-dashboard-cluster \
+  --services "$SERVICE" --region <region>
+```
+
+`latest`뿐 아니라 버전 태그도 함께 붙이세요. `latest`만 있으면 롤백할 대상
+이름이 남지 않습니다.
+
+**그 밖에 할 일은 없습니다.** 아래 항목은 추정이 아니라 모두 확인했습니다.
+
+- **새 의존성 없음.** `package-lock.json`은 v1.5.0과 바이트 단위로 동일하며,
+  `package.json` 변경은 버전 문자열 하나뿐입니다. `npm ci`는 무해하지만 불필요합니다.
+- **새 ECS 환경변수 없음.** 새 코드가 읽는 모든 키(`ATHENA_DATABASE`,
+  `ATHENA_OUTPUT_BUCKET`, `GLUE_TABLE_NAME`, `IDENTITY_STORE_ID`,
+  `S3_REPORT_PREFIX`, `S3_DATA_BUCKET`, `AWS_REGION`)가 이미 `EcsStack`에 있습니다.
+- **새 IAM 권한 없음.** 새 라우트가 필요한 리포트 프리픽스에 대한
+  `s3:GetObject`·`s3:ListBucket`과 `glue:GetTable`은 이미 태스크 역할에 부여되어
+  있습니다.
+- **CloudFront 동작 추가나 캐시 무효화 없음.** `CdnStack`은
+  `CACHING_DISABLED`인 단일 캐치올 `defaultBehavior`만 선언하므로 `/rollout`과
+  `/ingest-health`는 별도 설정 없이 서빙됩니다.
+- **Dockerfile·Node·빌드 플래그 변경 없음** (`node:20-alpine`,
+  `output: 'standalone'` 그대로).
+- **i18n 키 삭제·이름 변경 없음** — 추가만 되었으므로 포크의 번역이 그대로 동작합니다.
+- **사이드바 배선 불필요** — 내비게이션 항목과 `nav.rollout` /
+  `nav.ingestHealth` 키가 같은 커밋에 포함됩니다.
+
+**v1.5.0을 포크해 커스터마이즈한 경우** 두 가지를 확인하세요.
+
+- `IdcUsersData`가 `types/dashboard.ts`로 이동했습니다. 포크가
+  `app/page.tsx`나 `OverviewClient.tsx`에 있던 로컬 정의를 가져다 썼다면
+  `import { IdcUsersData } from '@/types/dashboard'`로 바꾸세요. 삭제된 필드는
+  없으며, 오히려 기존 중복 정의가 라우트의 반환 필드를 누락시키고 있었습니다.
+- `/api/productivity`의 `summary`에 `number | null` 비율 4개와
+  `creditEfficiency` 객체가 추가되었습니다. 기존 필드는 그대로이므로 새 키를
+  무시하는 소비자는 영향이 없지만, 새 비율을 렌더링한다면 `null`을 `0`으로
+  강제 변환하지 말고 "계측되지 않음"으로 처리해야 합니다.
+
+**새 기능은 데이터가 생길 때까지 비어 있으며**, 실패가 아니라 degradation으로
+동작합니다 — `isMissingTableError`가 형태가 온전한 빈 응답을 반환합니다.
+
+| 기능 | 필요 조건 | 없을 때 |
+|------|-----------|---------|
+| `/rollout` | `user_report`에 `Client_Type` 값 존재 | 빈 차트, `dataStart: null` |
+| `/ingest-health` | `S3_REPORT_PREFIX` + 리포트 버킷 list/read 권한 | `configured: false`, 빈 인벤토리 |
+| 휴면 등급·퍼널 | v1.5.0의 `IDENTITY_STORE_ID` 외 추가 조건 없음 | 전원 `never`로 등급화 |
+| 라인당 크레딧 | 레거시 `by_user_analytic` 테이블 | 카드가 "unavailable" (`creditsPerLine: null`) |
+
+롤백은 이전 태그로 같은 이미지 경로를 반복하면 됩니다. `EXISTING_VPC_ID`는
+*앞으로* CDK를 배포할 때 여전히 유효합니다 — 스택이 원래 생성된 VPC를 반드시
+고정하세요. 그렇지 않으면 `NetworkStack`이 새 VPC를 합성하고 CloudFormation이
+모든 보안 그룹과 타깃 그룹을 교체합니다. 이 함정은 이번 업그레이드에 국한된
+것이 아닙니다 — `docs/runbooks/production-deploy.md` 참고.
 
 ## [1.5.0] - 2026-07-18
 

@@ -53,11 +53,23 @@ aws ecs wait services-stable --cluster kiro-dashboard-cluster \
 ```bash
 cd /home/ec2-user/my-project/kiro-dashboard
 set -a; source .env.deploy; set +a   # Trap 1: MUST export EXISTING_VPC_ID
+export AWS_REGION=ap-northeast-2 AWS_DEFAULT_REGION=ap-northeast-2  # Trap 5
 cd infra && npx cdk diff             # review before deploying — see Traps
 npx cdk deploy --all                 # Trap 2: Ecs + Cdn in ONE command
 ```
 
 Push a fresh image first (Path A steps 1-3) if app code changed too.
+
+### Choosing the path
+
+Do not decide from the changed-file list — run `cdk diff` and read it:
+
+- Network + Security "no differences", and the **only** Ecs/Cdn delta is the
+  `X-Custom-Secret` value → Path A. The secret is regenerated every synth
+  (Trap 2), so it always differs and never on its own justifies a CDK deploy.
+- Anything else → Path B.
+
+Verified on the v1.5.0 → v1.6.0 upgrade (2026-07-29): app-only, Path A.
 
 ## Traps
 
@@ -68,6 +80,15 @@ Push a fresh image first (Path A steps 1-3) if app code changed too.
 3. **EdgeLambda `DELETE_FAILED` is benign.** Deploying `KiroDashboardEdgeLambda` publishes a new Lambda@Edge version; CloudFormation then fails to delete the old version ("replicated function") up to three times and finishes with "Update successful. One or more resources could not be deleted." AWS garbage-collects edge replicas hours later. Do not roll back for this.
 
 4. **`--require-approval never` is unnecessary** when the diff has no IAM/SG broadening — plain `cdk deploy --all` proceeds non-interactively and fails fast if approval would be required, which is the safer default.
+
+5. **`AWS_REGION` in your shell silently overrides `.env.deploy`.** The CDK CLI derives `CDK_DEFAULT_REGION` from the resolved credential chain *before* running `bin/app.ts`, so sourcing `.env.deploy` is not enough — an exported `AWS_REGION=us-east-1` (as on the VSCode server host) sends the VPC context lookup to the wrong region and `cdk diff` fails with:
+
+   ```
+   [Error at /KiroDashboardNetwork] Could not find any VPCs matching
+   {"account":"120443221648","region":"us-east-1","filter":{"vpc-id":"vpc-005338aca7ac5fb96"}}
+   ```
+
+   The VPC exists — just in `ap-northeast-2`. Export `AWS_REGION` and `AWS_DEFAULT_REGION` to match `CDK_DEFAULT_REGION` before any `cdk` command. Symptom looks identical to a missing/wrong `EXISTING_VPC_ID`, so check the region in the error message first.
 
 ## Verification
 
