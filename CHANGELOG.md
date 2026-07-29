@@ -13,6 +13,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-07-29
+
+Menu-transition latency work. The user-visible complaint was that clicking a
+sidebar item stalls for a moment before anything happens. Two of the four
+diagnoses that opened this work turned out to be wrong and were dropped rather
+than implemented; what is recorded below is what measurement supported.
+
+### Added
+
+- **The clicked sidebar item now highlights immediately.** This was the actual
+  cause of the perceived stall: the highlight was derived from `usePathname()`,
+  which only updates when a route transition *commits*. `/` is the one
+  dynamically-rendered route, so clicking it moved nothing on screen — not the
+  page, not even the nav highlight — until every Athena query finished. Measured
+  on the real build: first visual feedback at **38 ms** instead of nothing for
+  **2621 ms**.
+  - State machine in `lib/nav-state.ts`. `active` beats `pending`, so a stale
+    pending href cannot keep pulsing a committed route; a re-tap of the current
+    route records nothing, because with no transition there is nothing to clear
+    it. A 10s ceiling absorbs transitions that end without a commit (failed RSC
+    fetch, Back mid-flight) — pulsing forever is a worse lie than no feedback.
+  - Items stay `<Link>`, preserving Next's prefetch, which is what makes the 13
+    prerendered routes feel instant.
+- **One loading skeleton, shared by both loading paths** —
+  `app/components/ui/PageSkeleton.tsx`, with shapes and policy in
+  `lib/skeleton-layout.ts`. It shows only on the *first* load: a `days` dropdown
+  change keeps the settled numbers on screen instead of blanking them.
+- **A loading boundary for `/` only**, scoped by an `app/(overview)/` route group
+  (which adds no URL segment). Browser-verified that the 13 prerendered siblings
+  never paint it, and their prefetch payloads are unchanged. `/`'s own prefetch
+  went from an 80-byte stub to 5474 bytes referencing the loading chunk.
+- **Athena result memo** (`lib/query-cache.ts`) behind `executeQuery`, keyed on
+  `(UTC day, SQL)` with single-flight coalescing. Safe for one domain reason
+  only: Kiro reports land once daily at 02:00 UTC, so a 60s-old answer cannot be
+  staler than a source already up to 24h old. Every bound is an env kill switch.
+- **IdentityStore directory snapshot cache** (1h). `resolveUserDetails` walked the
+  entire directory on every call and 10 of the 19 routes call it, so one Overview
+  load paid six full walks — while its sibling `resolveUsernames` had a cache all
+  along.
+
+### Fixed
+
+- **`/api/ingest-health` was being served stale rows by the new memo.** It is the
+  report-freshness monitor, so freezing it at whatever it first saw is the one
+  thing it must never do. Both queries now bypass the cache.
+- **The Overview server component fetched in three sequential waves**, adding two
+  Athena round trips directly to the navigation stall. Now one `Promise.all` of
+  six: **2.7s instead of 7.5s**.
+- **`/users` fetched the same endpoint twice** (`limit=10` and `limit=100`). The
+  top-10 list is now derived from the 100-row result.
+- **`OverviewClient` fabricated a client-type distribution when its API failed** —
+  a hard-coded 60/25/15 split that nobody measured. Removed; it now falls back to
+  empty, matching the server component.
+- **The pending nav highlight was unreadable in light mode.** `bg-[#9046FF]/70`
+  over the white sidebar is 2.88:1 for the label, and `animate-pulse` dragged it
+  to ~1.65:1 — the item the user just clicked became the least readable one. The
+  purple is now opaque (4.66:1 light / 7.64:1 dark).
+- **The skeleton was nearly invisible on all 12 gated pages.** It rendered inside
+  the pre-existing `opacity-50` refetch wrapper, and CSS opacity composites down
+  a subtree, so its own `animate-pulse` multiplied to 0.25 — about a 5/255 delta
+  against the page background. Dimming is now `pageBodyOpacityClass(loading,
+  hasData)`, mutually exclusive with showing a skeleton.
+- **A Cmd/Ctrl-click on a nav item left a phantom highlight pulsing for 10s.**
+  Next invokes `onClick` before deciding to navigate and then skips navigation
+  for modified clicks, so this document never transitioned and nothing cleared
+  the pending state.
+- **The query memo's memory bound was overstated in its own comment.** The
+  per-entry row cap multiplies with the entry cap (200 × 20 000 ≈ 4M rows ≈
+  13 GB against a 1024 MiB task). `/api/analyze` is the reachable path — it runs
+  LLM-authored SQL through the same memo. Bounded now by a running total
+  (`ATHENA_QUERY_CACHE_MAX_TOTAL_ROWS`, default 50 000 ≈ 170 MiB).
+
+### Changed
+
+- **Athena poll interval ramps `150 → 300 → 500 ms`, capped at 500.** This is
+  deliberately *not* backoff: these queries finish in ~1-3s and completion is
+  detected one interval late on average, so any interval above the old fixed
+  500 ms would detect completion *later* than the code it replaced. The old value
+  is the ceiling, so no query is ever slower than before. A test fails if anyone
+  raises the cap.
+
+### Not done (recorded so it is not mistaken for an oversight)
+
+- **Athena server-side result reuse** is the multi-second win here and is
+  deliberately deferred: it is a provable no-op until the route SQL stops using
+  `CURRENT_DATE`. Measured live — the `CURRENT_DATE` query scanned the full
+  100 304 bytes on both consecutive runs with `ReusedPreviousResult: false`; with
+  an explicit date literal it went 100 304 → 0 bytes and 730 ms → 307 ms.
+  Shipping reuse alone would look like a fix and change nothing.
+- **Two proposed optimizations were measured and rejected as regressions**, not
+  skipped: adding poll backoff (slower for the dominant case, above) and setting
+  `MaxResults` on `GetQueryResults` (omitting it already returns the largest page
+  and therefore the fewest round trips).
+- The memo is **per-Fargate-task and cold on every new task**, so the first click
+  after a deploy or a scale-out still pays full Athena latency. This work does
+  not fix the first-visit or post-deploy stall.
+
 ## [1.7.0] - 2026-07-29
 
 ### Added
@@ -498,7 +595,11 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 - Bedrock model ID corrected to global inference profile (global.anthropic.claude-sonnet-4-6)
 - Bedrock IAM policy expanded to include inference-profile ARN pattern
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.6.1...v1.7.0
+[1.6.1]: https://github.com/whchoi98/kiro-dashboard/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.2.0...v1.5.0
 [1.2.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.0.0...v1.1.0
@@ -513,6 +614,100 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+## [1.8.0] - 2026-07-29
+
+메뉴 전환 지연 개선 작업입니다. 사용자가 보고한 증상은 사이드바 메뉴를 클릭하면
+"멈칫한다"는 것이었습니다. 작업을 시작할 때 세운 진단 4건 중 2건은 측정 결과
+사실이 아니어서 구현하지 않고 폐기했으며, 아래는 측정이 뒷받침한 내용만 담았습니다.
+
+### 추가
+
+- **클릭한 사이드바 항목이 즉시 강조됩니다.** 이것이 체감 지연의 실제 원인이었습니다.
+  강조 표시는 `usePathname()`에서 파생됐는데, 이 값은 라우트 전환이 *커밋될 때만*
+  갱신됩니다. `/`는 유일한 동적 렌더링 라우트이므로, 클릭해도 모든 Athena 쿼리가
+  끝날 때까지 화면에서 아무것도 움직이지 않았습니다 — 페이지도, 심지어 메뉴 강조도.
+  실제 빌드에서 측정: 첫 시각적 피드백이 **2621ms 동안 전무**했던 것에서
+  **38ms**로 바뀌었습니다.
+  - 상태 기계는 `lib/nav-state.ts`에 있습니다. `active`가 `pending`을 이기므로
+    남아 있는 pending href가 이미 커밋된 라우트를 계속 깜빡이게 만들 수 없습니다.
+    현재 라우트를 다시 탭하면 아무것도 기록하지 않습니다 — 전환이 없으면 그것을
+    지워 줄 것도 없기 때문입니다. 커밋 없이 끝나는 전환(RSC 요청 실패, 도중에 뒤로
+    가기)은 10초 상한이 흡수합니다. 영원히 깜빡이는 것은 피드백이 없는 것보다
+    더 나쁜 거짓입니다.
+  - 항목은 `<Link>`를 유지해 Next의 prefetch를 보존합니다. 정적 생성된 13개
+    라우트가 즉각적으로 느껴지는 이유가 바로 이 prefetch입니다.
+- **로딩 스켈레톤 하나를 두 경로가 공유합니다** —
+  `app/components/ui/PageSkeleton.tsx`이며, 모양과 정책은 `lib/skeleton-layout.ts`에
+  있습니다. *첫 로드에만* 표시됩니다. 기간(`days`) 드롭다운을 바꿀 때는 이미 표시된
+  숫자를 비우지 않고 그대로 둡니다.
+- **`/` 전용 로딩 경계** — URL 세그먼트를 추가하지 않는 `app/(overview)/` 라우트
+  그룹으로 범위를 한정했습니다. 정적 생성된 형제 13개 페이지에서는 이 스켈레톤이
+  전혀 그려지지 않고 prefetch 페이로드도 그대로임을 브라우저로 확인했습니다.
+  `/`의 prefetch는 80바이트 스텁에서 로딩 청크를 참조하는 5474바이트로 바뀌었습니다.
+- **Athena 결과 메모** (`lib/query-cache.ts`) — `executeQuery` 뒤에 붙으며,
+  `(UTC 날짜, SQL)`을 키로 하고 동시 호출을 하나로 합칩니다(single-flight).
+  이것이 안전한 이유는 단 하나의 도메인 사실입니다: Kiro 리포트는 매일 02:00 UTC에
+  한 번 도착하므로, 60초 전 답변이 이미 최대 24시간 지난 원본보다 더 낡을 수는
+  없습니다. 모든 상한값은 환경변수로 끌 수 있습니다.
+- **IdentityStore 디렉터리 스냅샷 캐시** (1시간). `resolveUserDetails`는 호출마다
+  디렉터리 전체를 순회했고 19개 라우트 중 10개가 이를 호출하므로, Overview 한 번
+  로드에 전체 순회를 6번 지불했습니다 — 형제 함수인 `resolveUsernames`는 처음부터
+  캐시를 갖고 있었는데도 말입니다.
+
+### 수정
+
+- **`/api/ingest-health`가 새 메모 때문에 낡은 행을 반환하고 있었습니다.** 이 라우트는
+  리포트 신선도 감시기이므로, 처음 본 값에 고정되는 것은 절대 하면 안 되는 단 하나의
+  일입니다. 두 쿼리 모두 캐시를 우회하도록 했습니다.
+- **Overview 서버 컴포넌트가 3단계로 순차 호출**하면서 Athena 왕복 2회를 전환 지연에
+  그대로 더하고 있었습니다. 이제 6개를 하나의 `Promise.all`로 묶습니다:
+  **7.5초 → 2.7초**.
+- **`/users`가 같은 엔드포인트를 두 번 호출**했습니다(`limit=10`과 `limit=100`).
+  상위 10명 목록은 이제 100행 결과에서 파생합니다.
+- **`OverviewClient`가 API 실패 시 클라이언트 분포를 조작해 냈습니다** — 아무도
+  측정하지 않은 60/25/15 비율이 하드코딩돼 있었습니다. 제거하고 서버 컴포넌트와
+  동일하게 빈 값으로 대체합니다.
+- **라이트 모드에서 pending 메뉴 강조가 읽히지 않았습니다.** 흰 사이드바 위의
+  `bg-[#9046FF]/70`은 레이블 대비가 2.88:1이고, `animate-pulse`가 이를 약 1.65:1까지
+  끌어내려 사용자가 방금 클릭한 항목이 가장 안 보이는 항목이 됐습니다. 보라색을
+  불투명으로 바꿨습니다(라이트 4.66:1 / 다크 7.64:1).
+- **12개 페이지에서 스켈레톤이 거의 보이지 않았습니다.** 기존 재조회용 `opacity-50`
+  래퍼 안에서 렌더되는데, CSS 투명도는 하위 트리 전체에 곱해지므로 스켈레톤 자신의
+  `animate-pulse`와 겹쳐 0.25까지 떨어졌습니다 — 배경과 255단계 중 약 5단계 차이입니다.
+  이제 어둡게 처리는 `pageBodyOpacityClass(loading, hasData)`가 결정하며, 스켈레톤
+  표시와 상호배타적입니다.
+- **메뉴 항목을 Cmd/Ctrl+클릭하면 유령 강조가 10초 동안 깜빡였습니다.** Next는 이동
+  여부를 결정하기 *전에* `onClick`을 호출하고 수정키 클릭에서는 이동을 건너뛰므로,
+  현재 문서는 전환되지 않고 pending 상태를 지워 줄 것도 없었습니다.
+- **쿼리 메모의 메모리 상한이 주석에서 과장돼 있었습니다.** 엔트리당 행 상한은 엔트리
+  개수 상한과 곱해집니다(200 × 20,000 ≈ 400만 행 ≈ 1024 MiB 태스크에 대해 약 13 GB).
+  도달 가능한 경로는 `/api/analyze`입니다 — LLM이 작성한 SQL을 같은 메모로 흘려보냅니다.
+  이제 누적 합계로 제한합니다(`ATHENA_QUERY_CACHE_MAX_TOTAL_ROWS`, 기본 50,000 ≈ 170 MiB).
+
+### 변경
+
+- **Athena 폴링 간격을 `150 → 300 → 500ms`로 올리고 500에서 멈춥니다.** 이것은
+  의도적으로 백오프가 *아닙니다*: 이 쿼리들은 약 1~3초에 끝나고 완료 감지는 평균
+  한 구간 늦으므로, 기존 고정값 500ms보다 큰 간격은 오히려 완료를 *더 늦게*
+  감지합니다. 기존 값이 천장이므로 어떤 쿼리도 이전보다 느려지지 않습니다. 누군가
+  이 상한을 올리면 테스트가 실패합니다.
+
+### 하지 않은 것 (누락이 아님을 남기기 위해 기록)
+
+- **Athena 서버측 결과 재사용**은 여기서 초 단위 이득이 가장 큰 항목이지만 의도적으로
+  뒤로 미뤘습니다. 라우트 SQL이 `CURRENT_DATE` 사용을 멈추기 전까지는 효과가 없음이
+  증명됩니다. 실측: `CURRENT_DATE` 쿼리는 연속 두 번 모두 100,304바이트를 스캔하고
+  `ReusedPreviousResult: false`였으며, 명시적 날짜 리터럴로 바꾸자 100,304 → 0바이트,
+  730ms → 307ms가 됐습니다. 재사용만 먼저 넣으면 성능 개선처럼 보이면서 실제로는
+  아무것도 바뀌지 않습니다.
+- **제안된 최적화 2건은 측정 결과 회귀여서 기각**했습니다(건너뛴 것이 아닙니다):
+  폴링 백오프 추가(위에서 설명한 대로 지배적인 경우에서 더 느려짐), 그리고
+  `GetQueryResults`에 `MaxResults` 설정(생략하는 것이 이미 가장 큰 페이지를 받아
+  왕복 횟수가 가장 적습니다).
+- 이 메모는 **Fargate 태스크별이며 새 태스크마다 비어 있습니다.** 따라서 배포 직후나
+  스케일아웃 직후 첫 클릭은 여전히 Athena 지연을 온전히 지불합니다. 이 작업은 첫 방문
+  지연이나 배포 직후 지연을 해결하지 않습니다.
 
 ## [1.7.0] - 2026-07-29
 
@@ -975,7 +1170,11 @@ aws ecs wait services-stable --cluster kiro-dashboard-cluster \
 - Bedrock 모델 ID 수정 (global inference profile global.anthropic.claude-sonnet-4-6 적용)
 - Bedrock IAM 정책 확장 (inference-profile ARN 패턴 추가)
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.6.1...v1.7.0
+[1.6.1]: https://github.com/whchoi98/kiro-dashboard/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.2.0...v1.5.0
 [1.2.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.0.0...v1.1.0

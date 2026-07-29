@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeInt, isMissingTableError } from '@/lib/athena';
+import { executeQueryUncached, safeInt, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import {
   isUarConfigured,
@@ -20,6 +20,12 @@ import {
 // Same reasoning as /api/model-usage: the answer is "what is in S3 right
 // now", so Next.js 14's default forever-cache on GET handlers would freeze a
 // freshness monitor at whatever it saw first — the one thing it must never do.
+//
+// The same reasoning bans the in-process Athena memo in `executeQuery`, which
+// is why every query below calls `executeQueryUncached` instead. A 60s-stale
+// row count is harmless on a dashboard but meaningless on the page whose entire
+// job is answering "did today's report actually land?". Pinned by
+// tests/lib/query-cache.test.ts.
 export const dynamic = 'force-dynamic';
 
 // The legacy metric columns whose instrumentation is worth reporting. 39 of
@@ -98,7 +104,7 @@ async function readAthenaSide(days: number) {
 
   try {
     const tableName = await resolveTableName();
-    const rows = await executeQuery(`
+    const rows = await executeQueryUncached(`
       SELECT COUNT(*) AS row_count
       FROM "${tableName}"
       WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
@@ -116,7 +122,7 @@ async function readAthenaSide(days: number) {
   ).join(',\n        ');
 
   try {
-    const rows = await executeQuery(`
+    const rows = await executeQueryUncached(`
       SELECT
         COUNT(*) AS total_rows,
         ${countExprs}

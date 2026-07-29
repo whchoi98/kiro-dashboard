@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
 import { IngestHealthData } from '@/types/dashboard';
 import { useI18n } from '@/lib/i18n';
@@ -68,7 +70,7 @@ export default function IngestHealthPage() {
   const orderedDates = [...dates].reverse();
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, data !== null)}`}>
       <Header
         titleKey="header.ingestHealth"
         subtitleKey="header.ingestHealth.sub"
@@ -78,6 +80,7 @@ export default function IngestHealthPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="table" loading={loading} hasData={data !== null}>
       {data && !data.configured && (
         <div className="bg-dashboard-card rounded-xl px-5 py-4 border border-dashboard-border">
           <p className="text-sm text-amber-400">{t('ingest.notConfigured')}</p>
@@ -334,6 +337,7 @@ export default function IngestHealthPage() {
           <p className="text-slate-500 text-sm">No data available</p>
         )}
       </div>
+      </SkeletonGate>
     </div>
   );
 }

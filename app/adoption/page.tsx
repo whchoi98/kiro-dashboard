@@ -5,6 +5,8 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
 import { AdoptionData } from '@/types/dashboard';
 import { useChartTheme } from '@/lib/chart-theme';
@@ -42,7 +44,7 @@ export default function AdoptionPage() {
   const newUserRatio = activeUsers > 0 ? (newUsers / activeUsers) * 100 : 0;
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, data !== null)}`}>
       <Header
         titleKey="header.adoption"
         subtitleKey="header.adoption.sub"
@@ -52,6 +54,7 @@ export default function AdoptionPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="chart" loading={loading} hasData={data !== null}>
       {/* Metric cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <MetricCard
@@ -174,6 +177,7 @@ export default function AdoptionPage() {
           <p className="text-slate-500 text-sm">No data available</p>
         )}
       </div>
+      </SkeletonGate>
     </div>
   );
 }

@@ -11,6 +11,18 @@ components/
   layout/
     Header.tsx          Top navigation bar — language switcher, user info
     Sidebar.tsx         Left nav sidebar — page links, logout button, theme (다크/라이트) + language switchers, app version footer; off-canvas drawer + fixed hamburger top bar below md.
+                        Nav item appearance comes from lib/nav-state.ts, NOT from `pathname === href`:
+                        usePathname() only updates when a transition COMMITS, so clicking the slow `/`
+                        route moved nothing on screen (not even the highlight) and looked ignored. The
+                        clicked href is stored in `pendingHref` and painted immediately; it clears on
+                        commit and on a PENDING_NAV_TIMEOUT_MS fallback (a transition can end without
+                        pathname ever changing). Items stay <Link> so Next's prefetch still warms routes.
+                        The write is gated on isNavigatingClick(): Next runs onClick BEFORE deciding to
+                        navigate and skips navigation for Cmd/Ctrl/Shift/Alt clicks, which left a phantom
+                        item pulsing for the full 10s in the tab the user kept looking at. Pass the
+                        modifier fields explicitly — `e.target` is the DOM node that was hit, NOT the
+                        anchor's target attribute (that is `e.currentTarget.target`); handing the event
+                        straight in suppresses EVERY click and silently restores the stall.
                         The version footer is a BUTTON opening ReleaseNotesDialog (was a Link to /changelog).
                         tests/structure/version-sync.test.ts requires it to render `v{APP_VERSION}` from
                         '@/lib/version' and to contain NO literal /v\d+\.\d+\.\d+/ anywhere in the file.
@@ -45,6 +57,18 @@ components/
                         (effect keyed on [open, locale]), Escape to close, focuses the close button, locks
                         body scroll, role="dialog" aria-modal="true". Amber banner when the running version
                         has no changelog entry (shows the newest release instead of implying a match).
+    PageSkeleton.tsx    THE ONE loading skeleton — do not copy skeleton markup into a page. Exports
+                        `PageSkeleton` (used by app/(overview)/loading.tsx) and `SkeletonGate`
+                        (used by all 12 client dashboard pages, which render it just below <Header>).
+                        Block shapes/variants live in lib/skeleton-layout.ts so Jest can reach them
+                        (testMatch is '**/*.test.ts' — logic in .tsx is unreachable). Shows only on the
+                        FIRST load (`showSkeleton(loading, hasData)`); a `days` change keeps the previous
+                        numbers on screen dimmed instead of blanking them. The dim is therefore
+                        `pageBodyOpacityClass(loading, hasData)`, NOT `loading ? 'opacity-50' : …` — CSS
+                        opacity composites down a subtree, so a dimmed wrapper multiplied by the
+                        skeleton's own animate-pulse rendered it at 0.5–0.25 (~5/255 delta, 1.04:1) and
+                        the "one shared skeleton" looked nothing like the /(overview) boundary copy,
+                        which has no wrapper. Pinned by tests/structure/nav-feedback.test.ts.
     ChangelogBlocks.tsx Shared markdown block renderer — DOT_COLORS, groupDotColor, renderInline, BlockView,
                         GroupView. Imported by BOTH /changelog and ReleaseNotesDialog; extracted rather than
                         copied so the v1.6.1 bold/code-fence/table fixes cannot regress in one surface only.

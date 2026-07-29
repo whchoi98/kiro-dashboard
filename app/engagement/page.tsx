@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import FunnelChart from '@/app/components/charts/FunnelChart';
 import { EngagementData, ClientDistribution } from '@/types/dashboard';
@@ -69,7 +71,7 @@ export default function EngagementPage() {
   }));
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, engagement !== null)}`}>
       <Header
         titleKey="header.engagement"
         subtitleKey="header.engagement.sub"
@@ -79,6 +81,7 @@ export default function EngagementPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="split" loading={loading} hasData={engagement !== null}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
           <ClientPieChart data={segmentsPieData} title="User Segments" />
@@ -115,6 +118,7 @@ export default function EngagementPage() {
           <div className="col-span-1 sm:col-span-2 md:col-span-4 text-slate-500 text-sm">No data available</div>
         )}
       </div>
+      </SkeletonGate>
     </div>
   );
 }

@@ -6,6 +6,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Legend,
 } from 'recharts';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import { useI18n } from '@/lib/i18n';
 import { useChartTheme } from '@/lib/chart-theme';
 import { ModelUsageData } from '@/types/dashboard';
@@ -54,7 +56,7 @@ export default function ModelUsagePage() {
   const manualMessages = totalMessages - autoMessages;
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, data !== null)}`}>
       <Header
         titleKey="header.modelUsage"
         subtitleKey="header.modelUsage.sub"
@@ -64,6 +66,7 @@ export default function ModelUsagePage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="chart" loading={loading} hasData={data !== null}>
       {/* Metric cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
@@ -283,6 +286,7 @@ export default function ModelUsagePage() {
           <p className="text-slate-500 text-sm">{t('model.noData')}</p>
         )}
       </div>
+      </SkeletonGate>
     </div>
   );
 }

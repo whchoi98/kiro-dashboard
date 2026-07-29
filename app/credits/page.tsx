@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import { CreditAnalysis, ClientDistribution } from '@/types/dashboard';
 
@@ -62,7 +64,7 @@ export default function CreditsPage() {
   const maxCredits = credits?.topUsers[0]?.totalCredits ?? 1;
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, credits !== null)}`}>
       <Header
         titleKey="header.credits"
         subtitleKey="header.credits.sub"
@@ -72,6 +74,7 @@ export default function CreditsPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="ranked" loading={loading} hasData={credits !== null}>
       {/* Top credit users */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">Top 15 Credit Users</h3>
@@ -140,6 +143,7 @@ export default function CreditsPage() {
           </div>
         </div>
       </div>
+      </SkeletonGate>
     </div>
   );
 }

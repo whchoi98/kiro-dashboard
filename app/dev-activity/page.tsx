@@ -11,6 +11,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import { DevActivityData, DevActivityGroup } from '@/types/dashboard';
 import { useChartTheme } from '@/lib/chart-theme';
 
@@ -62,7 +64,7 @@ export default function DevActivityPage() {
   );
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, data !== null)}`}>
       <Header
         titleKey="header.devActivity"
         subtitleKey="header.devActivity.sub"
@@ -72,6 +74,7 @@ export default function DevActivityPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="chart" loading={loading} hasData={data !== null}>
       {/* Activity group cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {groups.map((group) => (
@@ -192,6 +195,7 @@ export default function DevActivityPage() {
           <p className="text-slate-500 text-sm">No data available</p>
         )}
       </div>
+      </SkeletonGate>
     </div>
   );
 }

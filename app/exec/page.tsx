@@ -5,6 +5,8 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import {
@@ -99,7 +101,7 @@ export default function ExecPage() {
   const maxTopCredits = topUsers[0]?.totalCredits ?? 1;
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, metrics !== null)}`}>
       <Header
         titleKey="header.exec"
         subtitleKey="header.exec.sub"
@@ -109,6 +111,7 @@ export default function ExecPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="overview" loading={loading} hasData={metrics !== null}>
       {/* Row 1: Headline KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
@@ -274,6 +277,7 @@ export default function ExecPage() {
           </div>
         </div>
       </div>
+      </SkeletonGate>
     </div>
   );
 }

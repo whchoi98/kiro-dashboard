@@ -13,6 +13,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
 import { RolloutData } from '@/types/dashboard';
 import { useI18n } from '@/lib/i18n';
@@ -90,7 +92,7 @@ export default function RolloutPage() {
   const overlapTotal = overlap?.total ?? 0;
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, data !== null)}`}>
       <Header
         titleKey="header.rollout"
         subtitleKey="header.rollout.sub"
@@ -100,6 +102,7 @@ export default function RolloutPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="chart" loading={loading} hasData={data !== null}>
       {/* Per-client KPI cards. Rendered from the clients actually present, so
           a permanently absent PLUGIN never leaves an empty card behind. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -384,6 +387,7 @@ export default function RolloutPage() {
           <p className="text-slate-500 text-sm">No data available</p>
         )}
       </div>
+      </SkeletonGate>
     </div>
   );
 }

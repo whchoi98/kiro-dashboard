@@ -46,11 +46,11 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-const PLACEHOLDER_CLIENT_DIST: ClientDistribution[] = [
-  { clientType: 'KIRO_IDE', messageCount: 0, creditCount: 0, percentage: 60 },
-  { clientType: 'KIRO_CLI', messageCount: 0, creditCount: 0, percentage: 25 },
-  { clientType: 'PLUGIN', messageCount: 0, creditCount: 0, percentage: 15 },
-];
+// There is deliberately no PLACEHOLDER_CLIENT_DIST. It used to hold hard-coded
+// 60/25/15 percentages and was used as the fallback when /api/client-dist
+// failed, so a failed call rendered a fabricated distribution nobody measured —
+// while the server component fell back to [] for the same data. Fall back to []
+// in both places: an empty chart is honest, invented percentages are not.
 
 const PLACEHOLDER_IDC_USERS: IdcUsersData = {
   total: 0,
@@ -73,22 +73,28 @@ async function safeFetch<T>(url: string): Promise<T | null> {
 }
 
 async function fetchAll(days: number): Promise<OverviewData> {
-  const [metrics, trends, users, engagement] = await Promise.all([
-    safeFetch<OverviewMetrics>(`/api/metrics?days=${days}`),
-    safeFetch<DailyTrend[]>(`/api/trends?days=${days}`),
-    safeFetch<TopUser[]>(`/api/users?days=${days}&limit=10`),
-    safeFetch<EngagementData>(`/api/engagement?days=${days}`),
-  ]);
+  // ONE wave, not two — mirrors app/(overview)/page.tsx. client-dist and
+  // idc-users used to be awaited in a second Promise.all after the derivations
+  // below, but both URLs interpolate only `days` (this function's parameter) and
+  // nothing produced by the first wave, so the serialization was pure waiting.
+  //
+  // Lower value than the server-component twin: the `initialized` guard in the
+  // effect below means this never runs on navigation, only on a days-dropdown
+  // change. Kept identical so the two paths cannot drift.
+  const [metrics, trends, users, engagement, clientDistData, idcUsersData] =
+    await Promise.all([
+      safeFetch<OverviewMetrics>(`/api/metrics?days=${days}`),
+      safeFetch<DailyTrend[]>(`/api/trends?days=${days}`),
+      safeFetch<TopUser[]>(`/api/users?days=${days}&limit=10`),
+      safeFetch<EngagementData>(`/api/engagement?days=${days}`),
+      safeFetch<ClientDistribution[]>(`/api/client-dist?days=${days}`),
+      safeFetch<IdcUsersData>(`/api/idc-users?days=${days}`),
+    ]);
 
   const cr = metrics?.changeRates ?? {};
   const powerUsers = engagement?.segments?.find((s: { tier: string }) => s.tier === 'Power')?.count ?? 0;
   const overageUp = (cr.totalOverageCredits ?? 0) > 10;
   const mascotMood = overageUp ? ('alert' as const) : powerUsers > 50 ? ('excited' as const) : ('happy' as const);
-
-  const [clientDistData, idcUsersData] = await Promise.all([
-    safeFetch<ClientDistribution[]>(`/api/client-dist?days=${days}`),
-    safeFetch<IdcUsersData>(`/api/idc-users?days=${days}`),
-  ]);
 
   return {
     metrics: {
@@ -102,7 +108,7 @@ async function fetchAll(days: number): Promise<OverviewData> {
     trends: trends ?? [],
     topUsers: users ?? [],
     funnel: engagement?.funnel ?? [],
-    clientDist: Array.isArray(clientDistData) ? clientDistData : PLACEHOLDER_CLIENT_DIST,
+    clientDist: Array.isArray(clientDistData) ? clientDistData : [],
     powerUsers,
     overageUp,
     mascotMood,

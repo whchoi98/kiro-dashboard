@@ -4,7 +4,7 @@
 
 **Name**: kiro-dashboard
 **Description**: Kiro IDE 사용자 분석 대시보드 — Next.js 14 (App Router) + CloudFront/ALB/ECS Fargate + Athena/Glue/S3 + Bedrock AI 분석
-**Version**: 1.7.0
+**Version**: 1.8.0
 **Language**: Korean (primary), English (secondary)
 
 Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.js 대시보드로 시각화하며, Amazon Bedrock으로 AI 인사이트를 제공하는 풀스택 분석 플랫폼.
@@ -131,6 +131,8 @@ Always cast dates appropriately when building WHERE clauses for each table.
 - **Light theme** — approach A palette override (`lib/theme.tsx` + `.light` block in `globals.css`): `html.light` remaps the Tailwind color variables (stops inverted 50↔950 … 400↔600), so **components keep writing dark-first classes** and light mode comes free. Consequences:
   - In light mode `text-white` renders near-black, `bg-gray-900` renders white — do NOT add `dark:`/`light:` variants
   - Text that sits on accent-colored backgrounds must be theme-invariant: inside `bg-[#9046FF]` it is handled by a bridge rule in globals.css; elsewhere use `text-[#ffffff]` (arbitrary values never invert)
+  - **Keep accent fills opaque under text.** An alpha variant like `bg-[#9046FF]/70` composites over the *light* sidebar (`#ffffff`) and drops the label to 2.88:1, under the 4.5:1 bar in ADR-0005; add `animate-pulse` and it reaches ~1.65:1, because fading white text toward a white background recovers nothing. The bridge rule does not help — it only sets `--color-white`, never the composited background.
+  - **`opacity-*` composites down the whole subtree.** A dimmed wrapper multiplied by a child's `animate-pulse` lands at 0.25 and the child effectively disappears; a child cannot opt back out with `opacity-100`. See `pageBodyOpacityClass` in `lib/skeleton-layout.ts`.
   - Recharts props can't resolve CSS variables — use `useChartTheme()` from `lib/chart-theme.ts` for tick/tooltip colors; series accent fills stay invariant
   - Theme state: `useTheme()` from `lib/theme.tsx`; persisted as `localStorage['kiro-theme']`; no-FOUC bootstrap script in `app/layout.tsx`
 - **Font**: NanumSquare (나눔스퀘어OTF web build) — self-hosted woff2 in `app/fonts/` (weights 300/400/700/800), loaded via `next/font/local` in `app/layout.tsx`, default sans stack via `@theme inline` in `globals.css`
@@ -149,6 +151,22 @@ IDENTITY_STORE_ID   = d-90663be888
 S3_REPORT_PREFIX    = q-user-log/AWSLogs/<deploy-account>/KiroLogs/user_report/us-east-1/   (account-derived)
 S3_DATA_BUCKET      = (only set when ATHENA_DATA_BUCKET_NAME is configured — two-bucket deployments)
 ```
+
+Optional performance knobs, all with in-code defaults (set none of them and the
+app behaves as documented above). Every one is a kill switch at `0`:
+```
+ATHENA_QUERY_CACHE_TTL_MS        = 60000    # result memo TTL; 0 disables
+ATHENA_QUERY_CACHE_MAX_ENTRIES   = 200      # retained entry cap
+ATHENA_QUERY_CACHE_MAX_ROWS      = 20000    # per-result cap (bounds ONE entry)
+ATHENA_QUERY_CACHE_MAX_TOTAL_ROWS= 50000    # rows across ALL entries (the real memory bound)
+IDENTITY_DIRECTORY_CACHE_TTL_MS  = 3600000  # IdentityStore directory snapshot TTL
+IDENTITY_DIRECTORY_CACHE_MAX_USERS = 50000  # per-snapshot user cap
+```
+Caching is safe here for one domain reason only: Kiro reports land once daily at
+02:00 UTC, so a 60s-old answer cannot be staler than a source that is already up
+to 24h old. `/api/ingest-health` is deliberately carved out (`executeQueryUncached`)
+because it is the freshness monitor. See `lib/CLAUDE.md` → "Result caching" for the
+00:00-vs-02:00 key-boundary rule and the rejected Next-native alternatives.
 
 For local development, copy `.env.example` to `.env.local` and fill in values.
 

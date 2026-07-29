@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import TrendChart from '@/app/components/charts/TrendChart';
 import { DailyTrend } from '@/types/dashboard';
 
@@ -30,7 +32,7 @@ export default function TrendsPage() {
   }, [days]);
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, trends.length > 0)}`}>
       <Header
         titleKey="header.trends"
         subtitleKey="header.trends.sub"
@@ -39,6 +41,8 @@ export default function TrendsPage() {
         days={days}
         onDaysChange={setDays}
       />
+
+      <SkeletonGate variant="chart" loading={loading} hasData={trends.length > 0}>
 
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">Messages &amp; Conversations Over Time</h3>
@@ -74,6 +78,7 @@ export default function TrendsPage() {
           </div>
         </div>
       )}
+      </SkeletonGate>
     </div>
   );
 }

@@ -8,6 +8,13 @@ import ReleaseNotesDialog from '@/app/components/ui/ReleaseNotesDialog';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { APP_VERSION } from '@/lib/version';
+import {
+  navItemState,
+  navItemClassName,
+  nextPendingHref,
+  isNavigatingClick,
+  PENDING_NAV_TIMEOUT_MS,
+} from '@/lib/nav-state';
 
 function MiniKiro({ size = 20, active = false, accentColor = '#9046FF' }: { size?: number; active?: boolean; accentColor?: string }) {
   const [blink, setBlink] = useState(false);
@@ -80,10 +87,28 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
-  // Tapping a nav link changes the route — close the drawer with it.
+  // The href the user just clicked, painted as pending until the router
+  // commits. `usePathname()` only updates on commit, so without this, clicking
+  // a slow route (`/` awaits several Athena queries server-side) moves nothing
+  // on screen — not the page, not even this highlight — and the click looks
+  // ignored. See lib/nav-state.ts.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  // Tapping a nav link changes the route — close the drawer with it, and clear
+  // the pending highlight now that `pathname` carries the new route itself.
   useEffect(() => {
     setMobileOpen(false);
+    setPendingHref(null);
   }, [pathname]);
+
+  // A transition can end without `pathname` ever changing (failed RSC fetch, a
+  // route that throws, Back pressed mid-flight). Without this ceiling the item
+  // would pulse forever, which is a worse lie than showing no feedback at all.
+  useEffect(() => {
+    if (!pendingHref) return;
+    const timer = setTimeout(() => setPendingHref(null), PENDING_NAV_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [pendingHref]);
 
   // Freeze the page behind the open drawer so backdrop swipes don't scroll it.
   useEffect(() => {
@@ -137,19 +162,42 @@ export default function Sidebar() {
       <KiroLogo />
       <nav className="flex flex-col gap-1 px-3 py-4 flex-1 overflow-y-auto overscroll-contain">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const state = navItemState(pathname, pendingHref, item.href);
           return (
+            // Stays a <Link> so Next's IntersectionObserver prefetch keeps
+            // warming these routes — that prefetch is what makes the
+            // statically rendered pages feel instant, and a hand-rolled
+            // router.push would throw it away.
             <Link
               key={item.href}
               href={item.href}
-              onClick={closeDrawer}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                isActive
-                  ? 'bg-[#9046FF] text-white shadow-lg shadow-purple-500/20'
-                  : 'text-slate-400 hover:text-white hover:bg-gray-800/50'
-              }`}
+              onClick={(e) => {
+                closeDrawer();
+                // Only claim a navigation for a click that actually produces
+                // one. Next runs this handler before it decides, and skips
+                // navigating for Cmd/Ctrl/Shift/Alt-clicks — see
+                // isNavigatingClick in lib/nav-state.ts.
+                //
+                // Fields are passed explicitly: `e.target` is the DOM node that
+                // was hit, NOT the anchor's `target` attribute, so handing the
+                // event straight in would compare an element to '_self' and
+                // suppress every click. `currentTarget` is the <a> itself.
+                if (
+                  !isNavigatingClick({
+                    metaKey: e.metaKey,
+                    ctrlKey: e.ctrlKey,
+                    shiftKey: e.shiftKey,
+                    altKey: e.altKey,
+                    target: e.currentTarget.target,
+                  })
+                )
+                  return;
+                setPendingHref(nextPendingHref(pathname, item.href));
+              }}
+              aria-current={state === 'active' ? 'page' : undefined}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${navItemClassName(state)}`}
             >
-              <MiniKiro size={20} active={isActive} accentColor={item.accent} />
+              <MiniKiro size={20} active={state !== 'idle'} accentColor={item.accent} />
               {t(item.key)}
             </Link>
           );

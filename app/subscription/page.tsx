@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import { SubscriptionData, ClientDistribution } from '@/types/dashboard';
@@ -65,7 +67,7 @@ export default function SubscriptionPage() {
   }));
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+    <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, data !== null)}`}>
       <Header
         titleKey="header.subscription"
         subtitleKey="header.subscription.sub"
@@ -75,6 +77,7 @@ export default function SubscriptionPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="split" loading={loading} hasData={data !== null}>
       {/* Summary metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
@@ -190,6 +193,7 @@ export default function SubscriptionPage() {
           </div>
         </div>
       </div>
+      </SkeletonGate>
     </div>
   );
 }

@@ -42,12 +42,25 @@ const PLACEHOLDER_IDC_USERS: IdcUsersData = {
 };
 
 export default async function OverviewPage() {
-  const [metrics, trends, topUsers, engagement] = await Promise.all([
-    fetchData<OverviewMetrics>('/api/metrics?days=90'),
-    fetchData<DailyTrend[]>('/api/trends?days=90'),
-    fetchData<TopUser[]>('/api/users?limit=10&days=90'),
-    fetchData<EngagementData>('/api/engagement?days=90'),
-  ]);
+  // ONE wave, not three. `/api/client-dist` and `/api/idc-users` used to be
+  // awaited separately after this block, but neither URL depends on anything
+  // produced here — they interpolate nothing but the fixed window — so the
+  // serialization was pure waiting. This route is `force-dynamic` and blocks
+  // the navigation, so those two extra round trips were added directly to the
+  // stall the user feels on every click of "대시보드". `idc-users` is the
+  // expensive one (it paginates the whole IdentityStore directory *and* runs an
+  // Athena GROUP BY), so it is the one that most needed to overlap.
+  //
+  // `fetchData` swallows failures and returns null, so this cannot reject.
+  const [metrics, trends, topUsers, engagement, clientDistRaw, idcUsersRaw] =
+    await Promise.all([
+      fetchData<OverviewMetrics>('/api/metrics?days=90'),
+      fetchData<DailyTrend[]>('/api/trends?days=90'),
+      fetchData<TopUser[]>('/api/users?limit=10&days=90'),
+      fetchData<EngagementData>('/api/engagement?days=90'),
+      fetchData<ClientDistribution[]>('/api/client-dist?days=90'),
+      fetchData<IdcUsersData>('/api/idc-users?days=90'),
+    ]);
 
   const cr = metrics?.changeRates ?? {};
   const powerUsers = engagement?.segments?.find(s => s.tier === 'Power')?.count ?? 0;
@@ -55,10 +68,8 @@ export default async function OverviewPage() {
 
   const mascotMood = overageUp ? 'alert' as const : powerUsers > 50 ? 'excited' as const : 'happy' as const;
 
-  const clientDistRaw = await fetchData<ClientDistribution[]>('/api/client-dist?days=90');
   const clientDist = Array.isArray(clientDistRaw) ? clientDistRaw : [];
 
-  const idcUsersRaw = await fetchData<IdcUsersData>('/api/idc-users?days=90');
   const idcUsers =
     idcUsersRaw && typeof idcUsersRaw.total === 'number'
       ? idcUsersRaw

@@ -9,7 +9,15 @@ Next.js 14 App Router 기반의 모든 페이지, 레이아웃, 컴포넌트, AP
 ```
 app/
   layout.tsx            Root layout — dark theme, i18n provider, auth session
-  page.tsx              Dashboard overview (redirect or overview metrics)
+  (overview)/           Route group (adds NO url segment) holding `/` and its loading boundary.
+    page.tsx            Dashboard overview — the ONLY dynamically-rendered page (`force-dynamic`);
+                        fetches all 6 APIs in ONE Promise.all (it used to be three sequential waves,
+                        which added two Athena round trips straight to the navigation stall).
+    loading.tsx         Loading boundary for `/` ONLY. Scoped via the route group on purpose: every
+                        other page is prerendered, so a root `app/loading.tsx` would nest over 13
+                        children that resolve instantly and could flash a skeleton where none exists.
+                        Also makes `/` prefetchable — without it the prefetch was an 80-byte stub.
+                        Do NOT add loading.tsx to the prerendered pages; it is inert there.
   globals.css           Global Tailwind CSS styles
   api/                  API route handlers (see api/CLAUDE.md)
   components/           Shared React components (see components/CLAUDE.md)

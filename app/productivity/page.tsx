@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/app/components/layout/Header';
+import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
+import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import {
   LineChart,
   Line,
@@ -128,7 +130,7 @@ export default function ProductivityPage() {
 
   return (
     <div
-      className={`flex flex-col gap-6 transition-opacity duration-200 ${loading ? 'opacity-50' : 'opacity-100'}`}
+      className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, data !== null)}`}
     >
       <Header
         titleKey="header.productivity"
@@ -139,6 +141,7 @@ export default function ProductivityPage() {
         onDaysChange={setDays}
       />
 
+      <SkeletonGate variant="overview" loading={loading} hasData={data !== null}>
       {/* Section 1: KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {/* AI Code Lines */}
@@ -439,6 +442,7 @@ export default function ProductivityPage() {
           <p className="text-slate-500 text-sm">No data available</p>
         )}
       </div>
+      </SkeletonGate>
     </div>
   );
 }

@@ -8,7 +8,8 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 
 | File | Role |
 |------|------|
-| `athena.ts` | Athena query executor + helper constants |
+| `athena.ts` | Athena query executor + helper constants; `executeQuery` is memoized via `query-cache.ts` |
+| `query-cache.ts` | `TtlMemo` — in-process TTL memo with single-flight coalescing behind `executeQuery`; bounds retention by BOTH `maxEntries` and a `maxWeight`/`weigh` total (an `admit` per-entry cap alone multiplies with the entry cap). Plus the pure helpers `utcDayStamp`, `queryCacheKey`, `readIntEnv`, `detachIfArray`. Lives here (not in a `route.ts`) because Next rejects non-handler route exports and Jest only collects `*.test.ts` |
 | `glue.ts` | Glue table name resolver |
 | `identity.ts` | IAM Identity Center user listing (with data masking) |
 | `mask.ts` | Data masking utilities for user identifiers |
@@ -23,6 +24,8 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 | `export-report.ts` | Client exporters for AI answers — Markdown blob download (title/date/question labels follow a `locale` param, default `'ko'`); PDF via `html2canvas-pro` (NOT `html2canvas` — Tailwind v4 oklab/oklch colors) + `jspdf` DOM capture, dynamic imports |
 | `analyze-prompt.ts` | Bedrock system prompt for `/api/analyze` — `buildSystemPrompt(locale)`, `resolveLocale`, `AnalyzeLocale`. Lives here, not in the route, because Next.js rejects non-handler exports from a `route.ts`. The language rule is appended LAST (recency) so an English answer survives Korean tool results; `locale` indexes a literal record and is never interpolated (prompt-injection guard) |
 | `release-notes.ts` | **SERVER-ONLY.** Picks one CHANGELOG.md section for the sidebar version badge dialog — `releaseSections(locale)` (memoized per locale), `currentReleaseNotes`, `findReleaseSection`, `isReleaseSection`. Imports `../CHANGELOG.md` as a webpack `asset/source` string (see `next.config.js`); must never call `readFileSync` — `output: 'standalone'` ships no markdown. Excludes `[Unreleased]`, which otherwise parses as the newest release. Importing this from a client component would inline ~50KB of both language trees into every page bundle |
+| `nav-state.ts` | Sidebar nav-item state machine — `navItemState`, `nextPendingHref`, `navItemClassName`, `isNavigatingClick`, `NavItemState`, `NavClickModifiers`, `PENDING_NAV_TIMEOUT_MS`. Exists because `usePathname()` only updates when a transition COMMITS, so clicking the slow `/` route changed nothing on screen and the click looked ignored ("멈칫"). `active` beats `pending` so a stale pending href can't keep pulsing a committed route; `nextPendingHref` returns `null` for a re-tap of the current route (no transition ⇒ nothing would ever clear it). The pending purple is **opaque** — see the contrast note below. Pure/here, not in `Sidebar.tsx`, because Jest only collects `*.test.ts` |
+| `skeleton-layout.ts` | Loading-skeleton block shapes + policy — `skeletonLayout(variant)`, `showSkeleton(loading, hasData)`, `dimWhileRefetching`, `pageBodyOpacityClass`, `SKELETON_VARIANTS`, `SkeletonBlock`, `SkeletonVariant`. Variants are coarse *silhouettes* (`overview`/`chart`/`split`/`ranked`/`table`) so a new page reuses one instead of growing a bespoke shape. `showSkeleton` is false when `hasData` — a `days` change must not blank settled numbers — and `dimWhileRefetching` is its exact complement, so the two are never on together. Rendered by `app/components/ui/PageSkeleton.tsx` |
 | `model-colors.ts` | `modelColor(name)` — stable series color per AI model name via djb2 hash over a 10-color palette (Kiro purple first); `Auto` is fixed to a muted gray as a router pseudo-model. Name-derived, NOT index-derived: the model set is dynamic, so an index palette would recolor every series when the ranking changed. Theme-invariant (inline styles don't participate in the light-mode palette override) |
 
 ---
@@ -33,18 +36,156 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 
 | Export | Type | Description |
 |--------|------|-------------|
-| `executeQuery(sql)` | `async (string) => Record<string, string>[]` | Runs an Athena query and returns all rows as key-value records |
+| `executeQuery(sql)` | `async (string) => Record<string, string>[]` | Runs an Athena query and returns all rows as key-value records. Memoized per `(UTC day, SQL)` — see the caching section below |
+| `executeQueryUncached(sql)` | `async (string) => Record<string, string>[]` | The raw Athena round trip, bypassing the memo |
+| `queryMemo` | `TtlMemo<Record<string,string>[]>` | The memo instance; `.stats()` for hit/miss/coalesce counters, `.clear()` to drop entries |
 | `NORMALIZE_USERID` | `string` | SQL snippet: `REGEXP_REPLACE(userid, '^d-[a-z0-9]+\.', '')` |
 | `safeFloat(val)` | `(string) => number` | Parse float, return 0 on NaN |
 | `safeInt(val)` | `(string) => number` | Parse int, return 0 on NaN |
+| `pollDelayMs(attempt)` | `(number) => number` | Sleep after status check `attempt + 1`: `150, 300, then 500` forever. Ramps UP to the historical fixed 500ms and is capped there — never backoff |
+| `POLL_DELAY_RAMP_MS` / `POLL_DELAY_CAP_MS` | `readonly number[]` / `number` | The ramp steps and the 500ms ceiling |
 | `isMissingTableError(err)` | `(unknown) => boolean` | True when an error means the Glue table/database doesn't exist yet (Athena `TABLE_NOT_FOUND`/`COLUMN_NOT_FOUND`, "does not exist", Glue `EntityNotFoundException`) — API routes use it to return 200 + empty payload instead of a 500 on fresh accounts |
 
 **Environment Variables Used:**
 - `AWS_REGION` — Athena client region (default: `us-east-1`)
 - `ATHENA_DATABASE` — Glue database name (default: `titanlog`)
 - `ATHENA_OUTPUT_BUCKET` — S3 path for query results
+- `ATHENA_QUERY_CACHE_TTL_MS` — result memo TTL (default `60000`; `0` disables)
+- `ATHENA_QUERY_CACHE_MAX_ENTRIES` — retained entry cap (default `200`)
+- `ATHENA_QUERY_CACHE_MAX_ROWS` — per-result retention cap (default `20000`)
 
-**Polling:** `executeQuery` polls every 500ms until `SUCCEEDED`, `FAILED`, or `CANCELLED`. Handles pagination via `NextToken`.
+**Polling:** `executeQuery` polls until `SUCCEEDED`, `FAILED`, or `CANCELLED`,
+sleeping `pollDelayMs(attempt)` **between** checks — `150ms → 300ms → 500ms, then
+500ms forever` (`POLL_DELAY_RAMP_MS`, `POLL_DELAY_CAP_MS`). Handles pagination via
+`NextToken`.
+
+The direction is a ramp **UP to** the old fixed 500ms, and 500 is the **ceiling,
+not the floor** — see the anti-backoff note below. Honest scope: detection
+overshoot is set by whichever interval is in force when the query finishes, so
+this helps only queries completing inside the first ~450ms and does nothing for
+the 1-3s engine-planning case (which still lands in the 500ms cap). Worth
+~50-350ms on fast queries for +2 `GetQueryExecution` calls per long query. An
+interval small enough to cut the 1-3s case would roughly double API call volume
+against an account-shared Athena rate limit — do that only after result reuse
+lands and shortens poll lifetimes. Pinned by `tests/lib/athena-poll.test.ts`
+(schedule) and `tests/lib/athena-poll-loop.test.ts` (loop wiring: first check at
+t+0, FAILED/CANCELLED throw without sleeping, no `MaxResults`).
+
+#### Two measured non-problems — do not "optimize" these
+
+Both of these read as obvious wins and are not. They were checked against the
+code and the AWS contract, and both proposed fixes are no-ops or regressions:
+
+- **There is no pre-first-check delay, and do NOT add backoff.**
+  `GetQueryExecutionCommand` is awaited at the TOP of the `while (true)` body and
+  the sleep is the LAST statement, so the first status check already fires at t+0
+  and a query that is already `SUCCEEDED` sleeps zero milliseconds. Adding "an
+  immediate first check" changes nothing. Adding *backoff* is strictly worse:
+  these queries run ~1-3s and completion is detected one interval late on
+  average, so any interval above 500ms detects completion LATER than the fixed
+  500ms it replaced. That is why `POLL_DELAY_CAP_MS === 500` and
+  `pollDelayMs` is monotonic but capped — the ramp only ever undercuts the old
+  interval. `tests/lib/athena-poll.test.ts` fails if someone raises the cap.
+- **Do not add `MaxResults` to `GetQueryResults`.** Omitting it already returns
+  the largest page (up to the 1000-row service maximum) and therefore the fewest
+  round trips; setting it could only add pagination calls. At this data scale
+  (`user_report` ~323 rows, `by_user_analytic` ~541, `/api/users` caps at
+  `LIMIT 100`) the `while (nextToken)` loop never executes at all.
+
+Poll overshoot also does not accumulate the way it appears to: every multi-query
+route uses `Promise.all`, so the loops run concurrently and the cost is `max()`,
+not `sum()`.
+
+### Result caching
+
+Kiro reports land **once daily at 02:00 UTC**, so query results are immutable
+for ~24h. A 60s-old answer therefore cannot be staler than the source, which is
+already up to 24h old — caching costs no correctness here.
+
+- **Key** is `(UTC day, SQL string)`, not the SQL alone. Route SQL interpolates a
+  day *count* (`DATE_ADD('day', -${days}, CURRENT_DATE)`), so the string is
+  byte-identical either side of UTC midnight while `CURRENT_DATE` moves. The day
+  stamp makes every entry self-invalidate at 00:00 UTC.
+- **The day boundary is 00:00 UTC, NOT the 02:00 UTC report drop.** Offsetting the
+  stamp to 02:00 to "match ingest" is a correctness regression, not a fix: the
+  key's job is to track the SQL *window*, and the window comes from Athena's
+  `CURRENT_DATE`, which rolls at 00:00 UTC. With an 02:00 stamp, 01:59Z would
+  reuse the entry minted at 20:00Z the previous evening whose 90-day floor was a
+  day earlier — a one-day-stale window for two hours every day. The cost of 00:00
+  is one extra query per distinct key per day, between 00:00 and 02:00. Pinned by
+  `tests/lib/query-cache.test.ts`.
+- **`/api/ingest-health` is carved out** and calls `executeQueryUncached` for both
+  of its queries. It is the report-freshness monitor, so a 60s-stale row count is
+  not merely imprecise but meaningless — its own header comment says freezing it
+  at whatever it first saw is "the one thing it must never do". Pinned by
+  `tests/lib/query-cache.test.ts`, which reads the route off disk.
+- **Single-flight**: concurrent callers with identical SQL share one execution,
+  so a `Promise.all` fan-out cannot start duplicate Athena queries.
+- **Rejections are never cached** — a throttle or a not-yet-provisioned Glue
+  table must not be pinned for the TTL, since routes degrade those to a 200.
+- **Callers get a copy** of the row array, so an in-place `rows.sort()` in a
+  future route cannot corrupt the shared entry.
+- **No HTTP cache headers, no route config.** Caching sits *below* the route
+  layer deliberately. The Next-native alternatives were each measured and
+  rejected — recorded so nobody re-litigates them:
+  - `export const revalidate = N` on a route that reads `req.url` leaves the route
+    dynamic with **zero** caching. Inert work that reads as a fix in review.
+  - The same line on a route that does *not* read `req.url` flips it to static and
+    permanently bakes build-time data — the force-static trap in a new costume,
+    still live in Next 14.2.35. That trap shipped Korean release notes to English
+    users and is now pinned by a test.
+  - `Cache-Control: s-maxage=…` on the data routes buys nothing: the CloudFront
+    distribution attaches Managed-CachingDisabled (Min/Max/DefaultTTL all 0) and
+    **MaxTTL=0 clamps s-maxage to zero**. An `/api/*` cache behavior additionally
+    needs the query string in the cache key first — the managed policy's
+    `QueryStringBehavior=none` would make `?days=7` and `?days=90` serve each
+    other's data, a correctness bug rather than a missed optimization.
+- **Per-task, not shared.** Each Fargate task has its own memo, so a warm task
+  and a cold task can differ by up to one TTL. Bounded by the same 24h
+  immutability argument. It is also **cold on every new task**, so the first click
+  after a deploy or a scale-out still pays full Athena latency — this memo does
+  not fix the first-visit or post-deploy stall.
+- **`admit` does NOT bound memory; `maxWeight` does.** The two caps *multiply*:
+  `maxEntries: 200` × `ATHENA_QUERY_CACHE_MAX_ROWS: 20000` permits ~4M retained
+  row objects, and a 44-column `by_user_analytic` row retains ~3.4KB measured, so
+  ~13 GB against a `memoryLimitMiB: 1024` task. `admit` refuses one oversized
+  result; the running total (`weigh` + `maxWeight`, default
+  `ATHENA_QUERY_CACHE_MAX_TOTAL_ROWS` = 50000 ≈ 170 MiB) is what actually holds.
+  Fixed-SQL routes cannot reach the bound, but **`/api/analyze` can**: its
+  `query_athena` tool runs LLM-authored SQL through the same memo, minting
+  arbitrarily many distinct keys per chat session, and its `rows.slice(0, 200)`
+  truncates only what reaches the model — the memo already retains the full
+  result. `lib/identity.ts` needs no total budget because its key space is
+  identity store ids (4 × 50k users is a real ceiling, not an open one).
+
+### Not yet done: Athena result reuse (requires date literals FIRST)
+
+The server-side complement to this memo is `ResultReuseConfiguration` on
+`StartQueryExecutionCommand`, which is shared across all Fargate tasks in a way a
+per-task memo structurally cannot be. It is **not implemented**, and the ordering
+is non-negotiable:
+
+1. First replace `DATE_ADD('day', -${days}, CURRENT_DATE)` in the route SQL with
+   an explicit interpolated `YYYY-MM-DD` literal (a pure `lib/athena-window.ts`
+   helper, computed with `getUTC*` math only). Mind the two date formats:
+   `user_report` is `YYYY-MM-DD` string-compared, `by_user_analytic` is
+   `MM-DD-YYYY` via `DATE_PARSE(date, '%m-%d-%Y')` and so needs a `DATE '...'`
+   right-hand side.
+2. Only then add `ResultReuseByAgeConfiguration` with `MaxAgeInMinutes: 60`
+   (behind an `ATHENA_RESULT_REUSE` kill switch).
+
+**Reuse without the literals is a provable no-op** — measured live, the
+`CURRENT_DATE` query scanned the full 100304 bytes on both consecutive runs with
+`ReusedPreviousResult: false`; with a literal date it went 100304 → 0 bytes and
+730ms → 307ms with `ReusedPreviousResult: true`. Shipping 5d alone would look
+like a perf fix and change nothing. Use `60`, not `1440`: any residual
+`CURRENT_DATE` could otherwise serve a window predating the newest 02:00 UTC
+report. The hit signal is `ResultReuseInformation.ReusedPreviousResult` from
+`GetQueryExecution` (confirmed populated in this account — do not infer hits from
+`DataScannedInBytes === 0`). Announce before deploying that Athena bytes-scanned
+will drop sharply; that is a cache hit, not data loss. Also ensure any S3
+lifecycle rule on the `athena-results/` prefix expires no sooner than
+`MaxAgeInMinutes`, or reuse silently degrades with no error.
 
 ---
 
@@ -68,14 +209,41 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 
 | Export | Type | Description |
 |--------|------|-------------|
-| `resolveUserDetails(userIds)` | `async (string[]) => Map<string, UserDetail>` | Resolves user IDs to masked display details |
+| `resolveUserDetails(userIds)` | `async (string[]) => Map<string, UserDetail>` | Resolves user IDs to masked display details (directory snapshot cached 1h) |
 | `resolveUsernames(userIds)` | `async (string[]) => Map<string, string>` | Resolves user IDs to masked usernames (cached 1h) |
+| `identityDirectoryCache` | `TtlMemo<Map<string, UserDetail>>` | The directory snapshot cache behind `resolveUserDetails`; `.stats()` / `.clear()` |
 
 All returned values (displayName, email, username, organization) are automatically masked via `lib/mask.ts`.
 
 **Environment Variables Used:**
 - `IDENTITY_STORE_ID` — IAM Identity Center store ID (e.g., `d-90663be888`)
+- `IDENTITY_DIRECTORY_CACHE_TTL_MS` — directory snapshot TTL (default `3600000`; `0` disables)
+- `IDENTITY_DIRECTORY_CACHE_MAX_USERS` — per-snapshot retention cap (default `50000`)
 - `AWS_REGION`
+
+### Directory snapshot cache
+
+`resolveUserDetails` walks the **entire** directory with `do/while` `ListUsers`
+pagination. 10 of the 19 API routes call it and an Overview load fans out to six
+of them at once, so a single page view used to pay six full directory walks —
+while its sibling `resolveUsernames` had a 1h cache all along.
+
+The cached unit is the **directory**, not the requested ids. Callers pass wildly
+different id sets, but every one of them triggers the same *unfiltered*
+`ListUsers` walk, so keying on the id set would miss on nearly every call while
+doing identical work. One key per identity store id (there is one per deployment)
+means later callers do zero AWS I/O.
+
+Reuses `TtlMemo` from `query-cache.ts`, which supplies the properties that make
+this safe rather than merely fast: **single-flight coalescing** (the six
+concurrent Overview routes share one in-flight walk even on a cold task — the
+TTL alone would not do this) and **rejections are never cached** (a throttle or
+IAM denial is retried next request instead of pinning an hour of masked ids). The
+`admit` bound caps retained users because an entry cap bounds *count*, not bytes.
+1h is generous because directory membership is far more stable than activity
+data; until a new user appears they render as a masked id, the same fallback
+already used for any id missing from the directory. Covered by
+`tests/lib/identity-cache.test.ts`.
 
 Uses `IdentityStoreClient` from `@aws-sdk/client-identitystore`.
 
