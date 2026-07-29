@@ -41,13 +41,38 @@ export async function GET(req: NextRequest) {
         SUM(CAST(testgeneration_generatedlines AS INTEGER)) AS testgen_generated,
         SUM(CAST(testgeneration_acceptedlines AS INTEGER)) AS testgen_accepted,
         SUM(CAST(docgeneration_eventcount AS INTEGER)) AS docgen_events,
-        SUM(CAST(docgeneration_acceptedlineadditions AS INTEGER) + CAST(docgeneration_rejectedlineadditions AS INTEGER)) AS docgen_generated,
-        SUM(CAST(docgeneration_acceptedlineadditions AS INTEGER)) AS docgen_accepted,
+        -- DocGen reports additions AND updates on both sides of the decision.
+        -- Omitting *lineupdates (as this query used to) shrank the denominator
+        -- while leaving updates out of the numerator too, so the rate was
+        -- computed over additions only and silently mislabelled as DocGen's.
+        SUM(
+          CAST(docgeneration_acceptedlineadditions AS INTEGER)
+          + CAST(docgeneration_acceptedlineupdates AS INTEGER)
+          + CAST(docgeneration_rejectedlineadditions AS INTEGER)
+          + CAST(docgeneration_rejectedlineupdates AS INTEGER)
+        ) AS docgen_generated,
+        SUM(
+          CAST(docgeneration_acceptedlineadditions AS INTEGER)
+          + CAST(docgeneration_acceptedlineupdates AS INTEGER)
+        ) AS docgen_accepted,
         SUM(CAST(transformation_eventcount AS INTEGER)) AS transform_events,
         SUM(CAST(transformation_linesgenerated AS INTEGER)) AS transform_generated,
         SUM(CAST(inlinechat_totaleventcount AS INTEGER)) AS inlinechat_events,
-        SUM(CAST(inlinechat_acceptedlineadditions AS INTEGER) + CAST(inlinechat_rejectedlineadditions AS INTEGER) + CAST(inlinechat_dismissedlineadditions AS INTEGER)) AS inlinechat_generated,
-        SUM(CAST(inlinechat_acceptedlineadditions AS INTEGER)) AS inlinechat_accepted,
+        -- Inline chat edits delete lines as well as add them; all three
+        -- *linedeletions counters were previously dropped from the
+        -- denominator, understating how much was actually offered.
+        SUM(
+          CAST(inlinechat_acceptedlineadditions AS INTEGER)
+          + CAST(inlinechat_acceptedlinedeletions AS INTEGER)
+          + CAST(inlinechat_rejectedlineadditions AS INTEGER)
+          + CAST(inlinechat_rejectedlinedeletions AS INTEGER)
+          + CAST(inlinechat_dismissedlineadditions AS INTEGER)
+          + CAST(inlinechat_dismissedlinedeletions AS INTEGER)
+        ) AS inlinechat_generated,
+        SUM(
+          CAST(inlinechat_acceptedlineadditions AS INTEGER)
+          + CAST(inlinechat_acceptedlinedeletions AS INTEGER)
+        ) AS inlinechat_accepted,
         SUM(CAST(codefix_generationeventcount AS INTEGER)) AS codefix_events,
         SUM(CAST(codefix_generatedlines AS INTEGER)) AS codefix_generated,
         SUM(CAST(codefix_acceptedlines AS INTEGER)) AS codefix_accepted
@@ -82,8 +107,10 @@ export async function GET(req: NextRequest) {
         SUM(
           CAST(testgeneration_acceptedlines AS INTEGER)
           + CAST(docgeneration_acceptedlineadditions AS INTEGER)
+          + CAST(docgeneration_acceptedlineupdates AS INTEGER)
           + CAST(transformation_linesgenerated AS INTEGER)
           + CAST(inlinechat_acceptedlineadditions AS INTEGER)
+          + CAST(inlinechat_acceptedlinedeletions AS INTEGER)
           + CAST(codefix_acceptedlines AS INTEGER)
         ) AS accepted_lines
       FROM by_user_analytic

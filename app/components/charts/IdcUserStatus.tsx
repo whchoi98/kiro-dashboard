@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useI18n } from '@/lib/i18n';
+import { DormancyBucket, DormancySummary, FunnelStep } from '@/types/dashboard';
 
 export interface IdcUserStatus {
   userId: string;
@@ -12,6 +13,9 @@ export interface IdcUserStatus {
   totalCredits: number;
   lastActive: string | null;
   organization: string;
+  daysSinceLastActive?: number | null;
+  activeDays?: number;
+  dormancy?: DormancyBucket;
 }
 
 interface IdcUserStatusData {
@@ -19,7 +23,24 @@ interface IdcUserStatusData {
   active: number;
   inactive: number;
   users: IdcUserStatus[];
+  /** Optional so the placeholder payloads in app/page.tsx stay valid. */
+  windowDays?: number;
+  dormancy?: DormancySummary[];
+  funnel?: FunnelStep[];
 }
+
+/**
+ * Bucket colours run fresh → stale. `never` is deliberately neutral slate, not
+ * red: these are directory users with no Kiro activity, which is not a fault
+ * condition — the directory is not a subscription roster.
+ */
+const BUCKET_COLORS: Record<DormancyBucket, string> = {
+  active7: '#22c55e',
+  dormant30: '#84cc16',
+  dormant60: '#f59e0b',
+  dormantOld: '#f97316',
+  never: '#64748b',
+};
 
 interface IdcUserStatusProps {
   data: IdcUserStatusData;
@@ -134,6 +155,67 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
         />
       </div>
 
+      {/* Dormancy grading + directory→activity funnel. Both describe DIRECTORY
+          users; the note under the heading is required wording, not decoration. */}
+      {!!data.dormancy?.length && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 lg:col-span-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+              <h3 className="text-lg font-semibold text-slate-300">{t('idc.dormancy')}</h3>
+              {!!data.windowDays && (
+                <span className="text-xs text-gray-500 font-mono">{data.windowDays}d</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1 mb-4">{t('idc.dormancyNote')}</p>
+            <div className="flex flex-col gap-2.5">
+              {data.dormancy.map((row) => (
+                <div key={row.bucket}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-300">{t(`idc.bucket.${row.bucket}`)}</span>
+                    <span className="text-sm font-mono text-gray-400">
+                      {row.count.toLocaleString()} · {row.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${row.percentage}%`,
+                        backgroundColor: BUCKET_COLORS[row.bucket],
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
+            <h3 className="text-lg font-semibold text-slate-300 mb-4">{t('idc.funnel')}</h3>
+            <div className="flex flex-col gap-3">
+              {(data.funnel ?? []).map((step, index) => (
+                <div key={step.label}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm text-gray-300">{t(step.label)}</span>
+                    <span className="text-sm font-mono text-gray-200">
+                      {step.count.toLocaleString()}
+                    </span>
+                  </div>
+                  {/* Step 0 is the denominator, so a conversion rate there
+                      would be a meaningless 100%. */}
+                  {index > 0 && (
+                    <p className="text-xs text-gray-500 font-mono mt-0.5">
+                      {step.conversionRate.toFixed(1)}% ← {t((data.funnel ?? [])[index - 1].label)}
+                    </p>
+                  )}
+                </div>
+              ))}
+              {!data.funnel?.length && <p className="text-gray-500 text-sm">No data available</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="relative">
         <svg
           className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
@@ -180,15 +262,21 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
               <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-28">
                 {t('metric.credits')}
               </th>
+              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24">
+                {t('idc.activeDays')}
+              </th>
               <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-32">
                 {t('idc.lastActive')}
+              </th>
+              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24">
+                {t('idc.daysSinceActive')}
               </th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-8 text-gray-600">
+                <td colSpan={9} className="text-center py-8 text-gray-600">
                   {search ? 'No results found' : 'No users'}
                 </td>
               </tr>
@@ -264,8 +352,35 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
                     )}
                   </td>
 
+                  <td className="px-4 py-2.5 text-right font-mono">
+                    {user.activeDays ? (
+                      <span className="text-gray-200">{user.activeDays}</span>
+                    ) : (
+                      <span className="text-gray-600">0</span>
+                    )}
+                  </td>
+
                   <td className="px-4 py-2.5 text-right text-gray-400 font-mono text-xs whitespace-nowrap">
                     {user.lastActive ? user.lastActive : <span className="text-gray-600">—</span>}
+                  </td>
+
+                  {/* Dormancy dot + elapsed days. `—` means no Kiro activity at
+                      all, which is not the same as "0 days ago". */}
+                  <td className="px-4 py-2.5 text-right font-mono text-xs whitespace-nowrap">
+                    {user.daysSinceLastActive !== null &&
+                    user.daysSinceLastActive !== undefined ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {user.dormancy && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: BUCKET_COLORS[user.dormancy] }}
+                          />
+                        )}
+                        <span className="text-gray-300">{user.daysSinceLastActive}</span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-600">—</span>
+                    )}
                   </td>
                 </tr>
               );

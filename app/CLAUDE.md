@@ -24,6 +24,8 @@ app/
   subscription/         Subscription tier & overage governance page
   adoption/             New-user inflow & activation page (S3 direct read)
   dev-activity/         Legacy deep dev metrics page (TestGen/DocGen/Transform/InlineChat/CodeFix)
+  rollout/              Client rollout & cross-client adoption page (Client_Type daily/cumulative, IDE↔CLI overlap)
+  ingest-health/        Report delivery & freshness monitor (S3 inventory, delivery matrix, header drift, row parity)
   changelog/            Bilingual changelog rendered from CHANGELOG.md at build time (force-static)
 ```
 

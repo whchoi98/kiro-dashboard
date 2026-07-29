@@ -4,7 +4,7 @@
 
 **Name**: kiro-dashboard
 **Description**: Kiro IDE 사용자 분석 대시보드 — Next.js 14 (App Router) + CloudFront/ALB/ECS Fargate + Athena/Glue/S3 + Bedrock AI 분석
-**Version**: 1.5.0
+**Version**: 1.6.0
 **Language**: Korean (primary), English (secondary)
 
 Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.js 대시보드로 시각화하며, Amazon Bedrock으로 AI 인사이트를 제공하는 풀스택 분석 플랫폼.
@@ -61,7 +61,7 @@ docker push <account>.dkr.ecr.ap-northeast-2.amazonaws.com/kiro-dashboard:latest
 
 ```
 app/                    Next.js App Router pages & API routes
-  api/                  15 API route handlers (see app/api/CLAUDE.md)
+  api/                  17 API route handlers (see app/api/CLAUDE.md)
   components/           Shared React components (see app/components/CLAUDE.md)
   analyze/              AI analysis chat page (Bedrock streaming)
   users/                User activity dashboard page
@@ -74,6 +74,8 @@ app/                    Next.js App Router pages & API routes
   subscription/         Subscription tier & overage governance page
   adoption/             New-user inflow & activation page (S3 direct read)
   dev-activity/         Legacy deep dev metrics page (by_user_analytic)
+  rollout/              Client rollout & cross-client adoption page (Client_Type)
+  ingest-health/        Report delivery & freshness monitor (S3 inventory + header drift)
   changelog/            Bilingual changelog page (build-time static)
 lib/                    Shared AWS service clients (see lib/CLAUDE.md)
 types/                  TypeScript interfaces (see types/CLAUDE.md)

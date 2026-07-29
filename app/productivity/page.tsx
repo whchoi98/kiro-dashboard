@@ -16,10 +16,12 @@ import {
 } from 'recharts';
 import { useI18n } from '@/lib/i18n';
 import { useChartTheme } from '@/lib/chart-theme';
+import { CreditEfficiency } from '@/types/dashboard';
 
 interface ProductivitySummary {
   activeUsers: number;
   chatMessages: number;
+  chatMessagesInteracted: number;
   aiCodeLines: number;
   inlineSuggestions: number;
   inlineAcceptances: number;
@@ -27,11 +29,21 @@ interface ProductivitySummary {
   inlineChatSessions: number;
   inlineChatAccepts: number;
   devEvents: number;
+  devGeneratedLines: number;
+  devAcceptanceEvents: number;
   devAcceptedLines: number;
   codeReviewFindings: number;
+  codeReviewSucceeded: number;
+  codeReviewFailed: number;
   testsGenerated: number;
   testsAccepted: number;
   docEvents: number;
+  // `null` when the underlying counter is not instrumented in this account —
+  // rendered as an explicit "not instrumented" label, never as 0%.
+  inlineAcceptanceRate: number | null;
+  chatInteractionRate: number | null;
+  devAcceptanceRate: number | null;
+  codeReviewSuccessRate: number | null;
 }
 
 interface ProductivityUser {
@@ -59,6 +71,7 @@ interface ProductivityData {
   summary: ProductivitySummary;
   topUsers: ProductivityUser[];
   dailyTrend: DailyTrendPoint[];
+  creditEfficiency?: CreditEfficiency;
 }
 
 const TOP_COLORS = ['#f97316', '#6366f1', '#0ea5e9'];
@@ -95,10 +108,18 @@ export default function ProductivityPage() {
   }, [days]);
 
   const s = data?.summary;
-  const inlineRate =
-    s && s.inlineSuggestions > 0
-      ? ((s.inlineAcceptances / s.inlineSuggestions) * 100).toFixed(1)
-      : '0.0';
+  const credit = data?.creditEfficiency;
+
+  /**
+   * Rates arrive from the route as `number | null` — null meaning the
+   * denominator column isn't instrumented in this account. Rendering that as
+   * "0.0%" would be a false measurement claim, so it becomes an em dash with
+   * an explanatory label instead.
+   */
+  const pct = (value: number | null | undefined): string =>
+    value === null || value === undefined ? '—' : `${value.toFixed(1)}%`;
+
+  const inlineRate = pct(s?.inlineAcceptanceRate);
 
   const topUsers = data?.topUsers ?? [];
   const maxAiLines = topUsers[0]?.aiCodeLines ?? 1;
@@ -130,8 +151,12 @@ export default function ProductivityPage() {
         {/* Inline Acceptance Rate */}
         <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5 transition-all hover:border-gray-600 hover:bg-gray-900/70">
           <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">{t('prod.inlineRate')}</p>
-          <p className="text-white text-3xl font-bold font-mono">{inlineRate}%</p>
-          <p className="text-slate-500 text-xs mt-1">{fmt(s?.inlineAcceptances ?? 0)} / {fmt(s?.inlineSuggestions ?? 0)}</p>
+          <p className="text-white text-3xl font-bold font-mono">{inlineRate}</p>
+          <p className="text-slate-500 text-xs mt-1">
+            {s?.inlineAcceptanceRate === null
+              ? t('prod.notInstrumented')
+              : `${fmt(s?.inlineAcceptances ?? 0)} / ${fmt(s?.inlineSuggestions ?? 0)}`}
+          </p>
         </div>
 
         {/* Chat Messages */}
@@ -149,6 +174,42 @@ export default function ProductivityPage() {
         </div>
       </div>
 
+      {/* Credits per accepted AI code line. A credit RATIO — never a price;
+          Kiro publishes no credit→currency rate, so no currency symbol here.
+          The two sums come from different reports over different populations,
+          which is why both `n` values are shown side by side. */}
+      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h3 className="text-lg font-semibold text-slate-300">{t('prod.creditsPerLine')}</h3>
+          {credit?.windowStart && credit?.windowEnd && (
+            <span className="text-xs text-slate-500 font-mono">
+              {credit.windowStart} → {credit.windowEnd}
+            </span>
+          )}
+        </div>
+        {credit?.available && credit.creditsPerLine !== null ? (
+          <>
+            <p className="text-white text-3xl font-bold font-mono mt-3">
+              {credit.creditsPerLine.toFixed(4)}
+            </p>
+            <p className="text-slate-400 text-sm mt-2 font-mono">
+              {fmt(Math.round(credit.credits))}
+              <span className="text-slate-600"> ÷ </span>
+              {fmt(Math.round(credit.acceptedLines))}
+            </p>
+            <p className="text-slate-500 text-xs mt-1">{t('prod.creditsPerLineDetail')}</p>
+            {/* The two sums cover DIFFERENT populations, so a single `n` would
+                be a lie — both are shown. */}
+            <p className="text-slate-500 text-xs mt-1 font-mono">
+              n = {credit.creditUsers} (credits) · {credit.lineUsers} (lines)
+            </p>
+          </>
+        ) : (
+          <p className="text-slate-400 text-sm mt-3">{t('prod.creditsPerLineUnavailable')}</p>
+        )}
+        <p className="text-slate-500 text-xs mt-3">{t('prod.creditsPerLineNote')}</p>
+      </div>
+
       {/* Section 2: Feature Usage Cards (3x2) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {/* Chat */}
@@ -163,6 +224,14 @@ export default function ProductivityPage() {
               <span className="text-slate-400 text-sm">AI Code Lines</span>
               <span className="text-white font-semibold">{fmt(s?.aiCodeLines ?? 0)}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400 text-sm">Interacted</span>
+              <span className="text-white font-semibold">
+                {s?.chatInteractionRate === null
+                  ? t('prod.notInstrumented')
+                  : `${fmt(s?.chatMessagesInteracted ?? 0)} (${pct(s?.chatInteractionRate)})`}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -172,7 +241,7 @@ export default function ProductivityPage() {
           <div className="flex flex-col gap-2">
             <div className="flex justify-between">
               <span className="text-slate-400 text-sm">Accepted</span>
-              <span className="text-white font-semibold">{fmt(s?.inlineAcceptances ?? 0)} / {fmt(s?.inlineSuggestions ?? 0)} ({inlineRate}%)</span>
+              <span className="text-white font-semibold">{fmt(s?.inlineAcceptances ?? 0)} / {fmt(s?.inlineSuggestions ?? 0)} ({inlineRate})</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400 text-sm">Code Lines</span>
@@ -206,7 +275,17 @@ export default function ProductivityPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400 text-sm">Lines Accepted</span>
-              <span className="text-white font-semibold">{fmt(s?.devAcceptedLines ?? 0)}</span>
+              <span className="text-white font-semibold">
+                {fmt(s?.devAcceptedLines ?? 0)} / {fmt(s?.devGeneratedLines ?? 0)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400 text-sm">Acceptance</span>
+              <span className="text-white font-semibold">
+                {s?.devAcceptanceRate === null
+                  ? t('prod.notInstrumented')
+                  : `${pct(s?.devAcceptanceRate)} · ${fmt(s?.devAcceptanceEvents ?? 0)} ev`}
+              </span>
             </div>
           </div>
         </div>
@@ -218,6 +297,16 @@ export default function ProductivityPage() {
             <div className="flex justify-between">
               <span className="text-slate-400 text-sm">Findings</span>
               <span className="text-white font-semibold">{fmt(s?.codeReviewFindings ?? 0)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400 text-sm">Succeeded</span>
+              <span className="text-white font-semibold">
+                {s?.codeReviewSuccessRate === null
+                  ? t('prod.notInstrumented')
+                  : `${fmt(s?.codeReviewSucceeded ?? 0)} / ${fmt(
+                      (s?.codeReviewSucceeded ?? 0) + (s?.codeReviewFailed ?? 0)
+                    )} (${pct(s?.codeReviewSuccessRate)})`}
+              </span>
             </div>
           </div>
         </div>

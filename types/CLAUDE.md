@@ -33,6 +33,13 @@
 | `SubscriptionData` | `/api/subscription` response — tier slices, tier trend, overage summary/watchlist |
 | `AdoptionData` | `/api/adoption` response — new/active user trend, totals, recent new users |
 | `DevActivityData` | `/api/dev-activity` response — five legacy metric groups, trend, top users |
+| `RolloutData` | `/api/rollout` response — per-client trend/summary, IDE↔CLI overlap segments, per-user pickup lag, tier × client matrix, `dataStart` |
+| `RolloutUserRow` | Per-user rollout row — `pickupLagDays` is `null` when left-censored at the window edge, never `0` |
+| `IngestHealthData` | `/api/ingest-health` response — freshness, delivery matrix, file inventory, header variants, row parity, legacy instrumentation |
+| `IngestDayCell` | One (date, client) delivery cell — two states only; a `false` cell is not a failure signal |
+| `IdcUsersData` | `/api/idc-users` response — directory users plus dormancy buckets and the directory→activity funnel |
+| `DormancyBucket` | Directory-user activity grade (`active7`…`never`) — describes directory accounts, **not** Kiro seats or licenses |
+| `CreditEfficiency` | Credits per accepted AI code line — two independent sums over an overlapping window; a credit ratio, never a currency amount |
 
 ---
 

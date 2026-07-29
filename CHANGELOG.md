@@ -13,6 +13,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-29
+
+Driven by a re-reading of the four authoritative Kiro documentation pages
+(IDE user activity, CLI user activity, prompt logging, console dashboard),
+which are now recorded as the project's reference contract in `CLAUDE.md` and
+`docs/kiro-user-activity-report-schema.md`.
+
+### Added
+
+- **`/rollout` — client rollout & cross-client adoption.** Daily actives and
+  cumulative adopters per `Client_Type`, IDE-only / CLI-only / both segments,
+  and a per-user pickup-lag table. `Client_Type` is the only dimension in
+  `user_report` with real cardinality in this account, so it is the one
+  rollout question the data can actually answer. The cumulative curve is
+  accumulated in JS from each (user, client) pair's `MIN(date)` because
+  Athena/Presto rejects `COUNT(DISTINCT …) OVER (ORDER BY …)`. Pickup lag is
+  `null` — not `0` — for users first seen on the window's opening date, since
+  left-censored history cannot distinguish "adopted both the same day" from
+  "we cannot see far enough back".
+- **`/ingest-health` — report delivery & freshness monitor.** Latest report
+  date, S3 object write time, report lag, a date × client delivery matrix,
+  header-drift grouping, an Athena-vs-CSV row parity check, and a legacy
+  column instrumentation strip. The matrix has deliberately only two states:
+  Kiro writes a CSV *only* for client types that had activity that day and
+  publishes no expected-file count, so "no file" and "delivery failed" are
+  indistinguishable from the data — an amber "late" state would fire every
+  weekend and train operators to ignore the page.
+- **Directory user activity grading on the overview** — five dormancy buckets
+  (≤7d / 8–30d / 31–60d / 60d+ / no activity) plus a directory → any activity
+  → sustained (5+ active days) funnel, with per-user active-days and
+  days-since columns. Graded over IAM Identity Center directory users; the
+  directory is **not** a Kiro subscription roster (only
+  `user-subscriptions:ListUserSubscriptions` is, and it is not granted to the
+  task role), so these counts are never presented as licenses or seats.
+- **Credits per accepted AI code line** on `/productivity` — `user_report`
+  credits ÷ (`chat_aicodelines` + `inline_aicodelines`) over the window where
+  both reports overlap, computed as two independent sums rather than a
+  (user, date) join because 303 of `by_user_analytic`'s 541 pairs have no
+  `user_report` counterpart. Window bounds are read from the data, never
+  hardcoded. Rendered as a credit ratio with no currency symbol — Kiro
+  publishes no credit→price rate.
+
+### Fixed
+
+- **Legacy acceptance-rate denominators.** `/api/dev-activity` computed
+  DocGen's rate over line *additions* only, dropping
+  `docgeneration_*lineupdates` from both numerator and denominator, and
+  omitted all three `inlinechat_*linedeletions` counters from InlineChat's
+  denominator. Both are now summed over the full accepted/rejected/dismissed
+  column families, and the top-users accepted-lines total picks up the two
+  missing accepted columns.
+- **Never-referenced legacy columns surfaced.** `/api/productivity` now
+  aggregates `chat_messagesinteracted`, `dev_generatedlines`,
+  `dev_acceptanceeventcount`, `codereview_succeededeventcount`, and
+  `codereview_failedeventcount`, and derives rates from them behind a
+  minimum-denominator guard. Rates return `null`, rendered as "not
+  instrumented", rather than a confident `0.0%` — 39 of the legacy report's 44
+  metric columns are the literal string `0` in every row in this account.
+- **`/api/idc-users` no longer 500s on a missing Glue table.** An
+  unprovisioned catalog now grades every directory user as "no activity"
+  instead of failing the whole listing, matching the `isMissingTableError`
+  degradation every other route already had.
+
+### Changed
+
+- `app/page.tsx` and `OverviewClient.tsx` now import `IdcUsersData` from
+  `types/dashboard.ts` instead of each maintaining a local duplicate that
+  silently dropped fields the route had started returning.
+
 ## [1.5.0] - 2026-07-18
 
 ### Added
@@ -245,6 +314,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+## [1.6.0] - 2026-07-29
+
+Kiro 공식 문서 4종(IDE 사용자 활동, CLI 사용자 활동, 프롬프트 로깅, 콘솔
+대시보드)을 다시 정독한 결과를 반영했습니다. 이 4개 페이지는 이제 `CLAUDE.md`와
+`docs/kiro-user-activity-report-schema.md`에 프로젝트의 참조 계약으로
+기록되어 있습니다.
+
+### 추가됨
+
+- **`/rollout` — 클라이언트 롤아웃 및 교차 사용 현황.** `Client_Type`별 일간
+  활성 사용자와 누적 도입자, IDE 전용 / CLI 전용 / 양쪽 사용 세그먼트,
+  사용자별 두 번째 클라이언트 도입 지연(pickup lag) 테이블. 이 계정에서
+  `user_report`의 컬럼 중 실제로 여러 값을 갖는 것은 `Client_Type` 뿐이므로,
+  데이터가 답할 수 있는 유일한 롤아웃 질문입니다. Athena/Presto가
+  `COUNT(DISTINCT …) OVER (ORDER BY …)`를 거부하기 때문에 누적 곡선은 (사용자,
+  클라이언트) 쌍별 `MIN(date)`를 JS에서 누적해 계산합니다. 조회 기간의 첫날에
+  처음 나타난 사용자의 pickup lag은 `0`이 아니라 `null`입니다 — 좌측 절단된
+  이력에서는 "같은 날 둘 다 도입"과 "그 이전을 볼 수 없음"을 구별할 수 없기
+  때문입니다.
+- **`/ingest-health` — 리포트 전달 및 신선도 모니터.** 최신 리포트 날짜, S3
+  객체 기록 시각, 리포트 지연, 날짜 × 클라이언트 전달 매트릭스, 헤더 변형
+  그룹화, Athena ↔ CSV 행 수 대조, 레거시 컬럼 계측 현황. 매트릭스는 의도적으로
+  두 가지 상태만 가집니다: Kiro는 그날 활동이 있었던 클라이언트 타입에 대해서만
+  CSV를 쓰고 기대 파일 수를 공개하지 않으므로, 데이터만으로는 "파일 없음"과
+  "전달 실패"를 구별할 수 없습니다. 주말마다 켜지는 주의(amber) 상태는 운영자가
+  이 페이지를 무시하도록 학습시킬 뿐입니다.
+- **개요 페이지의 디렉터리 사용자 활동 등급** — 5개 휴면 구간(7일 이내 / 8~30일
+  / 31~60일 / 60일 초과 / 활동 없음)과 디렉터리 → 활동 있음 → 지속 활동(5일
+  이상) 전환, 사용자별 활동 일수·경과일 컬럼. IAM Identity Center 디렉터리
+  사용자를 기준으로 산출하며, 디렉터리는 Kiro 구독 명부가 **아닙니다**(명부는
+  `user-subscriptions:ListUserSubscriptions`뿐이며 태스크 역할에 부여되어 있지
+  않음). 따라서 이 수치를 라이선스나 좌석으로 표현하지 않습니다.
+- **`/productivity`의 수락 코드 라인당 크레딧** — 두 리포트가 겹치는 기간에
+  대해 `user_report` 크레딧 ÷ (`chat_aicodelines` + `inline_aicodelines`).
+  `by_user_analytic`의 541개 (사용자, 날짜) 쌍 중 303개가 `user_report`에 대응
+  행이 없으므로 조인이 아니라 각각 독립적으로 합산합니다. 기간 경계는
+  하드코딩하지 않고 데이터에서 읽습니다. Kiro가 크레딧→금액 환산율을 공개하지
+  않으므로 통화 기호 없이 비율로만 표시합니다.
+
+### 수정됨
+
+- **레거시 수락률 분모 오류.** `/api/dev-activity`에서 DocGen 수락률이 라인
+  *추가*분만으로 계산되어 `docgeneration_*lineupdates`가 분자·분모 양쪽에서
+  빠져 있었고, InlineChat
+  분모에서는 `inlinechat_*linedeletions` 3개 컬럼이 모두 누락되어 있었습니다.
+  이제 accepted/rejected/dismissed 컬럼군 전체를 합산하며, 상위 사용자 수락
+  라인 합계에도 빠져 있던 accepted 컬럼 2개가 반영됩니다.
+- **한 번도 참조되지 않던 레거시 컬럼 노출.** `/api/productivity`가
+  `chat_messagesinteracted`, `dev_generatedlines`, `dev_acceptanceeventcount`,
+  `codereview_succeededeventcount`, `codereview_failedeventcount`를 집계하고
+  최소 분모 가드를 거쳐 비율을 산출합니다. 이 계정에서는 레거시 리포트의 44개
+  지표 컬럼 중 39개가 모든 행에서 문자열 `0`이므로, 확신에 찬 `0.0%` 대신
+  `null`을 반환해 "계측되지 않음"으로 표시합니다.
+- **`/api/idc-users`가 Glue 테이블 부재 시 500을 반환하지 않습니다.** 카탈로그가
+  프로비저닝되지 않은 경우 전체 목록 조회를 실패시키는 대신 모든 디렉터리
+  사용자를 "활동 없음"으로 등급화합니다. 다른 라우트가 이미 갖고 있던
+  `isMissingTableError` 폴백과 동일한 동작입니다.
+
+### 변경됨
+
+- `app/page.tsx`와 `OverviewClient.tsx`가 각자 로컬 중복 정의를 두는 대신
+  `types/dashboard.ts`의 `IdcUsersData`를 가져옵니다. 기존 중복 정의는 라우트가
+  새로 반환하기 시작한 필드를 조용히 누락시켰습니다.
 
 ## [1.5.0] - 2026-07-18
 

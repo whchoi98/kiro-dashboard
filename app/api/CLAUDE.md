@@ -4,7 +4,7 @@
 
 Next.js App Router API route handlers. All routes connect to Athena via `lib/athena.ts` and resolve the Glue table via `lib/glue.ts`.
 
-## All 15 Endpoints
+## All 17 Endpoints
 
 | Endpoint | File | Description |
 |----------|------|-------------|
@@ -14,15 +14,17 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/trends` | `trends/route.ts` | Daily/weekly usage trend time series |
 | `GET /api/credits` | `credits/route.ts` | Credit consumption breakdown per user/period (masked) |
 | `GET /api/engagement` | `engagement/route.ts` | Engagement metrics: retention, active days, session depth |
-| `GET /api/productivity` | `productivity/route.ts` | Productivity metrics: code accepted, inline suggestions (masked) |
+| `GET /api/productivity` | `productivity/route.ts` | Productivity metrics: code accepted, inline suggestions, guarded acceptance rates, credits-per-accepted-line KPI (masked) |
 | `GET /api/analyze` | `analyze/route.ts` | Bedrock AI streaming analysis (SSE / ReadableStream) |
-| `GET /api/idc-users` | `idc-users/route.ts` | IAM Identity Center user list via IdentityStore SDK (masked) |
+| `GET /api/idc-users` | `idc-users/route.ts` | IAM Identity Center user list via IdentityStore SDK + dormancy grading and directory→activity funnel (masked) |
 | `GET /api/user-detail` | `user-detail/route.ts` | Single-user credit/message detail from `user_report` (via `resolveTableName()`, masked) |
 | `GET /api/model-usage` | `model-usage/route.ts` | AI model message distribution — reads S3 CSV directly via `lib/uar-s3.ts` (masked) |
 | `GET /api/client-dist` | `client-dist/route.ts` | Client distribution breakdown (IDE version, OS, etc.) |
 | `GET /api/subscription` | `subscription/route.ts` | Subscription tier mix + overage governance (tier trend, watchlist; masked) |
 | `GET /api/adoption` | `adoption/route.ts` | New-user inflow & activation — reads S3 CSV directly via `lib/uar-s3.ts` (header-name based `new_user` parsing; masked) |
 | `GET /api/dev-activity` | `dev-activity/route.ts` | Legacy deep metrics: TestGen/DocGen/Transform/InlineChat/CodeFix from `by_user_analytic` (masked) |
+| `GET /api/rollout` | `rollout/route.ts` | Client rollout: per-`Client_Type` daily/cumulative adoption, IDE/CLI overlap segments, per-user pickup lag, tier × client matrix (masked) |
+| `GET /api/ingest-health` | `ingest-health/route.ts` | Report delivery & freshness: S3 file inventory, date × client delivery matrix, header drift, Athena↔CSV row parity, legacy column instrumentation |
 
 ## Common Query Parameters
 
@@ -75,7 +77,9 @@ export async function GET(req: NextRequest) {
 - The `idc-users` endpoint uses `IdentityStoreClient` from `lib/identity.ts` — no Athena
 - The `model-usage` and `adoption` endpoints read S3 CSV files directly via `lib/uar-s3.ts` — dynamic model columns and the late-appended `new_user`/`user_email` columns cannot be queried safely through Glue/Athena due to OpenCSVSerDe positional mapping (header-name CSV parsing sidesteps this). The bucket is `S3_DATA_BUCKET` when set (two-bucket deployments), falling back to the bucket in `ATHENA_OUTPUT_BUCKET`. Listing is month-prefix parallel (perf: one call per day cost ~20s cross-region)
 - The `dev-activity` endpoint queries `by_user_analytic` (unqualified, MM-DD-YYYY dates) like `productivity`
-- The `productivity` endpoint queries `by_user_analytic` unqualified — `executeQuery` supplies the database from `ATHENA_DATABASE`, so never prefix table names with a database in SQL
+- The `productivity` endpoint queries `by_user_analytic` unqualified — `executeQuery` supplies the database from `ATHENA_DATABASE`, so never prefix table names with a database in SQL. Its credits-per-line KPI additionally reads `user_report` via `resolveTableName()` in a **separately guarded** helper, so a missing `user_report` nulls only that card
+- Derived rates over `by_user_analytic` columns are typed `number | null` and gated on `MIN_RATE_DENOMINATOR` — 39 of the 44 legacy metric columns are the literal `'0'` in every row, so returning `0` would assert a measurement nobody made. `null` renders as "not instrumented"
+- The `ingest-health` endpoint reads S3 objects via `lib/uar-s3.ts` **and** queries both Athena tables, each in its own try/catch. Its delivery matrix has only `delivered: true|false` — Kiro publishes no expected-file count, so a missing file is not a failure signal
 - User-facing routes (users, credits, productivity, user-detail, idc-users) return masked identifiers via `lib/mask.ts`
 - Authentication is handled by Lambda@Edge at the CDN layer — no auth middleware in API routes
 

@@ -50,17 +50,18 @@ kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user ac
 │   ┌─────────────────────────────────────────────────────┐          │
 │   │  Next.js App Router                                  │          │
 │   │  ┌───────────────────┐  ┌─────────────────────────┐ │          │
-│   │  │ Pages (12)        │  │ API Routes (15)         │ │          │
+│   │  │ Pages (14)        │  │ API Routes (17)         │ │          │
 │   │  │ / /exec /users    │  │ metrics users trends    │ │          │
 │   │  │ /adoption /trends │  │ credits engagement      │ │          │
 │   │  │ /credits          │  │ productivity analyze    │ │          │
 │   │  │ /subscription     │  │ subscription adoption   │ │          │
 │   │  │ /productivity     │  │ dev-activity idc-users  │ │          │
 │   │  │ /dev-activity     │  │ user-detail client-dist │ │          │
-│   │  │ /engagement       │  │ model-usage (S3-direct) │ │          │
-│   │  │ /model-usage      │  │ health  ← ECS health    │ │          │
-│   │  │ /analyze          │  └───────────┬─────────────┘ │          │
-│   │  │ /changelog        │              │               │          │
+│   │  │ /engagement       │  │ rollout                 │ │          │
+│   │  │ /model-usage      │  │ model-usage (S3-direct) │ │          │
+│   │  │ /rollout /analyze │  │ ingest-health (S3+SQL)  │ │          │
+│   │  │ /ingest-health    │  │ health  ← ECS health    │ │          │
+│   │  │ /changelog        │  └───────────┬─────────────┘ │          │
 │   │  └───────────────────┘              │               │          │
 │   │  lib/                               │               │          │
 │   │  ┌─────────────────────────────────────────────────┐│          │
@@ -109,7 +110,8 @@ Kiro UAR delivery (daily 02:00 UTC) → S3 (user_report / by_user_analytic CSVs)
 S3-direct path (columns unsafe under OpenCSVSerDe positional mapping):
 ```
 S3 CSVs → lib/uar-s3.ts (month-prefix parallel listing, header-name parsing)
-→ /api/model-usage (dynamic model columns), /api/adoption (new_user flag)
+→ /api/model-usage (dynamic model columns), /api/adoption (new_user flag),
+  /api/ingest-health (object metadata + header sets — file-level, not column-level)
 ```
 
 AI analysis path:
@@ -135,7 +137,11 @@ User question → /api/analyze → Bedrock (Claude) streaming → SSE to browser
 
 8. **Data masking** — All user identifiers (displayName, email, username, organization) are server-side masked via `lib/mask.ts` before reaching the browser. Shows first 2 characters with `*` padding. Applied at the `resolveUserDetails()` layer so all API consumers get masked data automatically.
 
-9. **S3 direct read for positionally-unsafe columns** — The `user_report` CSV files contain dynamic `{Model_name}_Messages` columns and late-appended `New_User`/`User_Email` columns whose positions vary across files. Since the Glue table uses `OpenCSVSerDe` (positional mapping), these columns cannot be queried safely via Athena. The shared `lib/uar-s3.ts` helper lists CSVs with parallel month-prefix `ListObjectsV2` calls (one sequential call per day previously cost ~20s cross-region) and parses columns by header name; `/api/model-usage` (model columns) and `/api/adoption` (`new_user` flag) both use it. See ADR-0004.
+9. **S3 direct read for positionally-unsafe columns** — The `user_report` CSV files contain dynamic `{Model_name}_Messages` columns and late-appended `New_User`/`User_Email` columns whose positions vary across files. Since the Glue table uses `OpenCSVSerDe` (positional mapping), these columns cannot be queried safely via Athena. The shared `lib/uar-s3.ts` helper lists CSVs with parallel month-prefix `ListObjectsV2` calls (one sequential call per day previously cost ~20s cross-region) and parses columns by header name; `/api/model-usage` (model columns) and `/api/adoption` (`new_user` flag) both use it. `/api/ingest-health` uses the same listing for a different purpose — object size/`lastModified` and per-file header *sets*, to detect schema drift and delivery gaps that Athena cannot see at all because `OpenCSVSerDe` silently maps drifted columns onto the wrong names. See ADR-0004.
+
+10. **Derived rates over legacy columns are nullable, not zero** — 39 of `by_user_analytic`'s 44 metric columns are the literal string `0` in every row in this account (see `docs/kiro-user-activity-report-schema.md` §B-0), so any acceptance-rate denominator built on them is frequently `0`. `/api/productivity` gates every derived rate on a minimum denominator and returns `number | null`, which the UI renders as "not instrumented". Returning `0` would present an unmeasured quantity as a measured one — the single most likely way for this dashboard to mislead.
+
+11. **Cross-report metrics are summed independently, never joined** — the credits-per-accepted-line KPI sums `user_report.credits_used` and `by_user_analytic`'s AI-code-line columns separately over a window computed from both tables' own bounds. 303 of `by_user_analytic`'s 541 (user, date) pairs have no `user_report` counterpart, so an inner join would silently discard over half the legacy data. The response therefore carries a distinct population `n` for each side, because they are not the same population.
 
 ### Operations
 
@@ -188,7 +194,8 @@ Kiro UAR 전송 (매일 02:00 UTC) → S3 (user_report / by_user_analytic CSV)
 S3 직접 읽기 경로 (OpenCSVSerDe 위치 매핑으로 안전하게 조회 불가한 컬럼):
 ```
 S3 CSV → lib/uar-s3.ts (월 프리픽스 병렬 리스팅, 헤더 이름 기반 파싱)
-→ /api/model-usage (동적 모델 컬럼), /api/adoption (new_user 플래그)
+→ /api/model-usage (동적 모델 컬럼), /api/adoption (new_user 플래그),
+  /api/ingest-health (객체 메타데이터 + 헤더 집합 — 컬럼 단위가 아닌 파일 단위)
 ```
 
 AI 분석 경로:
@@ -214,7 +221,11 @@ AI 분석 경로:
 
 8. **데이터 마스킹** — 모든 사용자 식별자(displayName, email, username, organization)는 `lib/mask.ts`를 통해 브라우저에 전달되기 전 서버 측에서 마스킹됩니다. 첫 2글자만 표시하고 나머지는 `*`로 처리합니다. `resolveUserDetails()` 레이어에서 적용되어 모든 API 소비자가 자동으로 마스킹된 데이터를 받습니다.
 
-9. **위치 매핑상 안전하지 않은 컬럼의 S3 직접 읽기** — `user_report` CSV 파일에는 동적 `{Model_name}_Messages` 컬럼과 나중에 추가된 `New_User`/`User_Email` 컬럼이 파일마다 다른 위치에 포함됩니다. Glue 테이블이 `OpenCSVSerDe`(위치 기반 매핑)를 사용하므로 Athena로는 안전한 쿼리가 불가능합니다. 공용 `lib/uar-s3.ts` 헬퍼가 월 프리픽스 병렬 `ListObjectsV2`로 CSV를 리스팅하고(기존의 하루 1회 순차 호출은 크로스 리전에서 약 20초 소요) 헤더 이름 기반으로 컬럼을 파싱하며, `/api/model-usage`(모델 컬럼)와 `/api/adoption`(`new_user` 플래그)이 함께 사용합니다. ADR-0004 참고.
+9. **위치 매핑상 안전하지 않은 컬럼의 S3 직접 읽기** — `user_report` CSV 파일에는 동적 `{Model_name}_Messages` 컬럼과 나중에 추가된 `New_User`/`User_Email` 컬럼이 파일마다 다른 위치에 포함됩니다. Glue 테이블이 `OpenCSVSerDe`(위치 기반 매핑)를 사용하므로 Athena로는 안전한 쿼리가 불가능합니다. 공용 `lib/uar-s3.ts` 헬퍼가 월 프리픽스 병렬 `ListObjectsV2`로 CSV를 리스팅하고(기존의 하루 1회 순차 호출은 크로스 리전에서 약 20초 소요) 헤더 이름 기반으로 컬럼을 파싱하며, `/api/model-usage`(모델 컬럼)와 `/api/adoption`(`new_user` 플래그)이 함께 사용합니다. `/api/ingest-health`는 같은 리스팅을 다른 목적으로 사용합니다 — 객체 크기/`lastModified`와 파일별 헤더 *집합*을 읽어 스키마 드리프트와 전달 누락을 감지합니다. `OpenCSVSerDe`는 드리프트된 컬럼을 조용히 잘못된 이름에 매핑하므로 Athena로는 이 문제를 아예 볼 수 없습니다. ADR-0004 참고.
+
+10. **레거시 컬럼 기반 파생 비율은 0이 아니라 nullable** — 이 계정에서는 `by_user_analytic`의 44개 지표 컬럼 중 39개가 모든 행에서 문자열 `0`입니다(`docs/kiro-user-activity-report-schema.md` §B-0 참고). 따라서 이 컬럼들로 만든 수락률 분모는 자주 `0`이 됩니다. `/api/productivity`는 모든 파생 비율에 최소 분모 조건을 걸고 `number | null`을 반환하며, UI는 이를 "계측되지 않음"으로 표시합니다. `0`을 반환하는 것은 측정하지 않은 값을 측정된 값처럼 제시하는 일이며, 이 대시보드가 사람을 오도할 가장 유력한 경로입니다.
+
+11. **리포트 간 지표는 조인하지 않고 각각 합산** — 수락 코드 라인당 크레딧 KPI는 `user_report.credits_used`와 `by_user_analytic`의 AI 코드 라인 컬럼을 두 테이블 자체의 경계에서 계산한 공통 기간에 대해 각각 독립적으로 합산합니다. `by_user_analytic`의 541개 (사용자, 날짜) 쌍 중 303개가 `user_report`에 대응 행이 없으므로 내부 조인은 레거시 데이터의 절반 이상을 조용히 버립니다. 두 값은 서로 다른 모집단이므로 응답에는 각 항의 모집단 `n`이 별도로 담깁니다.
 
 ### 운영
 

@@ -66,8 +66,10 @@ const navItems = [
   { key: 'nav.productivity', href: '/productivity', accent: '#22c55e' },
   { key: 'nav.devActivity', href: '/dev-activity', accent: '#14b8a6' },
   { key: 'nav.engagement', href: '/engagement', accent: '#ec4899' },
+  { key: 'nav.rollout', href: '/rollout', accent: '#3b82f6' },
   { key: 'nav.modelUsage', href: '/model-usage', accent: '#22d3ee' },
   { key: 'nav.analyze', href: '/analyze', accent: '#f59e0b' },
+  { key: 'nav.ingestHealth', href: '/ingest-health', accent: '#94a3b8' },
 ];
 
 export default function Sidebar() {

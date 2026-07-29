@@ -14,7 +14,7 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 | `mask.ts` | Data masking utilities for user identifiers |
 | `i18n.tsx` | Korean/English i18n context provider |
 | `version.ts` | Exports `APP_VERSION` from `package.json` (shown in Sidebar footer; sync enforced by `tests/structure/version-sync.test.ts`) |
-| `uar-s3.ts` | Shared UAR S3 helpers — bucket/prefix resolution, month-prefix parallel `listReportFiles(days)`, `readCsvFromS3`, `parseCsv`; used by `/api/model-usage` and `/api/adoption` |
+| `uar-s3.ts` | Shared UAR S3 helpers — bucket/prefix resolution, month-prefix parallel `listReportObjects(days)` (size + `lastModified`) with the `listReportFiles(days)` key-only wrapper, `readCsvFromS3`, `parseCsv`, plus the metadata helpers `parseCsvHeaders`, `countCsvRows`, `reportDateFromKey`, `clientTypeFromKey`; used by `/api/model-usage`, `/api/adoption`, and `/api/ingest-health` |
 | `useChatStream.ts` | Client chat hook against `/api/analyze` SSE agent — 12-turn history cap, AbortController race guard, optimistic assistant message; shared by /analyze page and FloatingChat |
 | `chat-scroll.ts` | Stick-to-bottom helper for streaming chat (`isNearBottom`, `PIN_THRESHOLD_PX`) — auto-follow only while the user is pinned to the bottom; used by `ChatPanel` |
 | `theme.tsx` | `ThemeProvider` + `useTheme()` — dark/light via `light` class on `<html>` (palette override in globals.css), persisted as `localStorage['kiro-theme']`, default dark |

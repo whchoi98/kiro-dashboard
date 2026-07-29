@@ -21,7 +21,7 @@ components/
   charts/
     BarChart.tsx        Recharts bar chart wrapper
     FunnelChart.tsx     Funnel visualization chart
-    IdcUserStatus.tsx   IAM Identity Center user status indicator
+    IdcUserStatus.tsx   IAM Identity Center user table + dormancy grading strip and directory→activity funnel (directory users, never "seats")
     MetricCard.tsx      KPI card with trend indicator
     PieChart.tsx        Recharts pie/donut chart wrapper
     TrendChart.tsx      Recharts line/area trend chart

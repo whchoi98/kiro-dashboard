@@ -11,15 +11,15 @@ import FunnelChart from '@/app/components/charts/FunnelChart';
 import KiroIcon from '@/app/components/ui/KiroIcon';
 import IdcUserStatusComponent from '@/app/components/charts/IdcUserStatus';
 import UserDetailPanel from '@/app/components/ui/UserDetailPanel';
-import { OverviewMetrics, DailyTrend, TopUser, EngagementData, FunnelStep, ClientDistribution } from '@/types/dashboard';
-import type { IdcUserStatus } from '@/app/components/charts/IdcUserStatus';
-
-interface IdcUsersData {
-  total: number;
-  active: number;
-  inactive: number;
-  users: IdcUserStatus[];
-}
+import {
+  OverviewMetrics,
+  DailyTrend,
+  TopUser,
+  EngagementData,
+  FunnelStep,
+  ClientDistribution,
+  IdcUsersData,
+} from '@/types/dashboard';
 
 interface OverviewData {
   metrics: {
@@ -52,7 +52,15 @@ const PLACEHOLDER_CLIENT_DIST: ClientDistribution[] = [
   { clientType: 'PLUGIN', messageCount: 0, creditCount: 0, percentage: 15 },
 ];
 
-const PLACEHOLDER_IDC_USERS: IdcUsersData = { total: 0, active: 0, inactive: 0, users: [] };
+const PLACEHOLDER_IDC_USERS: IdcUsersData = {
+  total: 0,
+  active: 0,
+  inactive: 0,
+  windowDays: 0,
+  dormancy: [],
+  funnel: [],
+  users: [],
+};
 
 async function safeFetch<T>(url: string): Promise<T | null> {
   try {

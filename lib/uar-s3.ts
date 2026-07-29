@@ -60,35 +60,95 @@ export function parseCsv(text: string): CsvRow[] {
   });
 }
 
+/** Header names only (lowercased), for schema/header-drift inspection. */
+export function parseCsvHeaders(text: string): string[] {
+  const [first] = text.trim().split('\n');
+  if (!first) return [];
+  return first.split(',').map((h) => h.trim().toLowerCase());
+}
+
+/** Data row count excluding the header line. */
+export function countCsvRows(text: string): number {
+  const lines = text.trim().split('\n');
+  return lines.length < 2 ? 0 : lines.length - 1;
+}
+
+/**
+ * `…/<prefix>/YYYY/MM/DD/00/KIRO_CLI_<account>_user_report_<ts>.csv`
+ * → `2026-07-28`. Returns '' when the key doesn't carry the env prefix or
+ * the date path isn't where it should be (never throws — a malformed key
+ * must not take down a whole listing).
+ */
+export function reportDateFromKey(key: string): string {
+  const prefix = getReportPrefix();
+  if (!prefix || !key.startsWith(prefix)) return '';
+  const datePath = key.slice(prefix.length, prefix.length + 10);
+  return /^\d{4}\/\d{2}\/\d{2}$/.test(datePath) ? datePath.replace(/\//g, '-') : '';
+}
+
+/**
+ * Client type from the filename prefix (`KIRO_CLI_…` → `KIRO_CLI`). The
+ * legacy `by_user_analytic` files carry no client segment, and the official
+ * docs also define PLUGIN, which this account has never produced — callers
+ * must tolerate '' and must not assume the set of values is closed.
+ */
+export function clientTypeFromKey(key: string): string {
+  const base = key.slice(key.lastIndexOf('/') + 1);
+  const match = base.match(/^([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*?)_\d+_user_report_/);
+  return match ? match[1] : '';
+}
+
 function fmtDatePath(d: Date): string {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function listAllKeys(prefix: string): Promise<string[]> {
-  const keys: string[] = [];
+/**
+ * One UAR CSV object with the delivery metadata S3 already returns. Only
+ * `key` is needed to read a report, but `size`/`lastModified` are what an
+ * ingest-freshness view is built from — `lastModified` is the OBJECT WRITE
+ * time (when Kiro delivered the file), which is not the same thing as the
+ * activity date encoded in the key path.
+ */
+export interface ReportObject {
+  key: string;
+  size: number;
+  lastModified: string | null;
+}
+
+async function listAllObjects(prefix: string): Promise<ReportObject[]> {
+  const objects: ReportObject[] = [];
   let token: string | undefined;
   do {
     const resp = await s3.send(
       new ListObjectsV2Command({ Bucket: getBucket(), Prefix: prefix, ContinuationToken: token })
     );
     for (const obj of resp.Contents ?? []) {
-      if (obj.Key?.endsWith('.csv')) keys.push(obj.Key);
+      if (!obj.Key?.endsWith('.csv')) continue;
+      objects.push({
+        key: obj.Key,
+        size: obj.Size ?? 0,
+        lastModified: obj.LastModified ? new Date(obj.LastModified).toISOString() : null,
+      });
     }
     token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
   } while (token);
-  return keys;
+  return objects;
 }
 
-export async function listReportFiles(days: number): Promise<string[]> {
+/**
+ * Month-prefix parallel listing of every UAR CSV whose date path falls in
+ * the last `days` days. The container runs in ap-northeast-2 but the bucket
+ * lives in AWS_REGION (us-east-1), so every S3 round trip costs ~200ms:
+ * list one MONTH prefix at a time (≤7 calls at the 180-day cap) in parallel
+ * instead of one sequential call per day — the per-day loop cost ~20s for
+ * days=90.
+ */
+export async function listReportObjects(days: number): Promise<ReportObject[]> {
   const REPORT_PREFIX = getReportPrefix();
   const now = new Date();
   const oldest = new Date(now);
   oldest.setDate(oldest.getDate() - (days - 1));
 
-  // The container runs in ap-northeast-2 but the bucket lives in AWS_REGION
-  // (us-east-1), so every S3 round trip costs ~200ms. List one MONTH prefix
-  // at a time (≤7 calls at the 180-day cap) in parallel instead of one
-  // sequential call per day — the per-day loop cost ~20s for days=90.
   const monthPrefixes: string[] = [];
   const cursor = new Date(oldest.getFullYear(), oldest.getMonth(), 1);
   while (cursor <= now) {
@@ -100,13 +160,17 @@ export async function listReportFiles(days: number): Promise<string[]> {
 
   const minDate = fmtDatePath(oldest);
   const maxDate = fmtDatePath(now);
-  const monthKeys = await Promise.all(monthPrefixes.map(listAllKeys));
-  return monthKeys.flat().filter((key) => {
+  const monthObjects = await Promise.all(monthPrefixes.map(listAllObjects));
+  return monthObjects.flat().filter((obj) => {
     // Keys are `${REPORT_PREFIX}YYYY/MM/DD/...`; zero-padded date paths
     // compare correctly as strings.
-    const datePath = key.slice(REPORT_PREFIX.length, REPORT_PREFIX.length + 10);
+    const datePath = obj.key.slice(REPORT_PREFIX.length, REPORT_PREFIX.length + 10);
     return datePath >= minDate && datePath <= maxDate;
   });
+}
+
+export async function listReportFiles(days: number): Promise<string[]> {
+  return (await listReportObjects(days)).map((obj) => obj.key);
 }
 
 export async function readCsvFromS3(key: string): Promise<string> {

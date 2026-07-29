@@ -62,6 +62,10 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - **Subscription & Overage Governance** — Tier mix (users/credits/messages per subscription tier), tier credit share, and a per-user overage watchlist tracking `overage_credits_used` against `overage_cap`
 - **New Users & Adoption** — Daily new-user inflow (UAR `New_User` flag), active and cumulative user trends, and a recent-new-users table via S3 direct CSV parsing
 - **Dev Activity Detail** — TestGen, DocGen, Transform, InlineChat, and CodeFix activity groups from the legacy report: events, generated vs accepted lines, acceptance rates, daily trends
+- **Client Rollout & Cross-client Adoption** — Daily and cumulative adoption per `Client_Type` (`KIRO_IDE` / `KIRO_CLI` / `PLUGIN`), IDE↔CLI overlap segments, per-user pickup lag (left-censored users report `null`, never `0`), and a tier × client matrix
+- **Ingest Health Monitor** — Report freshness against the 02:00 UTC delivery cadence, a (date × client) delivery matrix, per-file S3 inventory, CSV header-drift detection, and Athena↔S3 row parity — the schema drift `OpenCSVSerDe` hides by silently mapping columns onto wrong names
+- **Dormancy Grading & Activation Funnel** — Identity Center directory users bucketed by days since last activity (`active7` → `never`) plus a directory → any-activity → sustained-activity funnel. Graded accounts are **directory users, never licensed seats** — neither report contains a subscription roster
+- **Credits per Accepted AI Code Line** — Cross-report efficiency ratio summing `credits_used` and legacy AI-code-line columns independently over their overlapping window, with a separate population `n` per side (an inner join would drop 303 of 541 legacy pairs)
 - **Changelog Page** — Bilingual in-app changelog rendered from `CHANGELOG.md` at build time; the sidebar version footer links to it
 - **AI Chatbot Widget** — Global floating chat available on every page, backed by the same Bedrock agent as `/analyze`; multi-turn history, stop/new-chat, full-screen sheet on mobile
 - **AI Analysis Export** — Save completed AI answers as Markdown or PDF (`html2canvas-pro` + `jspdf`; Korean text and dark-theme tables render intact)
@@ -204,7 +208,7 @@ detect the underlying "missing table / empty data" signal and return a
 
 ```
 app/                        Next.js App Router
-  api/                      15 API routes
+  api/                      17 API routes
     analyze/                Bedrock AI analysis (SSE streaming)
     metrics/                KPI aggregations
     users/                  User rankings with IdC details
@@ -215,7 +219,9 @@ app/                        Next.js App Router
     subscription/           Tier mix + overage governance
     adoption/               New-user inflow (S3 direct read)
     dev-activity/           Legacy deep dev metrics
-    idc-users/              Identity Center user status
+    rollout/                Client rollout & IDE↔CLI overlap
+    ingest-health/          Report delivery, freshness, header drift (S3 + Athena)
+    idc-users/              Identity Center user status + dormancy grading, funnel
     user-detail/            Per-user activity drill-down
     client-dist/            Client type distribution
     model-usage/            AI model usage analysis (S3 direct read)
@@ -237,6 +243,8 @@ app/                        Next.js App Router
   subscription/             Subscription & overage governance page
   adoption/                 New users & adoption page
   dev-activity/             Dev activity detail page
+  rollout/                  Client rollout & cross-client adoption page
+  ingest-health/            Report delivery & freshness monitor
   changelog/                Bilingual changelog page (build-time static)
 lib/                        Shared libraries
   athena.ts                 Athena query client + NORMALIZE_USERID
@@ -303,7 +311,7 @@ Key operational facts drawn from those pages:
 - Reports are generated **once per day at 02:00 UTC**, one CSV per client type. The first file appears at the next 02:00 UTC after enablement, so expect up to ~24h before any data lands.
 - If more than **1,000 users** are active in a day, Kiro splits the CSV into `part_1`, `part_2`, … files for that date. Never yet observed here — all 214 `user_report` objects are unsplit, and because no manifest of the expected part count exists, a missing `part_N` file is not detectable.
 - The `00` segment in the S3 path is a fixed hour partition reflecting the 02:00 UTC write time. Prompt logs use a *real* `HH` partition instead, so do not assume `00` outside the activity-report prefixes.
-- Model message columns are **dynamic** — lowercase model names in alphabetical order starting with Auto — so the column set changes between files. This is why `/api/model-usage` and `/api/adoption` parse CSV by header name instead of going through Athena (see `docs/decisions/ADR-0004-s3-direct-read-for-positional-columns.md`).
+- Model message columns are **dynamic** — lowercase model names in alphabetical order starting with Auto — so the column set changes between files. This is why `/api/model-usage` and `/api/adoption` parse CSV by header name instead of going through Athena (see `docs/decisions/ADR-0004-s3-direct-read-for-positional-columns.md`). `/api/ingest-health` reads the same listing to surface this drift directly — per-file header *sets* and object metadata, which Athena cannot see at all because `OpenCSVSerDe` silently maps drifted columns onto the wrong names.
 - Cross-account report delivery is **not supported**; the bucket must be in the same account and Region as the Kiro profile.
 - Neither report contains a **subscription roster**. Total/Active/Pending seat counts come from `user-subscriptions:ListUserSubscriptions` (Kiro console only; never called by this repo), so IAM Identity Center `ListUsers` is a workforce directory and must never be labelled "licensed seats".
 
@@ -390,6 +398,10 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - **구독·초과사용 거버넌스** — 구독 티어 구성(티어별 사용자/크레딧/메시지), 티어 크레딧 점유율, `overage_cap` 대비 `overage_credits_used`를 추적하는 사용자별 초과사용 워치리스트
 - **신규 사용자·온보딩** — 일별 신규 사용자 유입(UAR `New_User` 플래그), 활성·누적 사용자 추이, 최근 신규 사용자 테이블 (S3 CSV 직접 파싱)
 - **개발활동 상세** — 레거시 리포트의 TestGen, DocGen, Transform, InlineChat, CodeFix 그룹: 이벤트, 생성 대비 수락 라인, 수락률, 일별 추이
+- **클라이언트 확산·교차 사용** — `Client_Type`(`KIRO_IDE` / `KIRO_CLI` / `PLUGIN`)별 일별·누적 확산, IDE↔CLI 중복 세그먼트, 사용자별 도입 지연(윈도우 경계에서 좌측 절단된 사용자는 `0`이 아니라 `null`), 티어 × 클라이언트 매트릭스
+- **적재 상태 모니터** — 02:00 UTC 전송 주기 대비 신선도, (날짜 × 클라이언트) 전송 매트릭스, 파일별 S3 인벤토리, CSV 헤더 드리프트 감지, Athena↔S3 행 수 일치 검증 — `OpenCSVSerDe`가 드리프트된 컬럼을 잘못된 이름에 조용히 매핑해 감추는 문제를 드러냅니다
+- **휴면 등급·활성화 퍼널** — Identity Center 디렉터리 사용자를 마지막 활동 경과일 기준으로 분류(`active7` → `never`)하고, 디렉터리 → 활동 있음 → 지속 활동 퍼널을 제공합니다. 등급이 매겨지는 대상은 **디렉터리 사용자이며 라이선스 좌석이 아닙니다** — 두 리포트 모두 구독 명부를 포함하지 않습니다
+- **수락 AI 코드 라인당 크레딧** — `credits_used`와 레거시 AI 코드 라인 컬럼을 공통 기간에 대해 각각 독립 합산한 리포트 간 효율 지표. 항별 모집단 `n`을 따로 표기합니다(내부 조인 시 레거시 541쌍 중 303쌍이 유실)
 - **Changelog 페이지** — 빌드 타임에 `CHANGELOG.md`를 렌더링하는 앱 내 이중언어 변경 이력, 사이드바 버전 표기에서 연결
 - **AI 챗봇 위젯** — 모든 페이지에 뜨는 플로팅 대화창, `/analyze`와 동일한 Bedrock 에이전트 기반. 멀티턴 이력, 중지/새 대화, 모바일 풀스크린 시트
 - **AI 분석 내보내기** — 완료된 AI 답변을 Markdown 또는 PDF로 저장(`html2canvas-pro` + `jspdf`, 한국어·다크 테마 표 온전히 렌더링)
@@ -531,7 +543,7 @@ User Activity Report CSV가 S3에 도착하기 전까지는 500 에러 페이지
 
 ```
 app/                        Next.js App Router
-  api/                      15개 API 라우트
+  api/                      17개 API 라우트
     analyze/                Bedrock AI 분석 (SSE 스트리밍)
     metrics/                KPI 집계
     users/                  IdC 정보 포함 사용자 순위
@@ -542,7 +554,9 @@ app/                        Next.js App Router
     subscription/           티어 구성 + 초과사용 거버넌스
     adoption/               신규 사용자 유입 (S3 직접 읽기)
     dev-activity/           레거시 개발활동 상세 메트릭
-    idc-users/              Identity Center 사용자 상태
+    rollout/                클라이언트 확산 및 IDE↔CLI 교차 사용
+    ingest-health/          리포트 전송·신선도·헤더 드리프트 (S3 + Athena)
+    idc-users/              Identity Center 사용자 상태 + 휴면 등급, 퍼널
     user-detail/            개별 사용자 활동 드릴다운
     client-dist/            클라이언트 유형별 분포
     model-usage/            AI 모델 사용 분석 (S3 직접 읽기)
@@ -564,6 +578,8 @@ app/                        Next.js App Router
   subscription/             구독·초과사용 거버넌스 페이지
   adoption/                 신규 사용자·온보딩 페이지
   dev-activity/             개발활동 상세 페이지
+  rollout/                  클라이언트 확산·교차 사용 페이지
+  ingest-health/            리포트 전송·신선도 모니터 페이지
   changelog/                이중언어 변경 이력 페이지 (빌드 타임 정적)
 lib/                        공유 라이브러리
   athena.ts                 Athena 쿼리 클라이언트 + NORMALIZE_USERID
@@ -630,7 +646,7 @@ curl http://localhost:3000/api/health
 - 리포트는 **매일 02:00 UTC에 한 번** 클라이언트 타입별로 하나씩 생성됩니다. 기능 활성화 후 다음 02:00 UTC에 첫 파일이 생성되므로 최초 데이터 적재까지 최대 약 24시간이 소요됩니다.
 - 하루 활동 사용자가 **1,000명을 초과**하면 해당 날짜의 CSV가 `part_1`, `part_2`, … 로 분할됩니다. 본 계정에서는 관측된 바 없습니다(214개 파일 전부 미분할). 예상 파트 수를 알려주는 매니페스트가 없으므로 파트 누락은 탐지할 수 없습니다.
 - S3 경로의 `00` 세그먼트는 02:00 UTC 기록 시각을 나타내는 고정 시간 파티션입니다. **프롬프트 로그는 실제 `HH` 파티션을 사용**하므로, 활동 리포트 프리픽스 밖에서 `00`을 가정하면 안 됩니다.
-- 모델 메시지 컬럼은 **동적**입니다(Auto부터 시작하는 소문자 모델명 알파벳순). 파일마다 컬럼 구성이 달라지기 때문에 `/api/model-usage`와 `/api/adoption`은 Athena 대신 헤더명 기반 CSV 파싱을 사용합니다 (`docs/decisions/ADR-0004-s3-direct-read-for-positional-columns.md` 참고).
+- 모델 메시지 컬럼은 **동적**입니다(Auto부터 시작하는 소문자 모델명 알파벳순). 파일마다 컬럼 구성이 달라지기 때문에 `/api/model-usage`와 `/api/adoption`은 Athena 대신 헤더명 기반 CSV 파싱을 사용합니다 (`docs/decisions/ADR-0004-s3-direct-read-for-positional-columns.md` 참고). `/api/ingest-health`는 같은 리스팅으로 이 드리프트 자체를 노출합니다 — 파일별 헤더 *집합*과 객체 메타데이터를 읽으며, `OpenCSVSerDe`가 드리프트된 컬럼을 잘못된 이름에 조용히 매핑하므로 Athena로는 아예 볼 수 없는 정보입니다.
 - 리포트의 **크로스 계정 적재는 지원되지 않습니다**. 버킷은 Kiro 프로필과 동일한 계정·리전에 있어야 합니다.
 - 두 리포트 어디에도 **구독자 명부는 없습니다.** Total/Active/Pending 좌석 수는 `user-subscriptions:ListUserSubscriptions`(Kiro 콘솔 전용, 본 저장소 미호출) 기준이므로, IAM Identity Center `ListUsers` 결과를 "라이선스 좌석"으로 표기하면 안 됩니다.
 

@@ -1,7 +1,14 @@
 export const dynamic = 'force-dynamic';
 
 import OverviewClient from '@/app/components/OverviewClient';
-import { OverviewMetrics, DailyTrend, TopUser, EngagementData, ClientDistribution } from '@/types/dashboard';
+import {
+  OverviewMetrics,
+  DailyTrend,
+  TopUser,
+  EngagementData,
+  ClientDistribution,
+  IdcUsersData,
+} from '@/types/dashboard';
 
 const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
@@ -21,25 +28,18 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-interface IdcUserStatus {
-  userId: string;
-  displayName: string;
-  email: string;
-  status: 'active' | 'inactive';
-  totalMessages: number;
-  totalCredits: number;
-  lastActive: string | null;
-  organization: string;
-}
-
-interface IdcUsersData {
-  total: number;
-  active: number;
-  inactive: number;
-  users: IdcUserStatus[];
-}
-
-const PLACEHOLDER_IDC_USERS: IdcUsersData = { total: 0, active: 0, inactive: 0, users: [] };
+// Shape comes from types/dashboard.ts — the local duplicate this replaced
+// silently omitted the dormancy fields, so `windowDays`/`dormancy`/`funnel`
+// were dropped on the way to the client.
+const PLACEHOLDER_IDC_USERS: IdcUsersData = {
+  total: 0,
+  active: 0,
+  inactive: 0,
+  windowDays: 0,
+  dormancy: [],
+  funnel: [],
+  users: [],
+};
 
 export default async function OverviewPage() {
   const [metrics, trends, topUsers, engagement] = await Promise.all([
