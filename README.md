@@ -285,6 +285,36 @@ docker build -t kiro-dashboard .
 curl http://localhost:3000/api/health
 ```
 
+## Reference Documentation
+
+### Upstream Kiro documentation (primary reference)
+
+Every data source this dashboard reads is defined by the official Kiro enterprise docs below. They are the authority on column names, delivery cadence, and S3 layout — when this repo's docs disagree with them, these win.
+
+| Document | Why it matters here |
+|----------|--------------------|
+| [Kiro IDE — Viewing per-user activity](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/) | Defines the `user_report` and legacy `by_user_analytic` CSV reports, all metric columns, the required S3 bucket policy, and the `AWSLogs/<account>/KiroLogs/...` path layout the dashboard queries |
+| [Kiro CLI — View per-user activity](https://kiro.dev/docs/cli/enterprise/monitor-and-track/user-activity/) | Same reporting feature from the CLI side; confirms one CSV per `Client_Type` (`KIRO_IDE`, `KIRO_CLI`, `PLUGIN`) and that the legacy report covers CLI/plugin usage |
+| [Kiro CLI — Log user prompts](https://kiro.dev/docs/cli/enterprise/monitor-and-track/prompt-logging/) | Prompt logging: opt-in delivery of raw prompts and responses as JSON to a **separate** S3 bucket. **Already enabled in this account but not consumed by the dashboard** — observed key layout and roadmap notes in `docs/kiro-user-activity-report-schema.md` |
+| [Kiro CLI — Viewing Kiro usage on the dashboard](https://kiro.dev/docs/cli/enterprise/monitor-and-track/dashboard/) | The built-in Kiro console dashboard. Useful as a baseline: it is aggregate-only (no per-user detail), which is the gap this project fills — and it is the only doc defining Active vs **Pending** (uncharged) subscriptions |
+
+Key operational facts drawn from those pages:
+
+- Reports are generated **once per day at 02:00 UTC**, one CSV per client type. The first file appears at the next 02:00 UTC after enablement, so expect up to ~24h before any data lands.
+- If more than **1,000 users** are active in a day, Kiro splits the CSV into `part_1`, `part_2`, … files for that date. Never yet observed here — all 214 `user_report` objects are unsplit, and because no manifest of the expected part count exists, a missing `part_N` file is not detectable.
+- The `00` segment in the S3 path is a fixed hour partition reflecting the 02:00 UTC write time. Prompt logs use a *real* `HH` partition instead, so do not assume `00` outside the activity-report prefixes.
+- Model message columns are **dynamic** — lowercase model names in alphabetical order starting with Auto — so the column set changes between files. This is why `/api/model-usage` and `/api/adoption` parse CSV by header name instead of going through Athena (see `docs/decisions/ADR-0004-s3-direct-read-for-positional-columns.md`).
+- Cross-account report delivery is **not supported**; the bucket must be in the same account and Region as the Kiro profile.
+- Neither report contains a **subscription roster**. Total/Active/Pending seat counts come from `user-subscriptions:ListUserSubscriptions` (Kiro console only; never called by this repo), so IAM Identity Center `ListUsers` is a workforce directory and must never be labelled "licensed seats".
+
+### Project documentation
+
+- `docs/kiro-user-activity-report-schema.md` — full column reference for both reports, annotated with which API route consumes each column
+- `docs/architecture.md` — system overview, CDK stack composition, data flow
+- `docs/onboarding.md` — new-contributor setup walkthrough
+- `docs/decisions/` — ADR-0001 … ADR-0006, the recorded design decisions
+- `docs/runbooks/` — operational procedures for Athena, auth, ECS, and S3 direct-read failures
+
 ## Contributing
 
 1. Fork the repository
@@ -581,6 +611,36 @@ docker build -t kiro-dashboard .
 # 헬스 엔드포인트 테스트
 curl http://localhost:3000/api/health
 ```
+
+## 참고 문서
+
+### Kiro 공식 문서 (메인 레퍼런스)
+
+이 대시보드가 읽는 모든 데이터 소스는 아래 Kiro 엔터프라이즈 공식 문서에 정의되어 있습니다. 컬럼명, 생성 주기, S3 경로 구조에 대한 최종 기준은 이 문서들이며, 본 저장소의 문서와 내용이 다를 경우 공식 문서를 따릅니다.
+
+| 문서 | 이 프로젝트와의 관계 |
+|------|--------------------|
+| [Kiro IDE — Viewing per-user activity](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/) | `user_report`와 레거시 `by_user_analytic` CSV 리포트, 전체 메트릭 컬럼, 필수 S3 버킷 정책, 대시보드가 조회하는 `AWSLogs/<account>/KiroLogs/...` 경로 구조를 정의 |
+| [Kiro CLI — View per-user activity](https://kiro.dev/docs/cli/enterprise/monitor-and-track/user-activity/) | 동일한 리포팅 기능의 CLI 관점 문서. `Client_Type`(`KIRO_IDE`, `KIRO_CLI`, `PLUGIN`)별로 CSV가 하나씩 생성되며, 레거시 리포트는 CLI/플러그인 사용량을 담는다는 점을 확인 |
+| [Kiro CLI — Log user prompts](https://kiro.dev/docs/cli/enterprise/monitor-and-track/prompt-logging/) | 프롬프트 로깅 — 원본 프롬프트와 응답을 **별도 버킷**에 JSON으로 적재하는 옵트인 기능. **본 계정에서는 이미 활성화되어 있으나 대시보드는 아직 사용하지 않음** (관측된 키 구조·로드맵은 `docs/kiro-user-activity-report-schema.md` 참고) |
+| [Kiro CLI — Viewing Kiro usage on the dashboard](https://kiro.dev/docs/cli/enterprise/monitor-and-track/dashboard/) | Kiro 콘솔 내장 대시보드. 집계 지표만 제공하고 사용자별 상세가 없으므로, 이 프로젝트가 채우는 공백을 가늠하는 기준선. Active/**Pending**(미과금) 구독 상태를 정의하는 유일한 공식 문서 |
+
+위 문서에서 확인한 주요 운영 사실:
+
+- 리포트는 **매일 02:00 UTC에 한 번** 클라이언트 타입별로 하나씩 생성됩니다. 기능 활성화 후 다음 02:00 UTC에 첫 파일이 생성되므로 최초 데이터 적재까지 최대 약 24시간이 소요됩니다.
+- 하루 활동 사용자가 **1,000명을 초과**하면 해당 날짜의 CSV가 `part_1`, `part_2`, … 로 분할됩니다. 본 계정에서는 관측된 바 없습니다(214개 파일 전부 미분할). 예상 파트 수를 알려주는 매니페스트가 없으므로 파트 누락은 탐지할 수 없습니다.
+- S3 경로의 `00` 세그먼트는 02:00 UTC 기록 시각을 나타내는 고정 시간 파티션입니다. **프롬프트 로그는 실제 `HH` 파티션을 사용**하므로, 활동 리포트 프리픽스 밖에서 `00`을 가정하면 안 됩니다.
+- 모델 메시지 컬럼은 **동적**입니다(Auto부터 시작하는 소문자 모델명 알파벳순). 파일마다 컬럼 구성이 달라지기 때문에 `/api/model-usage`와 `/api/adoption`은 Athena 대신 헤더명 기반 CSV 파싱을 사용합니다 (`docs/decisions/ADR-0004-s3-direct-read-for-positional-columns.md` 참고).
+- 리포트의 **크로스 계정 적재는 지원되지 않습니다**. 버킷은 Kiro 프로필과 동일한 계정·리전에 있어야 합니다.
+- 두 리포트 어디에도 **구독자 명부는 없습니다.** Total/Active/Pending 좌석 수는 `user-subscriptions:ListUserSubscriptions`(Kiro 콘솔 전용, 본 저장소 미호출) 기준이므로, IAM Identity Center `ListUsers` 결과를 "라이선스 좌석"으로 표기하면 안 됩니다.
+
+### 프로젝트 문서
+
+- `docs/kiro-user-activity-report-schema.md` — 두 리포트의 전체 컬럼 레퍼런스 및 컬럼별 소비 API 라우트
+- `docs/architecture.md` — 시스템 개요, CDK 스택 구성, 데이터 흐름
+- `docs/onboarding.md` — 신규 기여자 온보딩 가이드
+- `docs/decisions/` — ADR-0001 … ADR-0006 설계 결정 기록
+- `docs/runbooks/` — Athena, 인증, ECS, S3 직접 읽기 장애 대응 절차
 
 ## 기여 방법
 

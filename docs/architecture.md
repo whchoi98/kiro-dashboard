@@ -141,6 +141,17 @@ User question → /api/analyze → Bedrock (Claude) streaming → SSE to browser
 
 See `docs/runbooks/` for operational procedures.
 
+### Reference Documentation
+
+The upstream contract for every data source described above is the official Kiro enterprise documentation. Where this repo's docs and the upstream pages disagree, the upstream pages are authoritative:
+
+- [Kiro IDE — Viewing per-user activity](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/) — `user_report` / `by_user_analytic` schemas, 02:00 UTC daily cadence, S3 path layout, bucket policy
+- [Kiro CLI — View per-user activity](https://kiro.dev/docs/cli/enterprise/monitor-and-track/user-activity/) — per-`Client_Type` CSV split; legacy report scope
+- [Kiro CLI — Log user prompts](https://kiro.dev/docs/cli/enterprise/monitor-and-track/prompt-logging/) — prompt log JSON schema. **Enabled in this account** (separate bucket, real `HH` partition) but not ingested; ingesting it needs new `PROMPT_LOG_BUCKET`/`PROMPT_LOG_PREFIX` env vars plus an S3 read grant in `infra/lib/ecs-stack.ts` — a CDK change, not an app-layer one
+- [Kiro CLI — Viewing Kiro usage on the dashboard](https://kiro.dev/docs/cli/enterprise/monitor-and-track/dashboard/) — Kiro console's aggregate-only view; the only source defining Active vs Pending (uncharged) subscriptions, which come from `user-subscriptions:ListUserSubscriptions` and are absent from both CSV reports
+
+Column-level detail lives in `docs/kiro-user-activity-report-schema.md`.
+
 ---
 
 <a id="korean"></a>
@@ -208,3 +219,14 @@ AI 분석 경로:
 ### 운영
 
 운영 절차는 `docs/runbooks/`를 참고하세요.
+
+### 참고 문서
+
+위에서 설명한 모든 데이터 소스의 상위 기준은 Kiro 엔터프라이즈 공식 문서입니다. 본 저장소 문서와 공식 문서가 다를 경우 공식 문서를 따릅니다:
+
+- [Kiro IDE — Viewing per-user activity](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/) — `user_report` / `by_user_analytic` 스키마, 매일 02:00 UTC 생성 주기, S3 경로 구조, 버킷 정책
+- [Kiro CLI — View per-user activity](https://kiro.dev/docs/cli/enterprise/monitor-and-track/user-activity/) — `Client_Type`별 CSV 분리, 레거시 리포트 범위
+- [Kiro CLI — Log user prompts](https://kiro.dev/docs/cli/enterprise/monitor-and-track/prompt-logging/) — 프롬프트 로그 JSON 스키마. **본 계정에서는 활성화되어 있으나**(별도 버킷, 실제 `HH` 파티션) 수집하지 않습니다. 수집하려면 `PROMPT_LOG_BUCKET`/`PROMPT_LOG_PREFIX` 환경변수와 `infra/lib/ecs-stack.ts`의 S3 읽기 권한 추가가 필요 — 앱 레이어가 아닌 CDK 변경 사항
+- [Kiro CLI — Viewing Kiro usage on the dashboard](https://kiro.dev/docs/cli/enterprise/monitor-and-track/dashboard/) — Kiro 콘솔의 집계 전용 뷰. Active/Pending(미과금) 구독 상태를 정의하는 유일한 문서이며, 이 값은 `user-subscriptions:ListUserSubscriptions`에서 오고 두 CSV 리포트에는 존재하지 않습니다
+
+컬럼 단위 상세는 `docs/kiro-user-activity-report-schema.md`에 있습니다.
