@@ -2,18 +2,7 @@
 
 import { useMemo } from 'react';
 import { useI18n } from '@/lib/i18n';
-
-interface Group {
-  label: string | null;
-  items: string[];
-  paras: string[];
-}
-
-interface VersionSection {
-  version: string;
-  date: string | null;
-  groups: Group[];
-}
+import { Block, parseChangelog } from '@/lib/changelog-md';
 
 const DOT_COLORS: Record<string, string> = {
   Added: '#22c55e',
@@ -24,69 +13,98 @@ const DOT_COLORS: Record<string, string> = {
   변경됨: '#3b82f6',
   Removed: '#ef4444',
   제거됨: '#ef4444',
+  Performance: '#a855f7',
+  성능: '#a855f7',
 };
 
-/** Minimal changelog markdown parser — version sections, category subheadings, list items. */
-function parseChangelog(markdown: string): VersionSection[] {
-  const sections: VersionSection[] = [];
-  let section: VersionSection | null = null;
-  let group: Group | null = null;
-
-  const ensureGroup = (): Group | null => {
-    if (!section) return null;
-    if (!group) {
-      group = { label: null, items: [], paras: [] };
-      section.groups.push(group);
-    }
-    return group;
-  };
-
-  for (const line of markdown.split('\n')) {
-    const versionMatch = line.match(/^## \[([^\]]+)\](?:\s*-\s*(.+))?/);
-    if (versionMatch) {
-      section = { version: versionMatch[1], date: versionMatch[2]?.trim() ?? null, groups: [] };
-      sections.push(section);
-      group = null;
-      continue;
-    }
-    if (!section) continue; // ignore everything before the first '## ' heading
-
-    const subMatch = line.match(/^### (.+)/);
-    if (subMatch) {
-      group = { label: subMatch[1].trim(), items: [], paras: [] };
-      section.groups.push(group);
-      continue;
-    }
-    if (!line.trim() || /^---/.test(line) || /^\[!\[/.test(line) || /^\[[^\]]+\]:/.test(line)) {
-      continue; // blank, ruler, badge, or link-definition lines
-    }
-    if (/^- /.test(line)) {
-      ensureGroup()?.items.push(line.slice(2).trim());
-      continue;
-    }
-    const g = ensureGroup();
-    if (!g) continue;
-    if (/^\s{2,}/.test(line) && g.items.length > 0) {
-      // 2-space continuation line — merge into the previous list item
-      g.items[g.items.length - 1] += ` ${line.trim()}`;
-    } else {
-      g.paras.push(line.trim()); // unknown line → plain paragraph
-    }
-  }
-  return sections;
-}
-
-/** Render inline `code` spans; odd-indexed split segments are inside backticks. */
-function renderInline(text: string) {
+/**
+ * Inline `code` and **bold**. Backticks are split first so a `**` inside a code
+ * span stays literal.
+ */
+function renderInline(text: string, keyPrefix = '') {
   return text.split('`').map((part, i) =>
     i % 2 === 1 ? (
-      <code key={i} className="text-[#9046FF] bg-gray-900/80 px-1 rounded text-xs">
+      <code
+        key={`${keyPrefix}c${i}`}
+        className="text-[#9046FF] bg-gray-900/80 px-1 rounded text-xs"
+      >
         {part}
       </code>
     ) : (
-      <span key={i}>{part}</span>
+      <span key={`${keyPrefix}s${i}`}>
+        {part.split(/\*\*/).map((seg, j) =>
+          j % 2 === 1 ? (
+            <strong key={j} className="font-semibold text-slate-200">
+              {seg}
+            </strong>
+          ) : (
+            <span key={j}>{seg}</span>
+          )
+        )}
+      </span>
     )
   );
+}
+
+function BlockView({ block }: { block: Block }) {
+  switch (block.kind) {
+    case 'para':
+      return <p className="text-slate-400 text-sm mb-2">{renderInline(block.text)}</p>;
+
+    case 'list':
+      return (
+        <ul className="flex flex-col gap-1.5 list-disc pl-5 mb-2 marker:text-slate-600">
+          {block.items.map((item, ii) => (
+            <li key={ii} className="text-slate-300 text-sm">
+              {renderInline(item, `${ii}-`)}
+            </li>
+          ))}
+        </ul>
+      );
+
+    case 'code':
+      return (
+        <pre className="bg-gray-900/80 border border-dashboard-border rounded-lg p-3 mb-3 overflow-x-auto">
+          <code className="text-xs text-slate-300 whitespace-pre">
+            {block.lines.join('\n')}
+          </code>
+        </pre>
+      );
+
+    case 'table':
+      return (
+        <div className="overflow-x-auto mb-3">
+          <table className="text-xs text-left border-collapse">
+            <thead>
+              <tr>
+                {block.header.map((h, hi) => (
+                  <th
+                    key={hi}
+                    className="border border-dashboard-border px-2 py-1 font-semibold text-slate-200"
+                  >
+                    {renderInline(h, `h${hi}-`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, ri) => (
+                <tr key={ri}>
+                  {row.map((cell, ci) => (
+                    <td
+                      key={ci}
+                      className="border border-dashboard-border px-2 py-1 text-slate-400 align-top"
+                    >
+                      {renderInline(cell, `r${ri}c${ci}-`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+  }
 }
 
 export default function ChangelogClient({ english, korean }: { english: string; korean: string }) {
@@ -124,20 +142,9 @@ export default function ChangelogClient({ english, korean }: { english: string; 
                   {g.label}
                 </h4>
               )}
-              {g.paras.map((p, pi) => (
-                <p key={pi} className="text-slate-400 text-sm mb-2">
-                  {renderInline(p)}
-                </p>
+              {g.blocks.map((b, bi) => (
+                <BlockView key={bi} block={b} />
               ))}
-              {g.items.length > 0 && (
-                <ul className="flex flex-col gap-1.5 list-disc pl-5 marker:text-slate-600">
-                  {g.items.map((item, ii) => (
-                    <li key={ii} className="text-slate-300 text-sm">
-                      {renderInline(item)}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           ))}
         </div>

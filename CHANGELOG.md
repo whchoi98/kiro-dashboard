@@ -27,8 +27,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   required build input must fail the build, not ship a blank page.
 - `tests/structure/changelog-build-input.test.ts` pins both halves — the
   re-include must exist *and* come after the exclusion, and the page must not
-  reintroduce a `catch`. Verified by mutation: removing `!CHANGELOG.md` fails
-  2 of the 6 assertions (101 → 107 tests).
+  reintroduce a `catch`.
+- **`/changelog` printed bold markers as literal asterisks, flattened fenced
+  code into run-on prose, and showed tables as raw `|` pipes.** Harmless while
+  entries were plain bullets; the 1.5.0 upgrade guide added all three. The
+  renderer now handles bold, fenced code (`<pre>`), and pipe tables.
+- **`/changelog` reordered any entry that interleaved paragraphs and bullets.**
+  The parser kept `paras` and `items` in separate arrays and rendered every
+  paragraph before every bullet, so source order was silently lost. Blocks are
+  now a single ordered list. Fenced code is consumed through its closing fence,
+  so a `#` comment or `- ` line inside a bash block no longer parses as a
+  heading or bullet.
+
+### Changed
+
+- Changelog markdown parsing moved from `app/changelog/ChangelogClient.tsx` to
+  `lib/changelog-md.ts`. Jest only collects `*.test.ts` files, so logic inside a
+  `.tsx` component cannot be tested — the same reason `lib/chat-scroll.ts` is
+  separate from `ChatPanel`. `tests/lib/changelog-md.test.ts` now runs the
+  parser against the real `CHANGELOG.md` in both languages; each of the two
+  mutations tried (dropping fence handling, dropping table handling) fails 7
+  assertions (101 → 125 tests, 18 suites).
 
 ## [1.6.0] - 2026-07-29
 
@@ -120,7 +139,7 @@ v1.6.x would rotate that secret for no benefit** — take the image path.
 
 ```bash
 git pull                       # or merge the v1.6.1 tag into your branch
-npx jest && npm run build      # expect 17 suites / 107 tests
+npx jest && npm run build      # expect 18 suites / 125 tests
 
 docker build -t kiro-dashboard .
 ECR=<account>.dkr.ecr.<region>.amazonaws.com
@@ -437,8 +456,26 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
   내보내는 대신 빌드가 실패해야 합니다.
 - `tests/structure/changelog-build-input.test.ts`가 양쪽을 모두 고정합니다 —
   재포함 패턴이 존재해야 하고 제외 패턴보다 *뒤에* 있어야 하며, 페이지가 다시
-  `catch`를 들이지 않아야 합니다. 뮤테이션으로 검증: `!CHANGELOG.md`를 제거하면
-  6개 중 2개가 실패합니다 (101 → 107개 테스트).
+  `catch`를 들이지 않아야 합니다.
+- **`/changelog`가 굵게 표시 기호를 별표 그대로 출력하고, 코드 블록을 한 줄
+  산문으로 뭉개고, 표를 `|` 파이프 문자로 그대로 보여주고 있었습니다.** 항목이 단순
+  불릿뿐일 때는 문제가 없었지만 1.5.0 업그레이드 가이드가 세 가지를 모두
+  추가했습니다. 이제 굵게, 코드 블록(`<pre>`), 파이프 표를 처리합니다.
+- **`/changelog`가 문단과 불릿이 섞인 항목의 순서를 뒤바꿨습니다.** 파서가
+  `paras`와 `items`를 별도 배열로 유지하고 모든 문단을 모든 불릿보다 먼저
+  렌더링했기 때문에 원본 순서가 조용히 사라졌습니다. 이제 블록을 하나의 순서
+  있는 목록으로 유지합니다. 코드 블록은 닫는 펜스까지 통째로 소비하므로 bash
+  안의 `#` 주석이나 `- ` 줄이 더 이상 제목이나 불릿으로 파싱되지 않습니다.
+
+### 변경
+
+- 변경 이력 마크다운 파싱을 `app/changelog/ChangelogClient.tsx`에서
+  `lib/changelog-md.ts`로 분리했습니다. Jest는 `*.test.ts` 파일만 수집하므로
+  `.tsx` 컴포넌트 내부 로직은 테스트할 수 없습니다 — `lib/chat-scroll.ts`가
+  `ChatPanel`과 분리된 것과 같은 이유입니다. 이제
+  `tests/lib/changelog-md.test.ts`가 실제 `CHANGELOG.md`를 두 언어 모두로
+  파싱합니다. 시도한 뮤테이션 2종(코드 펜스 처리 제거, 표 처리 제거) 각각이 7개
+  단정을 실패시킵니다 (101 → 125개 테스트, 18개 스위트).
 
 ## [1.6.0] - 2026-07-29
 
@@ -524,7 +561,7 @@ Ecs/Cdn의 유일한 차이는 `crypto.randomUUID()`가 매 synth마다 새로 �
 
 ```bash
 git pull                       # 또는 v1.6.1 태그를 브랜치에 머지
-npx jest && npm run build      # 17 suites / 107 tests 예상
+npx jest && npm run build      # 18 suites / 125 tests 예상
 
 docker build -t kiro-dashboard .
 ECR=<account>.dkr.ecr.<region>.amazonaws.com

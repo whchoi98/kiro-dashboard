@@ -29,7 +29,8 @@ app/
   changelog/            Bilingual changelog rendered from CHANGELOG.md at build time (force-static).
                         CHANGELOG.md is a required BUILD-CONTEXT input — `.dockerignore` excludes `*.md`,
                         so the `!CHANGELOG.md` re-include must stay after it or the page ships empty.
-                        The read is deliberately unguarded; see tests/structure/changelog-build-input.test.ts
+                        The read is deliberately unguarded; see tests/structure/changelog-build-input.test.ts.
+                        Markdown parsing lives in lib/changelog-md.ts (testable); ChangelogClient.tsx only renders.
 ```
 
 ## Page Conventions
