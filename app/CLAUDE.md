@@ -26,7 +26,10 @@ app/
   dev-activity/         Legacy deep dev metrics page (TestGen/DocGen/Transform/InlineChat/CodeFix)
   rollout/              Client rollout & cross-client adoption page (Client_Type daily/cumulative, IDE↔CLI overlap)
   ingest-health/        Report delivery & freshness monitor (S3 inventory, delivery matrix, header drift, row parity)
-  changelog/            Bilingual changelog rendered from CHANGELOG.md at build time (force-static)
+  changelog/            Bilingual changelog rendered from CHANGELOG.md at build time (force-static).
+                        CHANGELOG.md is a required BUILD-CONTEXT input — `.dockerignore` excludes `*.md`,
+                        so the `!CHANGELOG.md` re-include must stay after it or the page ships empty.
+                        The read is deliberately unguarded; see tests/structure/changelog-build-input.test.ts
 ```
 
 ## Page Conventions

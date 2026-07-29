@@ -5,3 +5,8 @@ node_modules
 infra
 docs
 *.md
+# app/changelog/page.tsx reads CHANGELOG.md at build time (force-static), so it
+# must reach the builder stage. .dockerignore filters the build context, not
+# just the runtime image — excluding it makes the page render empty with no
+# error, because the read falls back to ''.
+!CHANGELOG.md

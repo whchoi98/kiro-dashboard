@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-07-29
+
+### Fixed
+
+- **`/changelog` rendered "No changelog entries available" in every deployed
+  image.** `.dockerignore` carried a blanket `*.md`, and `.dockerignore` filters
+  the Docker *build context* — not just the runtime image — so `CHANGELOG.md`
+  never reached the builder stage that `/changelog` prerenders from. The page's
+  `try/catch` then fell back to an empty string, so the build stayed green and
+  the failure was silent. Added `!CHANGELOG.md` after the exclusion (Docker
+  applies the last matching pattern) and made the read unguarded: a missing
+  required build input must fail the build, not ship a blank page.
+- `tests/structure/changelog-build-input.test.ts` pins both halves — the
+  re-include must exist *and* come after the exclusion, and the page must not
+  reintroduce a `catch`. Verified by mutation: removing `!CHANGELOG.md` fails
+  2 of the 6 assertions (101 → 107 tests).
+
 ## [1.6.0] - 2026-07-29
 
 Driven by a re-reading of the four authoritative Kiro documentation pages
@@ -96,18 +113,21 @@ which are now recorded as the project's reference contract in `CLAUDE.md` and
 v1.5.0 deployment: `KiroDashboardNetwork` and `KiroDashboardSecurity` report
 "no differences", and the only Ecs/Cdn delta is the `X-Custom-Secret` that
 `crypto.randomUUID()` re-rolls on every synth. **Deploying CDK to pick up
-v1.6.0 would rotate that secret for no benefit** — take the image path:
+v1.6.x would rotate that secret for no benefit** — take the image path.
+
+**Upgrade to 1.6.1, not 1.6.0.** 1.6.0 builds `/changelog` as an empty page
+(see the 1.6.1 entry above); everything else in this section applies to both.
 
 ```bash
-git pull                       # or merge the v1.6.0 tag into your branch
-npx jest && npm run build      # expect 16 suites / 101 tests
+git pull                       # or merge the v1.6.1 tag into your branch
+npx jest && npm run build      # expect 17 suites / 107 tests
 
 docker build -t kiro-dashboard .
 ECR=<account>.dkr.ecr.<region>.amazonaws.com
 aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin "$ECR"
-docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:1.6.0"
+docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:1.6.1"
 docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:latest"
-docker push "$ECR/kiro-dashboard:1.6.0" && docker push "$ECR/kiro-dashboard:latest"
+docker push "$ECR/kiro-dashboard:1.6.1" && docker push "$ECR/kiro-dashboard:latest"
 
 SERVICE=$(aws ecs list-services --cluster kiro-dashboard-cluster \
   --region <region> --query 'serviceArns[0]' --output text)
@@ -402,6 +422,24 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-07-29
+
+### 수정
+
+- **배포된 모든 이미지에서 `/changelog`가 "No changelog entries available"로
+  렌더링되고 있었습니다.** `.dockerignore`에 포괄적인 `*.md`가 있었고,
+  `.dockerignore`는 런타임 이미지만이 아니라 Docker *빌드 컨텍스트*를
+  필터링합니다. 그래서 `/changelog`가 프리렌더에 사용하는 builder 스테이지에
+  `CHANGELOG.md`가 아예 전달되지 않았습니다. 페이지의 `try/catch`가 빈 문자열로
+  폴백하는 바람에 빌드는 계속 성공했고 실패는 드러나지 않았습니다. 제외 패턴
+  뒤에 `!CHANGELOG.md`를 추가하고(Docker는 마지막으로 일치하는 패턴을 적용),
+  파일 읽기의 예외 처리를 제거했습니다. 필수 빌드 입력이 없으면 빈 페이지를
+  내보내는 대신 빌드가 실패해야 합니다.
+- `tests/structure/changelog-build-input.test.ts`가 양쪽을 모두 고정합니다 —
+  재포함 패턴이 존재해야 하고 제외 패턴보다 *뒤에* 있어야 하며, 페이지가 다시
+  `catch`를 들이지 않아야 합니다. 뮤테이션으로 검증: `!CHANGELOG.md`를 제거하면
+  6개 중 2개가 실패합니다 (101 → 107개 테스트).
+
 ## [1.6.0] - 2026-07-29
 
 Kiro 공식 문서 4종(IDE 사용자 활동, CLI 사용자 활동, 프롬프트 로깅, 콘솔
@@ -478,19 +516,22 @@ Kiro 공식 문서 4종(IDE 사용자 활동, CLI 사용자 활동, 프롬프트
 `tests/`와 문서만 변경합니다. 운영 중인 v1.5.0 배포에 대해 `cdk diff`로 검증한
 결과, `KiroDashboardNetwork`와 `KiroDashboardSecurity`는 "no differences"이고
 Ecs/Cdn의 유일한 차이는 `crypto.randomUUID()`가 매 synth마다 새로 생성하는
-`X-Custom-Secret`뿐입니다. **v1.6.0을 반영하려고 CDK를 배포하면 아무 이득 없이
-이 시크릿만 회전됩니다** — 이미지 경로를 사용하세요:
+`X-Custom-Secret`뿐입니다. **v1.6.x를 반영하려고 CDK를 배포하면 아무 이득 없이
+이 시크릿만 회전됩니다** — 이미지 경로를 사용하세요.
+
+**1.6.0이 아니라 1.6.1로 올라가세요.** 1.6.0은 `/changelog`가 빈 페이지로
+빌드됩니다(위 1.6.1 항목 참고). 이 절의 나머지 내용은 두 버전에 모두 적용됩니다.
 
 ```bash
-git pull                       # 또는 v1.6.0 태그를 브랜치에 머지
-npx jest && npm run build      # 16 suites / 101 tests 예상
+git pull                       # 또는 v1.6.1 태그를 브랜치에 머지
+npx jest && npm run build      # 17 suites / 107 tests 예상
 
 docker build -t kiro-dashboard .
 ECR=<account>.dkr.ecr.<region>.amazonaws.com
 aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin "$ECR"
-docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:1.6.0"
+docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:1.6.1"
 docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:latest"
-docker push "$ECR/kiro-dashboard:1.6.0" && docker push "$ECR/kiro-dashboard:latest"
+docker push "$ECR/kiro-dashboard:1.6.1" && docker push "$ECR/kiro-dashboard:latest"
 
 SERVICE=$(aws ecs list-services --cluster kiro-dashboard-cluster \
   --region <region> --query 'serviceArns[0]' --output text)

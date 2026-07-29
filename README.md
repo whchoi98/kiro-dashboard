@@ -175,10 +175,12 @@ Tag each image with its version as well as `latest`, so a rollback has a named
 target. Full procedure, traps, and verification steps:
 [`docs/runbooks/production-deploy.md`](docs/runbooks/production-deploy.md).
 
-**v1.5.0 → v1.6.0 is app-only** — no new dependencies, ECS environment
+**v1.5.0 → v1.6.1 is app-only** — no new dependencies, ECS environment
 variables, IAM permissions, or CloudFront behaviours. See the changelog's
 [Upgrading from 1.5.0](CHANGELOG.md#upgrading-from-150) block for the verified
-details and the two notes that matter to forks.
+details and the two notes that matter to forks. Go to 1.6.1, not 1.6.0: 1.6.0
+built `/changelog` as an empty page because `.dockerignore` kept
+`CHANGELOG.md` out of the build context.
 
 ## Configuration
 
@@ -550,10 +552,12 @@ cd infra && npx cdk diff --all
 [`docs/runbooks/production-deploy.md`](docs/runbooks/production-deploy.md)에
 있습니다.
 
-**v1.5.0 → v1.6.0은 앱 전용입니다** — 새 의존성, ECS 환경변수, IAM 권한,
+**v1.5.0 → v1.6.1은 앱 전용입니다** — 새 의존성, ECS 환경변수, IAM 권한,
 CloudFront 동작 추가가 모두 없습니다. 검증된 상세 내용과 포크에 해당되는 두 가지
 주의사항은 CHANGELOG의 [1.5.0에서 업그레이드하기](CHANGELOG.md#150에서-업그레이드하기)
-절을 참고하세요.
+절을 참고하세요. 1.6.0이 아니라 1.6.1로 올라가세요. 1.6.0은 `.dockerignore`가
+`CHANGELOG.md`를 빌드 컨텍스트에서 제외해 `/changelog`가 빈 페이지로
+빌드됩니다.
 
 ## 환경 설정
 
