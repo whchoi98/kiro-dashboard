@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
-import { isUarConfigured, listReportFiles, readCsvFromS3, parseCsv } from '@/lib/uar-s3';
+import {
+  isUarConfigured,
+  listReportFiles,
+  readCsvFromS3,
+  parseCsv,
+  isModelColumn,
+  prettifyModelName,
+  normalizeUserId,
+} from '@/lib/uar-s3';
 import { ModelUsageData, ModelDistribution, ModelTrendPoint, ModelUserPreference } from '@/types/dashboard';
 
 // The response depends on the live contents of the Kiro UAR S3 prefix, which
@@ -10,20 +18,6 @@ import { ModelUsageData, ModelDistribution, ModelTrendPoint, ModelUserPreference
 // from the guard below). Force every request to run the handler so
 // operators don't see a "model-usage is empty" from a stale cache.
 export const dynamic = 'force-dynamic';
-
-const USERID_PREFIX_RE = /^d-[a-z0-9]+\./;
-
-function prettifyModelName(col: string): string {
-  return col
-    .replace(/_messages$/i, '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/(\d+) (\d+)/g, '$1.$2');
-}
-
-function isModelColumn(col: string): boolean {
-  return col.endsWith('_messages') && col !== 'total_messages';
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -62,7 +56,7 @@ export async function GET(req: NextRequest) {
       modelCols.forEach((c) => allModels.add(c));
 
       for (const row of rows) {
-        const userid = row.userid.replace(USERID_PREFIX_RE, '');
+        const userid = normalizeUserId(row.userid);
         const date = row.date;
 
         for (const col of modelCols) {

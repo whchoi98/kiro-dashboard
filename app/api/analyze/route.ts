@@ -11,35 +11,11 @@ import {
 import type { DocumentType } from '@smithy/types';
 import { executeQuery } from '@/lib/athena';
 import { resolveUserDetails } from '@/lib/identity';
+import { buildSystemPrompt, resolveLocale } from '@/lib/analyze-prompt';
 
 const bedrockClient = new BedrockRuntimeClient({ region: 'ap-northeast-2' });
 
 const ATHENA_DATABASE = process.env.ATHENA_DATABASE || 'titanlog';
-const ATHENA_OUTPUT_BUCKET = process.env.ATHENA_OUTPUT_BUCKET || '';
-
-const SYSTEM_PROMPT = `You are Kiro Analytics AI Assistant, an expert data analyst for Kiro IDE usage data.
-You have access to two Athena tables in the '${ATHENA_DATABASE}' database:
-
-1. user_report — Kiro credit and usage metrics (11 columns):
-   date(YYYY-MM-DD), userid(UUID), client_type(KIRO_IDE/KIRO_CLI), chat_conversations(int),
-   credits_used(double), overage_cap(double), overage_credits_used(double),
-   overage_enabled(true/false), profileid(string), subscription_tier(POWER/PRO/PROPLUS/PROMAX),
-   total_messages(int)
-
-2. by_user_analytic — IDE productivity metrics (46 columns):
-   userid(UUID), date(MM-DD-YYYY format!), chat_aicodelines, chat_messagesinteracted,
-   chat_messagessent, inline_suggestionscount, inline_acceptancecount, inline_aicodelines,
-   inlinechat_totaleventcount, inlinechat_acceptanceeventcount, dev_generationeventcount,
-   dev_acceptedlines, codereview_findingscount, testgeneration_generatedtests, etc.
-
-IMPORTANT SQL RULES:
-- user_report dates: WHERE date >= 'YYYY-MM-DD' (string comparison)
-- by_user_analytic dates: WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -N, CURRENT_DATE)
-- All numeric columns are strings (OpenCSVSerde), use CAST(col AS INTEGER) or CAST(col AS DOUBLE)
-- UserIds may carry an IAM Identity Center prefix 'd-xxxxxxxxxxxx.' — normalize with: REGEXP_REPLACE(userid, '^d-[a-z0-9]+\\.', '')
-${ATHENA_OUTPUT_BUCKET ? `- Athena output: ${ATHENA_OUTPUT_BUCKET}` : ''}
-- Use Korean for analysis reports. Use markdown formatting.
-- Always include data tables and key insights.`;
 
 const tools: Tool[] = [
   {
@@ -135,7 +111,12 @@ export async function POST(request: NextRequest) {
     history?: { role: 'user' | 'assistant'; content: string }[];
     sessionId: string;
     days: number;
+    locale?: string;
   };
+
+  // Older clients (and any direct API caller) omit `locale` — default to
+  // Korean, matching the app's default UI language.
+  const systemPrompt = buildSystemPrompt(resolveLocale(body.locale));
 
   const encoder = new TextEncoder();
 
@@ -168,7 +149,7 @@ export async function POST(request: NextRequest) {
           const response = await bedrockClient.send(
             new ConverseStreamCommand({
               modelId: 'global.anthropic.claude-sonnet-4-6',
-              system: [{ text: SYSTEM_PROMPT }],
+              system: [{ text: systemPrompt }],
               messages,
               toolConfig: { tools },
               inferenceConfig: { maxTokens: 4096 },

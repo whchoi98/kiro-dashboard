@@ -23,12 +23,25 @@ function triggerDownload(url: string, filename: string) {
   a.remove();
 }
 
-export function exportMarkdown(content: string, titleHint?: string) {
+// The exported file's own header follows the UI language, like the answer it
+// wraps. Kept as a local table rather than i18n keys so this module stays
+// importable without the React context.
+const MD_LABELS = {
+  ko: { title: 'Kiro AI 분석 리포트', generated: '생성일', question: '질문' },
+  en: { title: 'Kiro AI Analysis Report', generated: 'Generated', question: 'Question' },
+} as const;
+
+export function exportMarkdown(
+  content: string,
+  titleHint?: string,
+  locale: 'ko' | 'en' = 'ko'
+) {
+  const L = MD_LABELS[locale] ?? MD_LABELS.ko;
   const header = [
-    `# Kiro AI 분석 리포트`,
+    `# ${L.title}`,
     ``,
-    `- 생성일: ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-    titleHint ? `- 질문: ${titleHint}` : null,
+    `- ${L.generated}: ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    titleHint ? `- ${L.question}: ${titleHint}` : null,
     ``,
     `---`,
     ``,

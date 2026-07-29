@@ -40,6 +40,9 @@
 | `IdcUsersData` | `/api/idc-users` response — directory users plus dormancy buckets and the directory→activity funnel |
 | `DormancyBucket` | Directory-user activity grade (`active7`…`never`) — describes directory accounts, **not** Kiro seats or licenses |
 | `CreditEfficiency` | Credits per accepted AI code line — two independent sums over an overlapping window; a credit ratio, never a currency amount |
+| `UserModelSlice` | One model's share of a single user's messages — `{ model, messages, percentage }` |
+| `UserModelUsageData` | `/api/user-model-usage` response — slices, daily trend, client-type split, `primaryModel`, plus `configured` and `daysWithModelColumns` which keep the three zero states distinguishable (env unset / no model columns in the reports / user had none) |
+| `ReleaseNotesResponse` | `/api/release-notes` response — `{ version, exact, section, history }`. `section` is a `VersionSection` from `lib/changelog-md.ts`; `exact: false` means the notes belong to a different version than the running build, which the dialog labels rather than hiding |
 
 ---
 

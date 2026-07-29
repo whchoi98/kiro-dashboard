@@ -1,3 +1,5 @@
+import type { VersionSection } from '@/lib/changelog-md';
+
 export interface UserReport {
   date: string;
   userid: string;
@@ -379,4 +381,62 @@ export interface CreditEfficiency {
   /** Distinct users on each side — they are NOT the same population. */
   creditUsers: number;
   lineUsers: number;
+}
+
+/**
+ * `/api/release-notes` response — the notes for the running build, shown by
+ * the sidebar version badge. `section` reuses `VersionSection` from
+ * `lib/changelog-md.ts` (the same shape /changelog renders) so the dialog and
+ * the full page cannot drift apart.
+ */
+export interface ReleaseNotesResponse {
+  /** APP_VERSION of the running build. */
+  version: string;
+  /**
+   * False when `section` is a fallback — the changelog has no entry for
+   * `version` yet, so the newest release is shown instead. The dialog must
+   * label that rather than implying the notes describe the running build.
+   */
+  exact: boolean;
+  section: VersionSection | null;
+  /** Recent releases (newest first, `[Unreleased]` excluded) for quick links. */
+  history: Array<{ version: string; date: string | null }>;
+}
+
+/** One model's share of a single user's messages. */
+export interface UserModelSlice {
+  model: string;
+  messages: number;
+  /** 0 when the user has model columns but no messages — never NaN. */
+  percentage: number;
+}
+
+/**
+ * `/api/user-model-usage` response — per-user model breakdown shown in the
+ * user detail panel. Read S3-direct because `{model}_messages` columns are
+ * dynamic (ADR-0004), so this cannot come from `/api/user-detail`'s Athena
+ * queries.
+ */
+export interface UserModelUsageData {
+  userid: string;
+  /** Descending by messages. */
+  models: UserModelSlice[];
+  /** Per-day counts keyed by model name, oldest first. */
+  trend: Array<{ date: string } & Record<string, string | number>>;
+  /** Messages per client type, derived from the CSV file names. */
+  clients: Array<{ clientType: string; messages: number }>;
+  totalMessages: number;
+  distinctModels: number;
+  primaryModel: string | null;
+  /**
+   * False when the UAR bucket/prefix env is unset. Distinguishes "not wired up"
+   * from "no model usage" — both would otherwise render as zero.
+   */
+  configured: boolean;
+  /**
+   * Report days that actually carried model columns. `0` with `configured:
+   * true` means the reports never reported models for this window, which is
+   * not the same as the user using none.
+   */
+  daysWithModelColumns: number;
 }

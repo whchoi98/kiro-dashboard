@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { useI18n } from './i18n';
 
 export interface ToolEvent {
   tool: string;
@@ -44,6 +45,14 @@ export function useChatStream(): ChatStream {
   const messagesRef = useRef<ChatMessage[]>([]);
   const streamingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  // The answer language is decided by the Bedrock system prompt, so the UI
+  // locale has to travel to the server — t() only covers our own strings, not
+  // model output. Read through a ref so `send` doesn't get a new identity on
+  // every language toggle (it is a dep of callers' effects).
+  const { locale } = useI18n();
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
 
   const update = useCallback(
     (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
@@ -120,6 +129,7 @@ export function useChatStream(): ChatStream {
             history: historyForApi,
             sessionId: crypto.randomUUID(),
             days: 30,
+            locale: localeRef.current,
           }),
           signal: controller.signal,
         });

@@ -4,7 +4,7 @@
 
 **Name**: kiro-dashboard
 **Description**: Kiro IDE 사용자 분석 대시보드 — Next.js 14 (App Router) + CloudFront/ALB/ECS Fargate + Athena/Glue/S3 + Bedrock AI 분석
-**Version**: 1.6.1
+**Version**: 1.7.0
 **Language**: Korean (primary), English (secondary)
 
 Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.js 대시보드로 시각화하며, Amazon Bedrock으로 AI 인사이트를 제공하는 풀스택 분석 플랫폼.
@@ -61,7 +61,7 @@ docker push <account>.dkr.ecr.ap-northeast-2.amazonaws.com/kiro-dashboard:latest
 
 ```
 app/                    Next.js App Router pages & API routes
-  api/                  17 API route handlers (see app/api/CLAUDE.md)
+  api/                  19 API route handlers (see app/api/CLAUDE.md)
   components/           Shared React components (see app/components/CLAUDE.md)
   analyze/              AI analysis chat page (Bedrock streaming)
   users/                User activity dashboard page
@@ -160,7 +160,11 @@ Most API routes follow this pattern:
 4. Execute via `executeQuery()` from `lib/athena.ts`
 5. Return `NextResponse.json(data)` or `NextResponse.json({ error }, { status: 500 })`
 
-Exception: `/api/model-usage` and `/api/adoption` read S3 CSV files directly via `lib/uar-s3.ts` because dynamic `{Model_name}_Messages` columns and the late-appended `New_User`/`User_Email` columns cannot be queried safely through Glue/Athena (OpenCSVSerDe uses positional mapping, but these columns appear in different positions across files; header-name CSV parsing sidesteps this).
+Exception: `/api/model-usage`, `/api/user-model-usage`, and `/api/adoption` read S3 CSV files directly via `lib/uar-s3.ts` because dynamic `{Model_name}_Messages` columns and the late-appended `New_User`/`User_Email` columns cannot be queried safely through Glue/Athena (OpenCSVSerDe uses positional mapping, but these columns appear in different positions across files; header-name CSV parsing sidesteps this).
+
+Two Next.js constraints on `route.ts`, both of which fail *silently or confusingly*:
+- **Export only route handlers and Next's config symbols.** Anything else fails the build with `Type '…' is not assignable to type 'never'`, which never mentions routes. Put helpers in `lib/` — e.g. the `/api/analyze` system prompt lives in `lib/analyze-prompt.ts`.
+- **Never use `dynamic = 'force-static'` on a route whose response depends on a query param.** Next.js prerenders it once and hands the handler an *empty* `searchParams`, so the default branch gets baked into the build output and every caller receives it. This shipped Korean release notes to English users via `/api/release-notes`.
 
 ### Authentication Flow
 - CloudFront Viewer Request triggers Lambda@Edge for every request

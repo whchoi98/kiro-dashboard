@@ -10,7 +10,10 @@
 components/
   layout/
     Header.tsx          Top navigation bar — language switcher, user info
-    Sidebar.tsx         Left nav sidebar — page links, logout button, theme (다크/라이트) + language switchers, app version footer (links to /changelog); off-canvas drawer + fixed hamburger top bar below md
+    Sidebar.tsx         Left nav sidebar — page links, logout button, theme (다크/라이트) + language switchers, app version footer; off-canvas drawer + fixed hamburger top bar below md.
+                        The version footer is a BUTTON opening ReleaseNotesDialog (was a Link to /changelog).
+                        tests/structure/version-sync.test.ts requires it to render `v{APP_VERSION}` from
+                        '@/lib/version' and to contain NO literal /v\d+\.\d+\.\d+/ anywhere in the file.
     KiroLogo.tsx        Kiro logo SVG component
   chat/
     FloatingChat.tsx    Global draggable chatbot widget (mounted in app/layout.tsx; hidden on /analyze); full-screen sheet + drag disabled below md
@@ -31,7 +34,21 @@ components/
     DateRangePicker.tsx Date range selector component
     KiroIcon.tsx        Kiro icon SVG (small)
     KiroMascot.tsx      Kiro mascot SVG (large, decorative)
-    UserDetailPanel.tsx Slide-in user detail side panel
+    UserDetailPanel.tsx Slide-in user detail side panel (Athena-backed /api/user-detail) + embeds UserModelUsage
+    UserModelUsage.tsx  Per-user AI model mix card inside UserDetailPanel — stacked 100% bar, primary/distinct
+                        cards, legend rows, client-type footnote. Fetches /api/user-model-usage SEPARATELY from
+                        the panel's own call (that one is Athena, this one is S3-direct) so an S3 problem
+                        degrades one card instead of emptying the panel. Renders THREE distinct empty states
+                        (env not configured / reports carry no model columns / user genuinely had none) —
+                        collapsing them into one "no data" would assert a measurement nobody made.
+    ReleaseNotesDialog.tsx  Modal for the sidebar version badge — fetches /api/release-notes?locale=…
+                        (effect keyed on [open, locale]), Escape to close, focuses the close button, locks
+                        body scroll, role="dialog" aria-modal="true". Amber banner when the running version
+                        has no changelog entry (shows the newest release instead of implying a match).
+    ChangelogBlocks.tsx Shared markdown block renderer — DOT_COLORS, groupDotColor, renderInline, BlockView,
+                        GroupView. Imported by BOTH /changelog and ReleaseNotesDialog; extracted rather than
+                        copied so the v1.6.1 bold/code-fence/table fixes cannot regress in one surface only.
+                        renderInline splits on backticks FIRST, so `**` inside code stays literal.
   OverviewClient.tsx    Overview dashboard client component (top-level)
 ```
 

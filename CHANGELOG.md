@@ -13,6 +13,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-07-29
+
+### Added
+
+- **The sidebar version badge is now clickable and opens the release notes for
+  the running build.** It was a link to `/changelog`; it is now a button opening
+  a dialog that shows only the current version's section, with history chips
+  deep-linking to `/changelog#v{version}` for older releases. New endpoint
+  `GET /api/release-notes`. Escape closes the dialog, focus moves to the close
+  button, and body scroll locks while it is open.
+  - `CHANGELOG.md` is **imported**, not read: `next.config.js` maps it to a
+    webpack `asset/source` rule so it is inlined as a build-time string. A
+    `readFileSync` here would crash every request — `output: 'standalone'`
+    ships only `public/` and `.next/`, no markdown. (The `/changelog` page gets
+    away with a read solely because `force-static` runs it at build time.)
+  - Block rendering moved to `app/components/ui/ChangelogBlocks.tsx` and is now
+    shared by `/changelog` and the dialog, so the v1.6.1 bold/code-fence/table
+    fixes cannot regress in one surface only.
+  - The dialog fetches one section over HTTP instead of importing the parser,
+    keeping ~50KB of both-language markdown out of every page's client bundle.
+- **Per-user AI model usage statistics in the user detail panel.** Selecting a
+  user now shows their model mix: a stacked 100%-width bar, primary model,
+  distinct model count, per-model message counts with percentages, and a
+  client-type split when the user appears under more than one `Client_Type`.
+  New endpoint `GET /api/user-model-usage`.
+  - Reads the UAR CSVs from S3 directly rather than through Athena, because the
+    `{model}_messages` columns are dynamic and OpenCSVSerDe maps positionally
+    (ADR-0004). It fetches independently of the panel's Athena-backed
+    `/api/user-detail` call, so an S3 problem degrades one card instead of
+    emptying the panel.
+  - Distinguishes **three** zero-looking states — S3 env not configured, reports
+    that carry no model columns at all, and a user who genuinely sent no model
+    messages. Collapsing them into one "no data" would assert a measurement
+    nobody made.
+  - Model colors are derived from the model NAME (djb2 hash over a fixed
+    palette, `lib/model-colors.ts`), not from position in a list: the model set
+    grows over time, so an index-based palette would recolor every series
+    whenever the ranking changed.
+
+### Fixed
+
+- **AI analysis answered in Korean even with the UI language set to English.**
+  The Bedrock system prompt had `Use Korean for analysis reports` hardcoded, and
+  the locale never left the client — LLM output language is not something `t()`
+  can cover, since `t()` only translates strings we author. The locale now
+  travels client → request body → system prompt.
+  - The language rule is appended **last** in the prompt: the model weights the
+    closing instruction most heavily, so an English answer survives Korean tool
+    results and Korean column labels.
+  - The locale only ever **indexes** a literal `LANGUAGE_RULE` record; it is
+    never interpolated into prompt text, so the request body cannot become a
+    prompt-injection channel.
+  - The Markdown export header (title / generated / question labels) also
+    followed the hardcoded Korean and now follows the active locale.
+- **`/api/release-notes` served Korean notes for every locale.** It was
+  `force-static`, and Next.js prerenders such routes once while handing the
+  handler an **empty** `searchParams` — so `?locale=en` silently fell through to
+  the `ko` default and the Korean payload was baked into the build output. Now
+  `force-dynamic`, with the parse memoized per locale.
+
+### Changed
+
+- The `/api/analyze` system prompt moved out of the route into
+  `lib/analyze-prompt.ts`. Next.js type-checks `route.ts` against a fixed export
+  list, so exporting a helper from a route fails the build with
+  `Type '(value: unknown) => AnalyzeLocale' is not assignable to type 'never'`.
+  A structural test now catches that class of error as a unit failure.
+- `isModelColumn`, `prettifyModelName`, and `normalizeUserId` were promoted from
+  `/api/model-usage` into `lib/uar-s3.ts` and are shared with the new route.
+  **`Total_Messages` also ends in `_messages`**, so the suffix test must always
+  be paired with the `total_messages` exclusion; a duplicated copy is exactly how
+  that pairing drifts out of one route.
+
 ## [1.6.1] - 2026-07-29
 
 ### Fixed
@@ -440,6 +513,74 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+## [1.7.0] - 2026-07-29
+
+### 추가
+
+- **사이드바 하단의 버전 배지를 클릭하면 현재 빌드의 릴리스 노트가 열립니다.**
+  기존에는 `/changelog`로 이동하는 링크였고, 이제는 현재 버전의 섹션만 보여주는
+  다이얼로그를 여는 버튼입니다. 이전 버전은 `/changelog#v{version}`으로 딥링크되는
+  히스토리 칩으로 제공합니다. 신규 엔드포인트 `GET /api/release-notes`. Escape로
+  닫히고, 포커스는 닫기 버튼으로 이동하며, 열려 있는 동안 본문 스크롤이 잠깁니다.
+  - `CHANGELOG.md`는 읽지 않고 **import**합니다. `next.config.js`가 webpack
+    `asset/source` 규칙으로 매핑해 빌드 시점 문자열로 인라인합니다. 여기서
+    `readFileSync`를 쓰면 **모든 요청이 실패**합니다 — `output: 'standalone'`은
+    `public/`과 `.next/`만 포함하고 마크다운은 넣지 않습니다. (`/changelog`
+    페이지가 파일 읽기로 버티는 이유는 `force-static`이 빌드 시점에 실행되기
+    때문입니다.)
+  - 블록 렌더링을 `app/components/ui/ChangelogBlocks.tsx`로 분리해 `/changelog`와
+    다이얼로그가 공유합니다. 복사했다면 v1.6.1의 굵게/코드펜스/표 수정이 한쪽에서만
+    되돌아갈 수 있었습니다.
+  - 다이얼로그는 파서를 import하지 않고 HTTP로 섹션 하나만 받아옵니다. 두 언어
+    마크다운 약 50KB가 모든 페이지의 클라이언트 번들에 들어가는 것을 막습니다.
+- **사용자 상세 패널에 사용자별 AI 모델 사용 통계를 추가했습니다.** 사용자를
+  선택하면 모델 구성비를 보여줍니다 — 100% 너비 누적 바, 주 사용 모델, 사용 모델
+  수, 모델별 메시지 수와 비율, 그리고 `Client_Type`이 둘 이상일 때는 클라이언트별
+  분해까지. 신규 엔드포인트 `GET /api/user-model-usage`.
+  - Athena가 아니라 S3의 UAR CSV를 직접 읽습니다. `{model}_messages` 컬럼이
+    동적이고 OpenCSVSerDe는 위치 기반으로 매핑하기 때문입니다(ADR-0004). 패널의
+    Athena 기반 `/api/user-detail`과 **별도로** 요청하므로, S3 문제가 생겨도 카드
+    하나만 실패하고 패널 전체가 비지 않습니다.
+  - 0으로 보이는 **세 가지 상태를 구분**합니다 — S3 환경변수 미설정, 리포트에 모델
+    컬럼이 아예 없음, 사용자가 실제로 메시지를 보내지 않음. 하나의 "데이터 없음"으로
+    합치면 아무도 측정하지 않은 사실을 단정하게 됩니다.
+  - 모델 색상은 목록상의 순서가 아니라 모델 **이름**에서 파생합니다(고정 팔레트에
+    djb2 해시, `lib/model-colors.ts`). 모델 집합은 계속 늘어나므로, 인덱스 기반
+    팔레트라면 순위가 바뀔 때마다 모든 계열의 색이 바뀝니다.
+
+### 수정
+
+- **UI 언어를 영어로 바꿔도 AI 분석이 한국어로 출력되던 문제.** Bedrock 시스템
+  프롬프트에 `Use Korean for analysis reports`가 하드코딩되어 있었고, locale이
+  클라이언트를 벗어난 적이 없었습니다. LLM의 출력 언어는 `t()`로 해결할 수 없습니다
+  — `t()`는 우리가 직접 작성한 문자열만 번역합니다. 이제 locale이 클라이언트 →
+  요청 본문 → 시스템 프롬프트로 전달됩니다.
+  - 언어 규칙은 프롬프트의 **맨 마지막**에 붙입니다. 모델은 마지막 지시를 가장
+    무겁게 반영하므로, 도구 실행 결과와 컬럼 라벨이 한국어여도 영어 답변이
+    유지됩니다.
+  - locale은 리터럴 `LANGUAGE_RULE` 레코드를 **색인**하는 데만 쓰이고 프롬프트
+    텍스트에 보간되지 않습니다. 요청 본문이 프롬프트 인젝션 경로가 되지 않습니다.
+  - Markdown 내보내기 헤더(제목/생성일/질문 라벨)도 같은 방식으로 한국어가
+    고정되어 있었고, 이제 현재 언어를 따릅니다.
+- **`/api/release-notes`가 모든 언어에 한국어 노트를 반환하던 문제.**
+  `force-static`이었고, Next.js는 그런 라우트를 한 번만 프리렌더하면서 핸들러에
+  **빈** `searchParams`를 전달합니다. 그래서 `?locale=en`이 조용히 `ko` 기본값으로
+  떨어지고 한국어 응답이 빌드 산출물에 그대로 구워졌습니다. 이제 `force-dynamic`이며
+  파싱 결과를 언어별로 메모이즈합니다.
+
+### 변경
+
+- `/api/analyze`의 시스템 프롬프트를 라우트에서 `lib/analyze-prompt.ts`로
+  옮겼습니다. Next.js는 `route.ts`의 export를 정해진 목록과 대조해 타입 검사하므로,
+  라우트에서 헬퍼를 export하면
+  `Type '(value: unknown) => AnalyzeLocale' is not assignable to type 'never'`로
+  빌드가 실패합니다. 이 오류 부류를 유닛 테스트 실패로 먼저 잡도록 구조 테스트를
+  추가했습니다.
+- `isModelColumn`, `prettifyModelName`, `normalizeUserId`를 `/api/model-usage`에서
+  `lib/uar-s3.ts`로 올려 신규 라우트와 공유합니다. **`Total_Messages`도
+  `_messages`로 끝나므로** 접미사 검사에는 항상 `total_messages` 제외를 함께 써야
+  합니다. 복사본을 두는 것이 바로 그 짝이 한쪽에서만 어긋나는 경로입니다.
 
 ## [1.6.1] - 2026-07-29
 

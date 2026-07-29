@@ -31,6 +31,11 @@ app/
                         so the `!CHANGELOG.md` re-include must stay after it or the page ships empty.
                         The read is deliberately unguarded; see tests/structure/changelog-build-input.test.ts.
                         Markdown parsing lives in lib/changelog-md.ts (testable); ChangelogClient.tsx only renders.
+                        Block rendering is shared with the sidebar release-notes dialog via
+                        components/ui/ChangelogBlocks.tsx. Sections carry id="v{version}" + scroll-mt-20 so the
+                        dialog's history chips can deep-link to /changelog#v1.6.1.
+                        NOTE: /changelog reads the file at build time (force-static), but lib/release-notes.ts
+                        must IMPORT it (webpack asset/source) — it is reached at runtime, where no md exists.
 ```
 
 ## Page Conventions

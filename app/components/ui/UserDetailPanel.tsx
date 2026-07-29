@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { UserDetailResponse } from '@/app/api/user-detail/route';
+import UserModelUsage from './UserModelUsage';
 
 interface UserDetailPanelProps {
   userId: string | null;
@@ -252,6 +253,11 @@ export default function UserDetailPanel({ userId, days, onClose }: UserDetailPan
                   </div>
                 </div>
               )}
+
+              {/* Model usage — its own fetch against /api/user-model-usage
+                  (S3-direct), so an S3 failure leaves the Athena-sourced
+                  sections above intact. */}
+              <UserModelUsage userId={data.userid} days={days} />
 
               {/* Daily activity table */}
               {data.dailyActivity.length > 0 && (

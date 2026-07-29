@@ -20,7 +20,7 @@ export default function MessageList({
   exportable = false,
   compact = false,
 }: MessageListProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [exportErrorId, setExportErrorId] = useState<string | null>(null);
@@ -127,7 +127,7 @@ export default function MessageList({
               {exportable && msg.content && !streamingThis && (
                 <div className="flex gap-1.5">
                   <button
-                    onClick={() => exportMarkdown(msg.content, questionFor(idx))}
+                    onClick={() => exportMarkdown(msg.content, questionFor(idx), locale)}
                     className="px-2.5 py-1 text-xs font-medium text-slate-400 bg-gray-800/40 hover:bg-gray-700/60 hover:text-white border border-gray-800 rounded-lg transition-all duration-150"
                   >
                     {t('analyze.saveMd')}

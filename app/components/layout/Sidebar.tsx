@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import KiroLogo from './KiroLogo';
+import ReleaseNotesDialog from '@/app/components/ui/ReleaseNotesDialog';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { APP_VERSION } from '@/lib/version';
@@ -77,6 +78,7 @@ export default function Sidebar() {
   const { locale, setLocale, t } = useI18n();
   const { theme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   // Tapping a nav link changes the route — close the drawer with it.
   useEffect(() => {
@@ -213,15 +215,26 @@ export default function Sidebar() {
             EN
           </button>
         </div>
-        <Link
-          href="/changelog"
-          onClick={closeDrawer}
-          className="mt-2 block text-center text-[10px] font-medium tracking-wide text-gray-600 hover:text-[#9046FF] transition-colors"
+        {/* The version opens this build's release notes in place. It used to
+            navigate to /changelog, which loses the current page; the full
+            history is still one click away inside the dialog. */}
+        <button
+          onClick={() => setNotesOpen(true)}
+          aria-haspopup="dialog"
+          title={t('release.title')}
+          className="mt-2 w-full flex items-center justify-center gap-1 text-[10px] font-medium tracking-wide text-gray-600 hover:text-[#9046FF] transition-colors"
         >
           v{APP_VERSION}
-        </Link>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+        </button>
       </div>
       </aside>
+
+      <ReleaseNotesDialog open={notesOpen} onClose={() => setNotesOpen(false)} />
     </>
   );
 }

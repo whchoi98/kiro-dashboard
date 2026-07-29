@@ -48,6 +48,31 @@ export interface CsvRow {
   [key: string]: string;
 }
 
+/**
+ * True for a dynamic per-model message column (`{model}_messages`).
+ *
+ * `total_messages` ALSO ends in `_messages` but is the row total, so including
+ * it double-counts every message and makes one "model" outweigh all the real
+ * ones combined. This pairing is mandatory — see CLAUDE.md.
+ */
+export function isModelColumn(col: string): boolean {
+  return col.endsWith('_messages') && col !== 'total_messages';
+}
+
+/** `claude_sonnet_4_5_messages` → `Claude Sonnet 4.5`. */
+export function prettifyModelName(col: string): string {
+  return col
+    .replace(/_messages$/i, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/(\d+) (\d+)/g, '$1.$2');
+}
+
+/** Strips the IAM Identity Center prefix so ids match Athena-normalized ones. */
+export function normalizeUserId(userid: string): string {
+  return userid.replace(/^d-[a-z0-9]+\./, '');
+}
+
 export function parseCsv(text: string): CsvRow[] {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];

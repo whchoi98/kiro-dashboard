@@ -4,7 +4,7 @@
 
 Next.js App Router API route handlers. All routes connect to Athena via `lib/athena.ts` and resolve the Glue table via `lib/glue.ts`.
 
-## All 17 Endpoints
+## All 19 Endpoints
 
 | Endpoint | File | Description |
 |----------|------|-------------|
@@ -19,6 +19,8 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/idc-users` | `idc-users/route.ts` | IAM Identity Center user list via IdentityStore SDK + dormancy grading and directory→activity funnel (masked) |
 | `GET /api/user-detail` | `user-detail/route.ts` | Single-user credit/message detail from `user_report` (via `resolveTableName()`, masked) |
 | `GET /api/model-usage` | `model-usage/route.ts` | AI model message distribution — reads S3 CSV directly via `lib/uar-s3.ts` (masked) |
+| `GET /api/user-model-usage` | `user-model-usage/route.ts` | Per-user model mix for the user detail panel — S3-direct like `model-usage`; `force-dynamic`; validates `userid` against `/^[a-f0-9-]{36}$/` (400 otherwise, before any S3 call) |
+| `GET /api/release-notes` | `release-notes/route.ts` | One CHANGELOG.md section for the sidebar version badge dialog — no AWS calls; markdown is webpack-inlined at build time via `lib/release-notes.ts` |
 | `GET /api/client-dist` | `client-dist/route.ts` | Client distribution breakdown (IDE version, OS, etc.) |
 | `GET /api/subscription` | `subscription/route.ts` | Subscription tier mix + overage governance (tier trend, watchlist; masked) |
 | `GET /api/adoption` | `adoption/route.ts` | New-user inflow & activation — reads S3 CSV directly via `lib/uar-s3.ts` (header-name based `new_user` parsing; masked) |
@@ -73,7 +75,8 @@ export async function GET(req: NextRequest) {
   ```
 - `user_report` table uses `YYYY-MM-DD` date format
 - `by_user_analytic` table uses `MM-DD-YYYY` date format — cast accordingly
-- The `analyze` endpoint uses `BedrockRuntimeClient` with response streaming (ReadableStream)
+- The `analyze` endpoint uses `BedrockRuntimeClient` with response streaming (ReadableStream). Its system prompt lives in `lib/analyze-prompt.ts`, **not** in the route — Next.js type-checks `route.ts` against a fixed export list, so exporting a helper from it fails the build with `not assignable to type 'never'`. The answer language comes from the request body's `locale` (LLM output language is not `t()`); the locale only ever indexes a literal `LANGUAGE_RULE` record, never interpolates into prompt text
+- Routes whose response depends on a query param must **not** be `force-static`: Next.js prerenders them once with an EMPTY `searchParams`, silently baking the default branch into the response. `/api/release-notes` shipped Korean notes for every locale this way; it is `force-dynamic` and pinned by `tests/lib/release-notes.test.ts`
 - The `idc-users` endpoint uses `IdentityStoreClient` from `lib/identity.ts` — no Athena
 - The `model-usage` and `adoption` endpoints read S3 CSV files directly via `lib/uar-s3.ts` — dynamic model columns and the late-appended `new_user`/`user_email` columns cannot be queried safely through Glue/Athena due to OpenCSVSerDe positional mapping (header-name CSV parsing sidesteps this). The bucket is `S3_DATA_BUCKET` when set (two-bucket deployments), falling back to the bucket in `ATHENA_OUTPUT_BUCKET`. Listing is month-prefix parallel (perf: one call per day cost ~20s cross-region)
 - The `dev-activity` endpoint queries `by_user_analytic` (unqualified, MM-DD-YYYY dates) like `productivity`

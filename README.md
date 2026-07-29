@@ -175,12 +175,18 @@ Tag each image with its version as well as `latest`, so a rollback has a named
 target. Full procedure, traps, and verification steps:
 [`docs/runbooks/production-deploy.md`](docs/runbooks/production-deploy.md).
 
-**v1.5.0 → v1.6.1 is app-only** — no new dependencies, ECS environment
+**v1.5.0 → v1.7.0 is app-only** — no new dependencies, ECS environment
 variables, IAM permissions, or CloudFront behaviours. See the changelog's
 [Upgrading from 1.5.0](CHANGELOG.md#upgrading-from-150) block for the verified
-details and the two notes that matter to forks. Go to 1.6.1, not 1.6.0: 1.6.0
-built `/changelog` as an empty page because `.dockerignore` kept
-`CHANGELOG.md` out of the build context.
+details and the two notes that matter to forks. Do not stop at 1.6.0: it built
+`/changelog` as an empty page because `.dockerignore` kept `CHANGELOG.md` out
+of the build context.
+
+`CHANGELOG.md` is a **required build-context input** from 1.6.1 onward, and
+1.7.0 widens that dependency — `lib/release-notes.ts` imports it through a
+webpack `asset/source` rule, so the sidebar release-notes dialog is empty
+without it. Keep the `!CHANGELOG.md` re-include *after* the `*.md` exclusion in
+`.dockerignore` (Docker applies the last matching pattern).
 
 ## Configuration
 
@@ -248,7 +254,7 @@ detect the underlying "missing table / empty data" signal and return a
 
 ```
 app/                        Next.js App Router
-  api/                      17 API routes
+  api/                      19 API routes
     analyze/                Bedrock AI analysis (SSE streaming)
     metrics/                KPI aggregations
     users/                  User rankings with IdC details
@@ -552,12 +558,18 @@ cd infra && npx cdk diff --all
 [`docs/runbooks/production-deploy.md`](docs/runbooks/production-deploy.md)에
 있습니다.
 
-**v1.5.0 → v1.6.1은 앱 전용입니다** — 새 의존성, ECS 환경변수, IAM 권한,
+**v1.5.0 → v1.7.0은 앱 전용입니다** — 새 의존성, ECS 환경변수, IAM 권한,
 CloudFront 동작 추가가 모두 없습니다. 검증된 상세 내용과 포크에 해당되는 두 가지
 주의사항은 CHANGELOG의 [1.5.0에서 업그레이드하기](CHANGELOG.md#150에서-업그레이드하기)
-절을 참고하세요. 1.6.0이 아니라 1.6.1로 올라가세요. 1.6.0은 `.dockerignore`가
+절을 참고하세요. 1.6.0에서 멈추지 마세요. 1.6.0은 `.dockerignore`가
 `CHANGELOG.md`를 빌드 컨텍스트에서 제외해 `/changelog`가 빈 페이지로
 빌드됩니다.
+
+`CHANGELOG.md`는 1.6.1부터 **필수 빌드 컨텍스트 입력**이며, 1.7.0에서 그 의존성이
+더 넓어집니다 — `lib/release-notes.ts`가 webpack `asset/source` 규칙으로 이 파일을
+import하므로, 없으면 사이드바 릴리스 노트 다이얼로그가 비어 있게 됩니다.
+`.dockerignore`에서 `!CHANGELOG.md` 재포함은 반드시 `*.md` 제외 **뒤에** 두세요
+(Docker는 마지막으로 일치하는 패턴을 적용합니다).
 
 ## 환경 설정
 
@@ -624,7 +636,7 @@ User Activity Report CSV가 S3에 도착하기 전까지는 500 에러 페이지
 
 ```
 app/                        Next.js App Router
-  api/                      17개 API 라우트
+  api/                      19개 API 라우트
     analyze/                Bedrock AI 분석 (SSE 스트리밍)
     metrics/                KPI 집계
     users/                  IdC 정보 포함 사용자 순위

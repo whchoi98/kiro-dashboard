@@ -9,6 +9,9 @@ module.exports = {
   },
   modulePaths: ['<rootDir>/infra/node_modules'],
   transform: {
+    // Mirrors the `asset/source` rule in next.config.js so `lib/release-notes.ts`
+    // (which imports CHANGELOG.md as a string) is testable.
+    '\\.md$': '<rootDir>/tests/transform-raw.js',
     '^.+\\.ts$': ['ts-jest', {
       diagnostics: false,
       tsconfig: {

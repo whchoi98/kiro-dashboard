@@ -14,13 +14,16 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 | `mask.ts` | Data masking utilities for user identifiers |
 | `i18n.tsx` | Korean/English i18n context provider |
 | `version.ts` | Exports `APP_VERSION` from `package.json` (shown in Sidebar footer; sync enforced by `tests/structure/version-sync.test.ts`) |
-| `uar-s3.ts` | Shared UAR S3 helpers — bucket/prefix resolution, month-prefix parallel `listReportObjects(days)` (size + `lastModified`) with the `listReportFiles(days)` key-only wrapper, `readCsvFromS3`, `parseCsv`, plus the metadata helpers `parseCsvHeaders`, `countCsvRows`, `reportDateFromKey`, `clientTypeFromKey`; used by `/api/model-usage`, `/api/adoption`, and `/api/ingest-health` |
+| `uar-s3.ts` | Shared UAR S3 helpers — bucket/prefix resolution, month-prefix parallel `listReportObjects(days)` (size + `lastModified`) with the `listReportFiles(days)` key-only wrapper, `readCsvFromS3`, `parseCsv`, the metadata helpers `parseCsvHeaders`, `countCsvRows`, `reportDateFromKey`, `clientTypeFromKey`, plus the model-column helpers `isModelColumn`, `prettifyModelName`, `normalizeUserId`; used by `/api/model-usage`, `/api/user-model-usage`, `/api/adoption`, and `/api/ingest-health` |
 | `useChatStream.ts` | Client chat hook against `/api/analyze` SSE agent — 12-turn history cap, AbortController race guard, optimistic assistant message; shared by /analyze page and FloatingChat |
 | `changelog-md.ts` | Markdown subset parser for CHANGELOG.md (`parseChangelog`, `splitLocales`) — version sections, category headings, paragraphs, bullet lists, fenced code, pipe tables. Extracted from `ChangelogClient.tsx` because Jest only collects `*.test.ts`, so `.tsx` logic is untestable (same rationale as `chat-scroll.ts`). Blocks are one ordered array, NOT separate paras/items arrays — that split silently reordered interleaved content |
 | `chat-scroll.ts` | Stick-to-bottom helper for streaming chat (`isNearBottom`, `PIN_THRESHOLD_PX`) — auto-follow only while the user is pinned to the bottom; used by `ChatPanel` |
 | `theme.tsx` | `ThemeProvider` + `useTheme()` — dark/light via `light` class on `<html>` (palette override in globals.css), persisted as `localStorage['kiro-theme']`, default dark |
 | `chart-theme.ts` | `useChartTheme()` — tick/tooltip colors for Recharts props (CSS variables can't reach SVG attrs/inline styles); DARK values match the original chart hexes |
-| `export-report.ts` | Client exporters for AI answers — Markdown blob download; PDF via `html2canvas-pro` (NOT `html2canvas` — Tailwind v4 oklab/oklch colors) + `jspdf` DOM capture, dynamic imports |
+| `export-report.ts` | Client exporters for AI answers — Markdown blob download (title/date/question labels follow a `locale` param, default `'ko'`); PDF via `html2canvas-pro` (NOT `html2canvas` — Tailwind v4 oklab/oklch colors) + `jspdf` DOM capture, dynamic imports |
+| `analyze-prompt.ts` | Bedrock system prompt for `/api/analyze` — `buildSystemPrompt(locale)`, `resolveLocale`, `AnalyzeLocale`. Lives here, not in the route, because Next.js rejects non-handler exports from a `route.ts`. The language rule is appended LAST (recency) so an English answer survives Korean tool results; `locale` indexes a literal record and is never interpolated (prompt-injection guard) |
+| `release-notes.ts` | **SERVER-ONLY.** Picks one CHANGELOG.md section for the sidebar version badge dialog — `releaseSections(locale)` (memoized per locale), `currentReleaseNotes`, `findReleaseSection`, `isReleaseSection`. Imports `../CHANGELOG.md` as a webpack `asset/source` string (see `next.config.js`); must never call `readFileSync` — `output: 'standalone'` ships no markdown. Excludes `[Unreleased]`, which otherwise parses as the newest release. Importing this from a client component would inline ~50KB of both language trees into every page bundle |
+| `model-colors.ts` | `modelColor(name)` — stable series color per AI model name via djb2 hash over a 10-color palette (Kiro purple first); `Auto` is fixed to a muted gray as a router pseudo-model. Name-derived, NOT index-derived: the model set is dynamic, so an index palette would recolor every series when the ranking changed. Theme-invariant (inline styles don't participate in the light-mode palette override) |
 
 ---
 
@@ -110,6 +113,22 @@ const { t, locale } = useI18n();
 
 **Adding Translations:**
 Edit the `translations` object in `lib/i18n.tsx` to add new keys under both `ko` and `en`.
+
+---
+
+## uar-s3.ts — model column helpers
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `isModelColumn(col)` | `(string) => boolean` | `col.endsWith('_messages') && col !== 'total_messages'` |
+| `prettifyModelName(col)` | `(string) => string` | `claude_sonnet_4_5_messages` → `Claude Sonnet 4.5` |
+| `normalizeUserId(userid)` | `(string) => string` | Strips the IAM Identity Center `d-xxxx.` prefix (the JS twin of `NORMALIZE_USERID`) |
+
+**`total_messages` also ends in `_messages`.** Never test the suffix without the
+exclusion — including it double-counts every row and outweighs every real model.
+These helpers were duplicated in `/api/model-usage` and would have drifted once
+`/api/user-model-usage` copied them, so both routes import from here and
+`tests/api/user-model-usage.test.ts` fails on a local `function isModelColumn`.
 
 ---
 
