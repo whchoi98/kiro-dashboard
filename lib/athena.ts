@@ -117,8 +117,8 @@ export async function executeQueryUncached(sql: string): Promise<Record<string, 
   // byte-identical to the pre-reuse one. This is only worth anything because the
   // route SQL now interpolates explicit date literals (lib/athena-window.ts):
   // reuse matches on the query string, and the old CURRENT_DATE form re-scanned
-  // the full 100304 bytes on every run. Verify hits with DataScannedInBytes —
-  // `ResultReuseInformation` is null here even on a hit.
+  // the full 100304 bytes on every run. Verify hits with
+  // `ResultReuseInformation.ReusedPreviousResult` from GetQueryExecution.
   const reuse = resultReuseEnabled(process.env)
     ? {
         ResultReuseConfiguration: {

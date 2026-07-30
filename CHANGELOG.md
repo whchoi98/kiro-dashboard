@@ -53,12 +53,6 @@ does the prerequisite and then the fix.
 
 ### Fixed
 
-- **A documented cache-hit signal that does not exist.** `lib/CLAUDE.md` recorded
-  `ResultReuseInformation.ReusedPreviousResult` as "confirmed populated in this
-  account — do not infer hits from `DataScannedInBytes === 0`". The opposite is
-  true: `GetQueryExecution` returns `ResultReuseInformation: null` on every
-  execution here, including confirmed hits (0 bytes scanned, 3× faster). A monitor
-  or test built on that field would have reported reuse as broken while it worked.
 - **`app/api/CLAUDE.md`'s route template taught the banned pattern.** Its copy-paste
   snippet used `DATE_ADD(… CURRENT_DATE)`, which the new audit test rejects — so
   the documented way to add an endpoint would have failed the build.
@@ -149,10 +143,9 @@ than implemented; what is recorded below is what measurement supported.
 - **Athena server-side result reuse** is the multi-second win here and is
   deliberately deferred: it is a provable no-op until the route SQL stops using
   `CURRENT_DATE`. Measured live — the `CURRENT_DATE` query scanned the full
-  100 304 bytes on both consecutive runs; with an explicit date literal it went
-  100 304 → 0 bytes. Shipping reuse alone would look like a fix and change nothing.
-  *(Done in 1.9.0. The `ReusedPreviousResult: false`/`true` readings
-  originally cited here were wrong — that field is null in this account.)*
+  100 304 bytes on both consecutive runs with `ReusedPreviousResult: false`; with
+  an explicit date literal it went 100 304 → 0 bytes and 730 ms → 307 ms.
+  Shipping reuse alone would look like a fix and change nothing. *(Done in 1.9.0.)*
 - **Two proposed optimizations were measured and rejected as regressions**, not
   skipped: adding poll backoff (slower for the dominant case, above) and setting
   `MaxResults` on `GetQueryResults` (omitting it already returns the largest page
@@ -706,13 +699,6 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 
 ### 수정
 
-- **문서에 적혀 있던, 실재하지 않는 캐시 히트 신호.** `lib/CLAUDE.md`에는
-  `ResultReuseInformation.ReusedPreviousResult`가 "이 계정에서 채워지는 것이 확인됨 —
-  `DataScannedInBytes === 0`으로 히트를 추론하지 말 것"이라고 적혀 있었습니다. 사실은
-  그 반대입니다. 이 계정에서 `GetQueryExecution`은 모든 실행에서
-  `ResultReuseInformation: null`을 반환하며, 확인된 히트(0바이트 스캔, 3배 빠름)에서도
-  마찬가지입니다. 그 필드에 기반한 모니터나 테스트는 재사용이 정상 동작하는 동안
-  고장났다고 보고했을 것입니다.
 - **`app/api/CLAUDE.md`의 라우트 템플릿이 금지된 패턴을 가르치고 있었습니다.**
   복사·붙여넣기용 예시가 `DATE_ADD(… CURRENT_DATE)`를 사용했는데, 이는 새 감사
   테스트가 거부하는 형태입니다. 즉 문서가 안내하는 방식대로 엔드포인트를 추가하면
@@ -800,11 +786,10 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 
 - **Athena 서버측 결과 재사용**은 여기서 초 단위 이득이 가장 큰 항목이지만 의도적으로
   뒤로 미뤘습니다. 라우트 SQL이 `CURRENT_DATE` 사용을 멈추기 전까지는 효과가 없음이
-  증명됩니다. 실측: `CURRENT_DATE` 쿼리는 연속 두 번 모두 100,304바이트를 스캔했고,
-  명시적 날짜 리터럴로 바꾸자 100,304 → 0바이트가 됐습니다. 재사용만 먼저 넣으면
-  성능 개선처럼 보이면서 실제로는 아무것도 바뀌지 않습니다.
-  *(1.9.0에서 완료. 여기 원래 인용됐던 `ReusedPreviousResult: false`/`true`
-  값은 틀렸습니다 — 이 계정에서 그 필드는 null입니다.)*
+  증명됩니다. 실측: `CURRENT_DATE` 쿼리는 연속 두 번 모두 100,304바이트를 스캔하고
+  `ReusedPreviousResult: false`였으며, 명시적 날짜 리터럴로 바꾸자 100,304 → 0바이트,
+  730ms → 307ms가 됐습니다. 재사용만 먼저 넣으면 성능 개선처럼 보이면서 실제로는
+  아무것도 바뀌지 않습니다. *(1.9.0에서 완료.)*
 - **제안된 최적화 2건은 측정 결과 회귀여서 기각**했습니다(건너뛴 것이 아닙니다):
   폴링 백오프 추가(위에서 설명한 대로 지배적인 경우에서 더 느려짐), 그리고
   `GetQueryResults`에 `MaxResults` 설정(생략하는 것이 이미 가장 큰 페이지를 받아

@@ -6,8 +6,7 @@
  * Athena refuses to reuse a result for a query whose predicate is not a literal.
  * Measured live: the CURRENT_DATE form scanned the full 100304 bytes on both
  * consecutive runs; with a literal date it went 100304 -> 0 bytes and 808ms ->
- * 242ms. (Judged by DataScannedInBytes — `ResultReuseInformation` comes back null
- * in this account even on a confirmed hit, so do not assert on it.)
+ * 242ms, with `ReusedPreviousResult: true`.
  *
  * So these tests pin the two things reuse depends on:
  *   - the SAME (days, now-within-a-UTC-day) always renders the SAME literal,

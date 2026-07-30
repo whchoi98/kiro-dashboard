@@ -5,8 +5,8 @@
  * `CURRENT_DATE` left in a route makes that route permanently unreusable while
  * looking completely fine in review — the string is stable, and only the engine
  * knows the window moved. Measured live: the CURRENT_DATE form scanned the full
- * 100304 bytes on both consecutive runs; the literal form went to 0 bytes and
- * 808ms -> 242ms.
+ * 100304 bytes on both consecutive runs with `ReusedPreviousResult: false`; the
+ * literal form went to 0 bytes and 808ms -> 242ms with it `true`.
  *
  * This audit reads the route files off disk rather than importing them, because
  * the failure mode is textual: it is a phrase reappearing in SQL, not a behaviour

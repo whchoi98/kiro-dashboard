@@ -13,8 +13,8 @@
  * happens to precede reuse — reuse without them is a provable no-op, which is
  * exactly why lib/CLAUDE.md calls the ordering non-negotiable.
  *
- * Judge a hit by DataScannedInBytes, NOT by `ResultReuseInformation`: that field
- * comes back null from GetQueryExecution in this account even on a confirmed hit.
+ * Verify hits with `ResultReuseInformation.ReusedPreviousResult` from
+ * GetQueryExecution (populated in this account; 0 bytes scanned agrees with it).
  *
  * WHY THE MATH IS getUTC* ONLY
  * The floor has to roll on the same instant as Athena's `CURRENT_DATE` (00:00 UTC)

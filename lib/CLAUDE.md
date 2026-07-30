@@ -199,13 +199,16 @@ Use `60`, not `1440`: `/api/analyze` runs LLM-authored SQL that still resolves i
 own window, and an hour bounds how far such a result can predate the newest
 02:00 UTC report.
 
-**Correction — do NOT gate on `ReusedPreviousResult`.** `lib/CLAUDE.md` previously
-recorded that `ResultReuseInformation.ReusedPreviousResult` was "confirmed
-populated in this account". It is not: measured across every execution above,
-`GetQueryExecution` returns `ResultReuseInformation: null` even on a confirmed hit
-(0 bytes scanned, 3× faster). The observable hit signal here is the
-bytes-scanned/latency drop. A monitor or test asserting `ReusedPreviousResult ===
-true` would report reuse as broken while it is working.
+The hit signal is `ResultReuseInformation.ReusedPreviousResult` from
+`GetQueryExecution` — confirmed populated in this account, verified against the
+live v1.9.0 deploy (hits report `ReusedPreviousResult: true` alongside 0 bytes
+scanned; misses report `false` alongside 100304). `DataScannedInBytes` agrees with
+it and is the cheaper thing to eyeball, but the boolean is the authoritative field.
+
+Read it via `--query 'QueryExecution.Statistics'` and inspect the whole object.
+Projecting straight to `Statistics.ResultReuseInformation` in a nested
+`--query {...}` multi-select renders it in a way that reads as absent, which is
+easy to mistake for "the field is null in this account" — it is not.
 
 Two operational notes: announce before deploying that Athena bytes-scanned will
 drop sharply — that is a cache hit, not data loss. And ensure any S3 lifecycle
