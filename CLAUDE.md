@@ -4,7 +4,7 @@
 
 **Name**: kiro-dashboard
 **Description**: Kiro IDE 사용자 분석 대시보드 — Next.js 14 (App Router) + CloudFront/ALB/ECS Fargate + Athena/Glue/S3 + Bedrock AI 분석
-**Version**: 1.8.0
+**Version**: 1.9.0
 **Language**: Korean (primary), English (secondary)
 
 Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.js 대시보드로 시각화하며, Amazon Bedrock으로 AI 인사이트를 제공하는 풀스택 분석 플랫폼.
@@ -159,6 +159,7 @@ ATHENA_QUERY_CACHE_TTL_MS        = 60000    # result memo TTL; 0 disables
 ATHENA_QUERY_CACHE_MAX_ENTRIES   = 200      # retained entry cap
 ATHENA_QUERY_CACHE_MAX_ROWS      = 20000    # per-result cap (bounds ONE entry)
 ATHENA_QUERY_CACHE_MAX_TOTAL_ROWS= 50000    # rows across ALL entries (the real memory bound)
+ATHENA_RESULT_REUSE              = 1        # Athena server-side result reuse (60 min); 0 disables
 IDENTITY_DIRECTORY_CACHE_TTL_MS  = 3600000  # IdentityStore directory snapshot TTL
 IDENTITY_DIRECTORY_CACHE_MAX_USERS = 50000  # per-snapshot user cap
 ```
@@ -167,6 +168,14 @@ Caching is safe here for one domain reason only: Kiro reports land once daily at
 to 24h old. `/api/ingest-health` is deliberately carved out (`executeQueryUncached`)
 because it is the freshness monitor. See `lib/CLAUDE.md` → "Result caching" for the
 00:00-vs-02:00 key-boundary rule and the rejected Next-native alternatives.
+
+`ATHENA_RESULT_REUSE` is the server-side half, and it is the only one that helps a
+**cold** Fargate task (the in-process memo is per-task, so a deploy or scale-out
+pays full latency on the first click). It only works because route SQL now
+interpolates explicit date literals from `lib/athena-window.ts`: reuse matches on
+the query **string**, so a window Athena resolves itself (`CURRENT_DATE`) can never
+be reused. Never reintroduce `CURRENT_DATE`/`DATE_ADD` into a route —
+`tests/api/date-literal-audit.test.ts` fails the build if you do.
 
 For local development, copy `.env.example` to `.env.local` and fill in values.
 

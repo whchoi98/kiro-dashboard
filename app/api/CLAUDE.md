@@ -47,9 +47,13 @@ export async function GET(req: NextRequest) {
 
     const tableName = await resolveTableName();  // from lib/glue.ts
 
+    // Resolve the window HERE, not in Athena. Result reuse matches on the query
+    // string, so an engine-resolved window is permanently unreusable.
+    const isoFloor = isoDateLiteral(days, Date.now());  // from lib/athena-window.ts
+
     const sql = `
       SELECT ... FROM "${tableName}"
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= ${isoFloor}
     `;
 
     const rows = await executeQuery(sql);         // from lib/athena.ts
@@ -75,6 +79,17 @@ export async function GET(req: NextRequest) {
   ```
 - `user_report` table uses `YYYY-MM-DD` date format
 - `by_user_analytic` table uses `MM-DD-YYYY` date format — cast accordingly
+- **No route may resolve its own date window.** Import from `@/lib/athena-window`:
+  `isoDateLiteral` for `user_report` (`'YYYY-MM-DD'`, a quoted string, because that
+  column is string-compared) and `buaDateLiteral` for `by_user_analytic` (`DATE
+  'YYYY-MM-DD'`, because `DATE_PARSE(date, '%m-%d-%Y')` yields a timestamp and
+  comparing it to a quoted string is a type error). `CURRENT_DATE`/`DATE_ADD` in a
+  route silently disables Athena result reuse for that route, so
+  `tests/api/date-literal-audit.test.ts` bans both phrases across every
+  `app/api/**/route.ts` (`/api/analyze` exempt — the model writes that SQL at
+  runtime). When one handler builds two adjacent windows, read the clock **once**
+  and derive both floors from it, as `metrics/route.ts` does; two reads can straddle
+  00:00 UTC and leave a one-day hole between the periods
 - The `analyze` endpoint uses `BedrockRuntimeClient` with response streaming (ReadableStream). Its system prompt lives in `lib/analyze-prompt.ts`, **not** in the route — Next.js type-checks `route.ts` against a fixed export list, so exporting a helper from it fails the build with `not assignable to type 'never'`. The answer language comes from the request body's `locale` (LLM output language is not `t()`); the locale only ever indexes a literal `LANGUAGE_RULE` record, never interpolates into prompt text
 - Routes whose response depends on a query param must **not** be `force-static`: Next.js prerenders them once with an EMPTY `searchParams`, silently baking the default branch into the response. `/api/release-notes` shipped Korean notes for every locale this way; it is `force-dynamic` and pinned by `tests/lib/release-notes.test.ts`
 - The `idc-users` endpoint uses `IdentityStoreClient` from `lib/identity.ts` — no Athena

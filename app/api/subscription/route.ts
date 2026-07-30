@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
+import { isoDateLiteral } from '@/lib/athena-window';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
 import { SubscriptionData, OverageUser, TierSlice } from '@/types/dashboard';
@@ -23,11 +24,15 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const days = Math.max(1, Math.ceil(parseFloat(searchParams.get('days') ?? '90')));
+    // Literal window floor, resolved here rather than by Athena's CURRENT_DATE:
+    // result reuse matches on the query string, so an engine-resolved window can
+    // never be reused. See lib/athena-window.ts.
+    const isoFloor = isoDateLiteral(days, Date.now());
 
     const tableName = await resolveTableName();
 
     // user_report dates are YYYY-MM-DD strings — lexicographic compare works
-    const dateFilter = `date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')`;
+    const dateFilter = `date >= ${isoFloor}`;
 
     const tiersSql = `
       SELECT

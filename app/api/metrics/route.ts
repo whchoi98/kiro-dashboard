@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
+import { isoDateLiteral } from '@/lib/athena-window';
 import { OverviewMetrics } from '@/types/dashboard';
 
 export async function GET(req: NextRequest) {
@@ -10,6 +11,13 @@ export async function GET(req: NextRequest) {
 
     const tableName = await resolveTableName();
 
+    // One clock read for both windows: the previous period's upper bound is the
+    // current period's floor, so reading the clock twice could straddle 00:00 UTC
+    // and leave a one-day hole (or overlap) between them.
+    const now = Date.now();
+    const currentFloor = isoDateLiteral(days, now);
+    const previousFloor = isoDateLiteral(days * 2, now);
+
     const currentPeriodSql = `
       SELECT
         COUNT(DISTINCT ${NORMALIZE_USERID}) AS total_users,
@@ -18,7 +26,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits,
         SUM(CAST(overage_credits_used AS DOUBLE)) AS total_overage_credits
       FROM "${tableName}"
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= ${currentFloor}
     `;
 
     const previousPeriodSql = `
@@ -29,8 +37,8 @@ export async function GET(req: NextRequest) {
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits,
         SUM(CAST(overage_credits_used AS DOUBLE)) AS total_overage_credits
       FROM "${tableName}"
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days * 2}, CURRENT_DATE), '%Y-%m-%d')
-        AND date < DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= ${previousFloor}
+        AND date < ${currentFloor}
     `;
 
     const [currentRows, previousRows] = await Promise.all([

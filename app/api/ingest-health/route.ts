@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQueryUncached, safeInt, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
+import { isoDateLiteral, buaDateLiteral } from '@/lib/athena-window';
 import {
   isUarConfigured,
   listReportObjects,
@@ -95,6 +96,14 @@ function lagInDays(reportDate: string): number | null {
 
 /** Athena row count + legacy instrumentation, or nulls if the tables are absent. */
 async function readAthenaSide(days: number) {
+// Literal window floors, resolved here rather than by Athena's CURRENT_DATE:
+// result reuse matches on the query string, so an engine-resolved window can
+// never be reused. `by_user_analytic` is MM-DD-YYYY and read through
+// DATE_PARSE, which yields a timestamp — so that side needs a DATE literal,
+// not a quoted string. See lib/athena-window.ts.
+const now = Date.now();
+const isoFloor = isoDateLiteral(days, now);
+const buaFloor = buaDateLiteral(days, now);
   const result: {
     athenaRows: number | null;
     legacyAvailable: boolean;
@@ -107,7 +116,7 @@ async function readAthenaSide(days: number) {
     const rows = await executeQueryUncached(`
       SELECT COUNT(*) AS row_count
       FROM "${tableName}"
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= ${isoFloor}
     `);
     result.athenaRows = safeInt(rows[0]?.row_count);
   } catch (err) {
@@ -127,7 +136,7 @@ async function readAthenaSide(days: number) {
         COUNT(*) AS total_rows,
         ${countExprs}
       FROM by_user_analytic
-      WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
+      WHERE DATE_PARSE(date, '%m-%d-%Y') >= ${buaFloor}
     `);
     const row = rows[0] ?? {};
     result.legacyAvailable = true;

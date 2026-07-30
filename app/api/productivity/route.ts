@@ -7,6 +7,7 @@ import {
   isMissingTableError,
 } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
+import { isoDateLiteral, buaDateLiteral } from '@/lib/athena-window';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
 import { CreditEfficiency } from '@/types/dashboard';
@@ -52,6 +53,12 @@ function unavailableCreditEfficiency(): CreditEfficiency {
  * instead of emptying the whole legacy-metrics payload.
  */
 async function readCreditEfficiency(days: number): Promise<CreditEfficiency> {
+// Literal window floors, resolved here rather than by Athena's CURRENT_DATE:
+// result reuse matches on the query string, so an engine-resolved window can
+// never be reused. `by_user_analytic` is MM-DD-YYYY and read through
+// DATE_PARSE, which yields a timestamp — so that side needs a DATE literal,
+// not a quoted string. See lib/athena-window.ts.
+const isoFloor = isoDateLiteral(days, Date.now());
   try {
     const tableName = await resolveTableName();
     // by_user_analytic stores MM-DD-YYYY, so it is normalised to ISO before
@@ -69,7 +76,7 @@ async function readCreditEfficiency(days: number): Promise<CreditEfficiency> {
             (SELECT MAX(date) FROM "${tableName}") AS ur_max,
             (SELECT MIN(${BUA_ISO_DATE}) FROM by_user_analytic) AS bua_min,
             (SELECT MAX(${BUA_ISO_DATE}) FROM by_user_analytic) AS bua_max,
-            DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d') AS window_floor
+            ${isoFloor} AS window_floor
         )
       )
       SELECT
@@ -126,6 +133,12 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const days = parseInt(searchParams.get('days') ?? '90', 10);
+    // Literal window floors, resolved here rather than by Athena's CURRENT_DATE:
+    // result reuse matches on the query string, so an engine-resolved window can
+    // never be reused. `by_user_analytic` is MM-DD-YYYY and read through
+    // DATE_PARSE, which yields a timestamp — so that side needs a DATE literal,
+    // not a quoted string. See lib/athena-window.ts.
+    const buaFloor = buaDateLiteral(days, Date.now());
 
     const summarySql = `
       SELECT
@@ -149,7 +162,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(testgeneration_acceptedtests AS INTEGER)) AS tests_accepted,
         SUM(CAST(docgeneration_eventcount AS INTEGER)) AS doc_events
       FROM by_user_analytic
-      WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
+      WHERE DATE_PARSE(date, '%m-%d-%Y') >= ${buaFloor}
     `;
 
     const topUsersSql = `
@@ -162,7 +175,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(inlinechat_acceptanceeventcount AS INTEGER)) AS inline_chat_accepts,
         SUM(CAST(dev_acceptedlines AS INTEGER)) AS dev_accepted_lines
       FROM by_user_analytic
-      WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
+      WHERE DATE_PARSE(date, '%m-%d-%Y') >= ${buaFloor}
       GROUP BY ${NORMALIZE_USERID}
       ORDER BY ai_code_lines DESC
       LIMIT 20
@@ -176,7 +189,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(chat_messagessent AS INTEGER)) AS chat_messages,
         COUNT(DISTINCT ${NORMALIZE_USERID}) AS active_users
       FROM by_user_analytic
-      WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
+      WHERE DATE_PARSE(date, '%m-%d-%Y') >= ${buaFloor}
       GROUP BY date
       ORDER BY date
     `;

@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
+import { isoDateLiteral } from '@/lib/athena-window';
 import { DailyTrend } from '@/types/dashboard';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const days = Math.max(1, Math.ceil(parseFloat(searchParams.get('days') ?? '90')));
+    // Literal window floor, resolved here rather than by Athena's CURRENT_DATE:
+    // result reuse matches on the query string, so an engine-resolved window can
+    // never be reused. See lib/athena-window.ts.
+    const isoFloor = isoDateLiteral(days, Date.now());
 
     const tableName = await resolveTableName();
 
@@ -18,7 +23,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(credits_used AS DOUBLE)) AS credits,
         COUNT(DISTINCT ${NORMALIZE_USERID}) AS active_users
       FROM "${tableName}"
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= ${isoFloor}
       GROUP BY date
       ORDER BY date ASC
     `;

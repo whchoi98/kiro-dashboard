@@ -8,6 +8,7 @@ import {
   isMissingTableError,
 } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
+import { isoDateLiteral } from '@/lib/athena-window';
 import { maskText, maskEmail } from '@/lib/mask';
 import { DormancyBucket, DormancySummary, FunnelStep } from '@/types/dashboard';
 
@@ -132,10 +133,15 @@ interface UserStats {
 async function fetchActiveUserStats(days: number): Promise<Map<string, UserStats>> {
   const tableName = await resolveTableName();
 
+  // Literal window floor, resolved here rather than by Athena's CURRENT_DATE:
+  // result reuse matches on the query string, so an engine-resolved window can
+  // never be reused. See lib/athena-window.ts.
+  const isoFloor = isoDateLiteral(days, Date.now());
+
   const sql = `
     SELECT ${NORMALIZE_USERID} AS userid, SUM(CAST(total_messages AS INTEGER)) AS total_messages, SUM(CAST(credits_used AS DOUBLE)) AS total_credits, MAX(date) AS last_active, COUNT(DISTINCT date) AS active_days
     FROM "${tableName}"
-    WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+    WHERE date >= ${isoFloor}
     GROUP BY ${NORMALIZE_USERID}
   `;
 

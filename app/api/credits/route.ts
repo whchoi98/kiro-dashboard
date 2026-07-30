@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeFloat, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
+import { isoDateLiteral } from '@/lib/athena-window';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
 import { CreditAnalysis } from '@/types/dashboard';
@@ -9,6 +10,10 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const days = Math.max(1, Math.ceil(parseFloat(searchParams.get('days') ?? '90')));
+    // Literal window floor, resolved here rather than by Athena's CURRENT_DATE:
+    // result reuse matches on the query string, so an engine-resolved window can
+    // never be reused. See lib/athena-window.ts.
+    const isoFloor = isoDateLiteral(days, Date.now());
 
     const tableName = await resolveTableName();
 
@@ -18,7 +23,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits,
         SUM(CAST(overage_credits_used AS DOUBLE)) AS overage_credits
       FROM "${tableName}"
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= ${isoFloor}
       GROUP BY ${NORMALIZE_USERID}
       ORDER BY total_credits DESC
       LIMIT 15
@@ -29,7 +34,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(credits_used AS DOUBLE)) AS base_credits,
         SUM(CAST(overage_credits_used AS DOUBLE)) AS overage_credits
       FROM "${tableName}"
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= ${isoFloor}
     `;
 
     const byTierSql = `
@@ -38,7 +43,7 @@ export async function GET(req: NextRequest) {
         COUNT(DISTINCT ${NORMALIZE_USERID}) AS user_count,
         SUM(CAST(credits_used AS DOUBLE)) AS total_credits
       FROM "${tableName}"
-      WHERE date >= DATE_FORMAT(DATE_ADD('day', -${days}, CURRENT_DATE), '%Y-%m-%d')
+      WHERE date >= ${isoFloor}
       GROUP BY subscription_tier
       ORDER BY total_credits DESC
     `;

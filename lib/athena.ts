@@ -6,6 +6,7 @@ import {
   QueryExecutionState,
 } from '@aws-sdk/client-athena';
 import { TtlMemo, queryCacheKey, readIntEnv } from './query-cache';
+import { RESULT_REUSE_MAX_AGE_MINUTES, resultReuseEnabled } from './athena-window';
 
 const client = new AthenaClient({
   region: process.env.AWS_REGION ?? 'us-east-1',
@@ -106,6 +107,29 @@ export async function executeQueryUncached(sql: string): Promise<Record<string, 
   const database = process.env.ATHENA_DATABASE;
   const outputBucket = process.env.ATHENA_OUTPUT_BUCKET;
 
+  // Reuse is spread across every Fargate task, which is precisely what the
+  // in-process memo above cannot do: a cold task (fresh deploy, scale-out) pays
+  // full Athena latency on its first click — measured 1.6-3.5s per route, and
+  // `SELECT 1` alone costs 2.6s here, so that is fixed engine overhead rather
+  // than anything query tuning can reach.
+  //
+  // Spread in only when enabled, so the kill switch leaves the request
+  // byte-identical to the pre-reuse one. This is only worth anything because the
+  // route SQL now interpolates explicit date literals (lib/athena-window.ts):
+  // reuse matches on the query string, and the old CURRENT_DATE form re-scanned
+  // the full 100304 bytes on every run. Verify hits with DataScannedInBytes —
+  // `ResultReuseInformation` is null here even on a hit.
+  const reuse = resultReuseEnabled(process.env)
+    ? {
+        ResultReuseConfiguration: {
+          ResultReuseByAgeConfiguration: {
+            Enabled: true,
+            MaxAgeInMinutes: RESULT_REUSE_MAX_AGE_MINUTES,
+          },
+        },
+      }
+    : {};
+
   const startResponse = await client.send(
     new StartQueryExecutionCommand({
       QueryString: sql,
@@ -115,6 +139,7 @@ export async function executeQueryUncached(sql: string): Promise<Record<string, 
       ResultConfiguration: {
         OutputLocation: outputBucket,
       },
+      ...reuse,
     })
   );
 

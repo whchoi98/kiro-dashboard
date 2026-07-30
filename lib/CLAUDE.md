@@ -24,6 +24,7 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 | `export-report.ts` | Client exporters for AI answers — Markdown blob download (title/date/question labels follow a `locale` param, default `'ko'`); PDF via `html2canvas-pro` (NOT `html2canvas` — Tailwind v4 oklab/oklch colors) + `jspdf` DOM capture, dynamic imports |
 | `analyze-prompt.ts` | Bedrock system prompt for `/api/analyze` — `buildSystemPrompt(locale)`, `resolveLocale`, `AnalyzeLocale`. Lives here, not in the route, because Next.js rejects non-handler exports from a `route.ts`. The language rule is appended LAST (recency) so an English answer survives Korean tool results; `locale` indexes a literal record and is never interpolated (prompt-injection guard) |
 | `release-notes.ts` | **SERVER-ONLY.** Picks one CHANGELOG.md section for the sidebar version badge dialog — `releaseSections(locale)` (memoized per locale), `currentReleaseNotes`, `findReleaseSection`, `isReleaseSection`. Imports `../CHANGELOG.md` as a webpack `asset/source` string (see `next.config.js`); must never call `readFileSync` — `output: 'standalone'` ships no markdown. Excludes `[Unreleased]`, which otherwise parses as the newest release. Importing this from a client component would inline ~50KB of both language trees into every page bundle |
+| `athena-window.ts` | Explicit SQL date-window literals + result-reuse knobs — `windowFloor(days, nowMs)`, `isoDateLiteral` (quoted, for `user_report.date` string compares), `buaDateLiteral` (`DATE '…'`, for `DATE_PARSE(by_user_analytic.date)` timestamp compares), `RESULT_REUSE_MAX_AGE_MINUTES`, `resultReuseEnabled(env)`. Pure and clock-injected so the 00:00 UTC boundary is testable; `getUTC*` math only. Throws on a non-integer/negative `days` rather than interpolating `NaN` into a WHERE clause (a silently empty dashboard). Every Athena route imports from here — pinned by `tests/api/date-literal-audit.test.ts` |
 | `nav-state.ts` | Sidebar nav-item state machine — `navItemState`, `nextPendingHref`, `navItemClassName`, `isNavigatingClick`, `NavItemState`, `NavClickModifiers`, `PENDING_NAV_TIMEOUT_MS`. Exists because `usePathname()` only updates when a transition COMMITS, so clicking the slow `/` route changed nothing on screen and the click looked ignored ("멈칫"). `active` beats `pending` so a stale pending href can't keep pulsing a committed route; `nextPendingHref` returns `null` for a re-tap of the current route (no transition ⇒ nothing would ever clear it). The pending purple is **opaque** — see the contrast note below. Pure/here, not in `Sidebar.tsx`, because Jest only collects `*.test.ts` |
 | `skeleton-layout.ts` | Loading-skeleton block shapes + policy — `skeletonLayout(variant)`, `showSkeleton(loading, hasData)`, `dimWhileRefetching`, `pageBodyOpacityClass`, `SKELETON_VARIANTS`, `SkeletonBlock`, `SkeletonVariant`. Variants are coarse *silhouettes* (`overview`/`chart`/`split`/`ranked`/`table`) so a new page reuses one instead of growing a bespoke shape. `showSkeleton` is false when `hasData` — a `days` change must not blank settled numbers — and `dimWhileRefetching` is its exact complement, so the two are never on together. Rendered by `app/components/ui/PageSkeleton.tsx` |
 | `model-colors.ts` | `modelColor(name)` — stable series color per AI model name via djb2 hash over a 10-color palette (Kiro purple first); `Auto` is fixed to a muted gray as a router pseudo-model. Name-derived, NOT index-derived: the model set is dynamic, so an index palette would recolor every series when the ranking changed. Theme-invariant (inline styles don't participate in the light-mode palette override) |
@@ -53,6 +54,8 @@ AWS SDK v3 클라이언트 및 공유 유틸리티. API 라우트에서 직접 �
 - `ATHENA_QUERY_CACHE_TTL_MS` — result memo TTL (default `60000`; `0` disables)
 - `ATHENA_QUERY_CACHE_MAX_ENTRIES` — retained entry cap (default `200`)
 - `ATHENA_QUERY_CACHE_MAX_ROWS` — per-result retention cap (default `20000`)
+- `ATHENA_QUERY_CACHE_MAX_TOTAL_ROWS` — rows across ALL entries; the real memory bound (default `50000`)
+- `ATHENA_RESULT_REUSE` — server-side result reuse, 60 min (default on; `0` disables)
 
 **Polling:** `executeQuery` polls until `SUCCEEDED`, `FAILED`, or `CANCELLED`,
 sleeping `pollDelayMs(attempt)` **between** checks — `150ms → 300ms → 500ms, then
@@ -66,8 +69,11 @@ this helps only queries completing inside the first ~450ms and does nothing for
 the 1-3s engine-planning case (which still lands in the 500ms cap). Worth
 ~50-350ms on fast queries for +2 `GetQueryExecution` calls per long query. An
 interval small enough to cut the 1-3s case would roughly double API call volume
-against an account-shared Athena rate limit — do that only after result reuse
-lands and shortens poll lifetimes. Pinned by `tests/lib/athena-poll.test.ts`
+against an account-shared Athena rate limit. Result reuse has since landed and cut
+reused queries to ~240-380ms, which moves them INTO the range the ramp helps —
+that is the intended sequencing, and it also weakens the case for a smaller
+interval, because the remaining slow queries are the genuine cache misses.
+Pinned by `tests/lib/athena-poll.test.ts`
 (schedule) and `tests/lib/athena-poll-loop.test.ts` (loop wiring: first check at
 t+0, FAILED/CANCELLED throw without sleeping, no `MaxResults`).
 
@@ -158,34 +164,58 @@ already up to 24h old — caching costs no correctness here.
   result. `lib/identity.ts` needs no total budget because its key space is
   identity store ids (4 × 50k users is a real ceiling, not an open one).
 
-### Not yet done: Athena result reuse (requires date literals FIRST)
+### Athena result reuse (shipped — date literals landed first)
 
 The server-side complement to this memo is `ResultReuseConfiguration` on
-`StartQueryExecutionCommand`, which is shared across all Fargate tasks in a way a
-per-task memo structurally cannot be. It is **not implemented**, and the ordering
-is non-negotiable:
+`StartQueryExecutionCommand`. It is shared across **all** Fargate tasks in a way a
+per-task memo structurally cannot be, which is what makes it the fix for the case
+the memo explicitly does not cover: a cold task (fresh deploy, scale-out) paying
+full Athena latency on its first click.
 
-1. First replace `DATE_ADD('day', -${days}, CURRENT_DATE)` in the route SQL with
-   an explicit interpolated `YYYY-MM-DD` literal (a pure `lib/athena-window.ts`
-   helper, computed with `getUTC*` math only). Mind the two date formats:
-   `user_report` is `YYYY-MM-DD` string-compared, `by_user_analytic` is
-   `MM-DD-YYYY` via `DATE_PARSE(date, '%m-%d-%Y')` and so needs a `DATE '...'`
-   right-hand side.
-2. Only then add `ResultReuseByAgeConfiguration` with `MaxAgeInMinutes: 60`
-   (behind an `ATHENA_RESULT_REUSE` kill switch).
+Both halves are in place, in the order that was non-negotiable:
 
-**Reuse without the literals is a provable no-op** — measured live, the
-`CURRENT_DATE` query scanned the full 100304 bytes on both consecutive runs with
-`ReusedPreviousResult: false`; with a literal date it went 100304 → 0 bytes and
-730ms → 307ms with `ReusedPreviousResult: true`. Shipping 5d alone would look
-like a perf fix and change nothing. Use `60`, not `1440`: any residual
-`CURRENT_DATE` could otherwise serve a window predating the newest 02:00 UTC
-report. The hit signal is `ResultReuseInformation.ReusedPreviousResult` from
-`GetQueryExecution` (confirmed populated in this account — do not infer hits from
-`DataScannedInBytes === 0`). Announce before deploying that Athena bytes-scanned
-will drop sharply; that is a cache hit, not data loss. Also ensure any S3
-lifecycle rule on the `athena-results/` prefix expires no sooner than
-`MaxAgeInMinutes`, or reuse silently degrades with no error.
+1. Route SQL interpolates explicit date literals from `lib/athena-window.ts` —
+   `isoDateLiteral` for `user_report` (`YYYY-MM-DD`, string-compared) and
+   `buaDateLiteral` for `by_user_analytic` (`MM-DD-YYYY` read via
+   `DATE_PARSE(date, '%m-%d-%Y')`, so the right-hand side must be `DATE '…'`, not
+   a quoted string — comparing a timestamp to a string is an Athena type error).
+2. `executeQueryUncached` then sends `ResultReuseByAgeConfiguration` with
+   `MaxAgeInMinutes: 60`, spread in only when `ATHENA_RESULT_REUSE !== '0'` so the
+   kill switch leaves the request byte-identical to the pre-reuse one.
+
+**Reuse without the literals is a provable no-op**, which is why the ordering
+mattered. Measured live in this account, same SQL, reuse flag the only variable:
+
+| Request | DataScanned | Execution |
+|---------|-------------|-----------|
+| literal window, no reuse flag | 100304 B | 808 ms |
+| literal window, reuse flag | **0 B** | **242 ms** |
+| literal window, reuse flag (again) | 0 B | 384 ms |
+
+End to end through the app with the memo disabled (`ATHENA_QUERY_CACHE_TTL_MS=0`,
+so every call is a real round trip), `/api/metrics?days=90` went 2.17s → 1.07s.
+
+Use `60`, not `1440`: `/api/analyze` runs LLM-authored SQL that still resolves its
+own window, and an hour bounds how far such a result can predate the newest
+02:00 UTC report.
+
+**Correction — do NOT gate on `ReusedPreviousResult`.** `lib/CLAUDE.md` previously
+recorded that `ResultReuseInformation.ReusedPreviousResult` was "confirmed
+populated in this account". It is not: measured across every execution above,
+`GetQueryExecution` returns `ResultReuseInformation: null` even on a confirmed hit
+(0 bytes scanned, 3× faster). The observable hit signal here is the
+bytes-scanned/latency drop. A monitor or test asserting `ReusedPreviousResult ===
+true` would report reuse as broken while it is working.
+
+Two operational notes: announce before deploying that Athena bytes-scanned will
+drop sharply — that is a cache hit, not data loss. And ensure any S3 lifecycle
+rule on the `athena-results/` prefix expires no sooner than `MaxAgeInMinutes`, or
+reuse silently degrades with no error.
+
+`/api/ingest-health` uses `executeQueryUncached`, so reuse never applies to the
+freshness monitor — but its SQL carries literals too, because
+`tests/api/date-literal-audit.test.ts` holds every route to the rule (a route that
+keeps `CURRENT_DATE` is permanently unreusable while looking fine in review).
 
 ---
 

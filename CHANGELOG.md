@@ -13,6 +13,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-30
+
+Finishes the menu-latency work 1.8.0 started. 1.8.0 fixed the missing *feedback*
+(the click now highlights in 38 ms) but explicitly did not shorten the wait, and
+recorded the reason: the real fix was blocked behind a prerequisite. This release
+does the prerequisite and then the fix.
+
+### Added
+
+- **Athena server-side result reuse** — the item 1.8.0 recorded as deliberately
+  deferred. This is the piece that helps a **cold** Fargate task: 1.8.0's memo is
+  per-task, so the first click after a deploy or scale-out still paid full Athena
+  latency. Reuse is shared across tasks.
+  - Landed in the order 1.8.0 called non-negotiable, because reuse before literals
+    is a no-op. **Step 1:** every Athena route now interpolates an explicit date
+    literal from the new `lib/athena-window.ts` (`isoDateLiteral` for
+    `user_report`'s string-compared `YYYY-MM-DD`; `buaDateLiteral` for
+    `by_user_analytic`, where `DATE_PARSE` yields a timestamp and so needs `DATE
+    '…'`). 14 route files. **Step 2:** `ResultReuseByAgeConfiguration` with
+    `MaxAgeInMinutes: 60`, behind `ATHENA_RESULT_REUSE` (`0` disables).
+  - Measured live on identical SQL with the memo disabled, reuse flag the only
+    variable: **100 304 bytes / 808 ms → 0 bytes / 242 ms**, then 0 bytes / 384 ms.
+    End to end, `/api/metrics?days=90` went **2.17 s → 1.07 s**.
+  - `MaxAgeInMinutes` is 60, not 1440: `/api/analyze` runs LLM-authored SQL that
+    still resolves its own window, and an hour bounds how far such a result can
+    predate the newest 02:00 UTC report.
+  - The window math is `getUTC*` only and takes `nowMs` as a parameter, so the
+    00:00 UTC boundary is testable without fake timers — and it rolls on the same
+    instant as Athena's `CURRENT_DATE` and as the memo's `utcDayStamp`. A handler
+    building two adjacent windows reads the clock **once** (`metrics/route.ts`);
+    two reads could straddle midnight and leave a one-day hole between periods.
+  - The kill switch **omits** the config key rather than sending `Enabled: false`,
+    so a rollback is byte-identical to the pre-reuse request.
+  - `tests/api/date-literal-audit.test.ts` reads every `app/api/**/route.ts` off
+    disk and fails on `CURRENT_DATE` or `DATE_ADD` (`/api/analyze` exempt). The
+    failure mode is textual and invisible to a functional test: the query string
+    stays stable, only the engine knows the window moved.
+
+### Fixed
+
+- **A documented cache-hit signal that does not exist.** `lib/CLAUDE.md` recorded
+  `ResultReuseInformation.ReusedPreviousResult` as "confirmed populated in this
+  account — do not infer hits from `DataScannedInBytes === 0`". The opposite is
+  true: `GetQueryExecution` returns `ResultReuseInformation: null` on every
+  execution here, including confirmed hits (0 bytes scanned, 3× faster). A monitor
+  or test built on that field would have reported reuse as broken while it worked.
+- **`app/api/CLAUDE.md`'s route template taught the banned pattern.** Its copy-paste
+  snippet used `DATE_ADD(… CURRENT_DATE)`, which the new audit test rejects — so
+  the documented way to add an endpoint would have failed the build.
+
 ## [1.8.0] - 2026-07-29
 
 Menu-transition latency work. The user-visible complaint was that clicking a
@@ -99,9 +149,10 @@ than implemented; what is recorded below is what measurement supported.
 - **Athena server-side result reuse** is the multi-second win here and is
   deliberately deferred: it is a provable no-op until the route SQL stops using
   `CURRENT_DATE`. Measured live — the `CURRENT_DATE` query scanned the full
-  100 304 bytes on both consecutive runs with `ReusedPreviousResult: false`; with
-  an explicit date literal it went 100 304 → 0 bytes and 730 ms → 307 ms.
-  Shipping reuse alone would look like a fix and change nothing.
+  100 304 bytes on both consecutive runs; with an explicit date literal it went
+  100 304 → 0 bytes. Shipping reuse alone would look like a fix and change nothing.
+  *(Done in 1.9.0. The `ReusedPreviousResult: false`/`true` readings
+  originally cited here were wrong — that field is null in this account.)*
 - **Two proposed optimizations were measured and rejected as regressions**, not
   skipped: adding poll backoff (slower for the dominant case, above) and setting
   `MaxResults` on `GetQueryResults` (omitting it already returns the largest page
@@ -615,6 +666,58 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-30
+
+1.8.0에서 시작한 메뉴 지연 개선 작업을 마무리합니다. 1.8.0은 없던 *피드백*을
+고쳤지만(클릭 후 38ms에 강조 표시), 대기 시간 자체는 줄이지 않았고 그 이유를 함께
+기록해 뒀습니다. 진짜 해결책이 선행 조건에 막혀 있었기 때문입니다. 이번 릴리스는 그
+선행 조건을 처리한 뒤 해결책을 넣습니다.
+
+### 추가
+
+- **Athena 서버측 결과 재사용** — 1.8.0에서 "의도적으로 미룸"으로 기록했던 항목입니다.
+  이것이 **차가운** Fargate 태스크를 돕는 유일한 수단입니다. 1.8.0의 메모는 태스크별이라
+  배포나 스케일아웃 직후 첫 클릭은 여전히 Athena 지연을 온전히 지불했습니다. 재사용은
+  모든 태스크가 공유합니다.
+  - 1.8.0이 "타협 불가"라고 못박은 순서대로 넣었습니다. 리터럴 없이 재사용부터 켜면
+    효과가 없기 때문입니다. **1단계:** 모든 Athena 라우트가 새 `lib/athena-window.ts`의
+    명시적 날짜 리터럴을 보간합니다(`user_report`의 문자열 비교 `YYYY-MM-DD`에는
+    `isoDateLiteral`, `DATE_PARSE`가 타임스탬프를 반환하므로 `DATE '…'`가 필요한
+    `by_user_analytic`에는 `buaDateLiteral`). 라우트 파일 14개. **2단계:**
+    `MaxAgeInMinutes: 60`인 `ResultReuseByAgeConfiguration`, 킬 스위치는
+    `ATHENA_RESULT_REUSE`(`0`이면 비활성).
+  - 메모를 끈 상태에서 동일한 SQL로 재사용 플래그만 바꿔 실측: **100,304바이트 /
+    808ms → 0바이트 / 242ms**, 이어서 0바이트 / 384ms. 종단 간으로
+    `/api/metrics?days=90`이 **2.17초 → 1.07초**가 됐습니다.
+  - `MaxAgeInMinutes`는 1440이 아니라 60입니다. `/api/analyze`는 LLM이 작성한 SQL이
+    자체적으로 기간을 계산하므로, 1시간이면 그런 결과가 최신 02:00 UTC 리포트보다
+    앞설 수 있는 범위를 제한합니다.
+  - 날짜 계산은 `getUTC*`만 사용하고 `nowMs`를 인자로 받으므로, fake timer 없이
+    00:00 UTC 경계를 테스트할 수 있습니다. 또한 Athena의 `CURRENT_DATE`, 메모의
+    `utcDayStamp`와 같은 순간에 넘어갑니다. 인접한 두 기간을 만드는 핸들러는 시계를
+    **한 번만** 읽습니다(`metrics/route.ts`). 두 번 읽으면 자정을 걸쳐 두 기간 사이에
+    하루 구멍이 생길 수 있습니다.
+  - 킬 스위치는 `Enabled: false`를 보내는 것이 아니라 설정 키 자체를 **생략**하므로,
+    롤백 시 요청이 재사용 도입 이전과 바이트 단위로 동일합니다.
+  - `tests/api/date-literal-audit.test.ts`가 모든 `app/api/**/route.ts`를 디스크에서
+    읽어 `CURRENT_DATE`나 `DATE_ADD`가 있으면 실패합니다(`/api/analyze`는 예외).
+    이 실패 양상은 텍스트적이어서 기능 테스트로는 보이지 않습니다 — 쿼리 문자열은
+    그대로이고, 기간이 움직였다는 사실은 엔진만 알기 때문입니다.
+
+### 수정
+
+- **문서에 적혀 있던, 실재하지 않는 캐시 히트 신호.** `lib/CLAUDE.md`에는
+  `ResultReuseInformation.ReusedPreviousResult`가 "이 계정에서 채워지는 것이 확인됨 —
+  `DataScannedInBytes === 0`으로 히트를 추론하지 말 것"이라고 적혀 있었습니다. 사실은
+  그 반대입니다. 이 계정에서 `GetQueryExecution`은 모든 실행에서
+  `ResultReuseInformation: null`을 반환하며, 확인된 히트(0바이트 스캔, 3배 빠름)에서도
+  마찬가지입니다. 그 필드에 기반한 모니터나 테스트는 재사용이 정상 동작하는 동안
+  고장났다고 보고했을 것입니다.
+- **`app/api/CLAUDE.md`의 라우트 템플릿이 금지된 패턴을 가르치고 있었습니다.**
+  복사·붙여넣기용 예시가 `DATE_ADD(… CURRENT_DATE)`를 사용했는데, 이는 새 감사
+  테스트가 거부하는 형태입니다. 즉 문서가 안내하는 방식대로 엔드포인트를 추가하면
+  빌드가 실패했을 것입니다.
+
 ## [1.8.0] - 2026-07-29
 
 메뉴 전환 지연 개선 작업입니다. 사용자가 보고한 증상은 사이드바 메뉴를 클릭하면
@@ -697,10 +800,11 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 
 - **Athena 서버측 결과 재사용**은 여기서 초 단위 이득이 가장 큰 항목이지만 의도적으로
   뒤로 미뤘습니다. 라우트 SQL이 `CURRENT_DATE` 사용을 멈추기 전까지는 효과가 없음이
-  증명됩니다. 실측: `CURRENT_DATE` 쿼리는 연속 두 번 모두 100,304바이트를 스캔하고
-  `ReusedPreviousResult: false`였으며, 명시적 날짜 리터럴로 바꾸자 100,304 → 0바이트,
-  730ms → 307ms가 됐습니다. 재사용만 먼저 넣으면 성능 개선처럼 보이면서 실제로는
-  아무것도 바뀌지 않습니다.
+  증명됩니다. 실측: `CURRENT_DATE` 쿼리는 연속 두 번 모두 100,304바이트를 스캔했고,
+  명시적 날짜 리터럴로 바꾸자 100,304 → 0바이트가 됐습니다. 재사용만 먼저 넣으면
+  성능 개선처럼 보이면서 실제로는 아무것도 바뀌지 않습니다.
+  *(1.9.0에서 완료. 여기 원래 인용됐던 `ReusedPreviousResult: false`/`true`
+  값은 틀렸습니다 — 이 계정에서 그 필드는 null입니다.)*
 - **제안된 최적화 2건은 측정 결과 회귀여서 기각**했습니다(건너뛴 것이 아닙니다):
   폴링 백오프 추가(위에서 설명한 대로 지배적인 경우에서 더 느려짐), 그리고
   `GetQueryResults`에 `MaxResults` 설정(생략하는 것이 이미 가장 큰 페이지를 받아

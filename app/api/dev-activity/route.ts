@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
+import { buaDateLiteral } from '@/lib/athena-window';
 import { resolveUserDetails } from '@/lib/identity';
 import { maskText } from '@/lib/mask';
 import { DevActivityData, DevActivityGroup } from '@/types/dashboard';
@@ -34,6 +35,12 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const days = parseInt(searchParams.get('days') ?? '90', 10);
+    // Literal window floors, resolved here rather than by Athena's CURRENT_DATE:
+    // result reuse matches on the query string, so an engine-resolved window can
+    // never be reused. `by_user_analytic` is MM-DD-YYYY and read through
+    // DATE_PARSE, which yields a timestamp — so that side needs a DATE literal,
+    // not a quoted string. See lib/athena-window.ts.
+    const buaFloor = buaDateLiteral(days, Date.now());
 
     const summarySql = `
       SELECT
@@ -77,7 +84,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(codefix_generatedlines AS INTEGER)) AS codefix_generated,
         SUM(CAST(codefix_acceptedlines AS INTEGER)) AS codefix_accepted
       FROM by_user_analytic
-      WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
+      WHERE DATE_PARSE(date, '%m-%d-%Y') >= ${buaFloor}
     `;
 
     const trendSql = `
@@ -89,7 +96,7 @@ export async function GET(req: NextRequest) {
         SUM(CAST(inlinechat_totaleventcount AS INTEGER)) AS inlinechat_events,
         SUM(CAST(codefix_generationeventcount AS INTEGER)) AS codefix_events
       FROM by_user_analytic
-      WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
+      WHERE DATE_PARSE(date, '%m-%d-%Y') >= ${buaFloor}
       GROUP BY date
       ORDER BY date
     `;
@@ -114,7 +121,7 @@ export async function GET(req: NextRequest) {
           + CAST(codefix_acceptedlines AS INTEGER)
         ) AS accepted_lines
       FROM by_user_analytic
-      WHERE DATE_PARSE(date, '%m-%d-%Y') >= DATE_ADD('day', -${days}, CURRENT_DATE)
+      WHERE DATE_PARSE(date, '%m-%d-%Y') >= ${buaFloor}
       GROUP BY ${NORMALIZE_USERID}
       ORDER BY total_events DESC
       LIMIT 10
