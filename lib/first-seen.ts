@@ -67,10 +67,16 @@ export async function loadLedger(): Promise<FirstSeenLedger | null> {
     try {
       parsed = JSON.parse(body);
     } catch {
-      // Corrupt/truncated/empty JSON → self-heal by re-seed
+      // Corrupt/truncated body → treat as absent; caller re-seeds (self-heal).
       return null;
     }
-    if (parsed?.version !== 1 || typeof parsed?.users !== 'object' || parsed.users === null) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      (parsed as { version?: unknown }).version !== 1 ||
+      typeof (parsed as { users?: unknown }).users !== 'object' ||
+      (parsed as { users?: unknown }).users === null
+    ) {
       // Unrecognized shape → treat as absent; the caller re-seeds (all null),
       // which self-heals a corrupt ledger at the cost of its history.
       return null;
