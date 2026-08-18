@@ -11,7 +11,13 @@ import { resolveTableName } from '@/lib/glue';
 import { isoDateLiteral } from '@/lib/athena-window';
 import { maskText, maskEmail } from '@/lib/mask';
 import { DormancyBucket, DormancySummary, FunnelStep } from '@/types/dashboard';
-import { applyLedger, withinNewRegistrantWindow, loadLedger, saveLedger } from '@/lib/first-seen';
+import {
+  applyLedger,
+  withinNewRegistrantWindow,
+  loadLedger,
+  saveLedger,
+  NEW_REGISTRANT_DAYS,
+} from '@/lib/first-seen';
 
 export interface IdcUserStatus {
   userId: string;
@@ -191,12 +197,17 @@ export async function GET(req: NextRequest) {
         idcUsers.map((u) => u.userId),
         new Date().toISOString(),
       );
-      if (changed) await saveLedger(ledger);
+      // Stamp lookups first: a failed PUT below must not discard stamps this
+      // request already loaded/derived successfully.
       firstSeen = ledger.users;
+      if (changed) await saveLedger(ledger);
     } catch (err) {
       console.warn('[/api/idc-users] first-seen ledger unavailable:', err);
     }
     const nowMs = Date.now();
+    // `never` is window-relative, so short windows (< NEW_REGISTRANT_DAYS) would
+    // badge users whose first report already arrived — suppress the badge there.
+    const windowCoversNewRegistrants = days >= NEW_REGISTRANT_DAYS;
 
     const users: IdcUserStatus[] = idcUsers.map((idcUser) => {
       const stats = activeStatsMap.get(idcUser.userId);
@@ -223,7 +234,10 @@ export async function GET(req: NextRequest) {
         activeDays: isActive ? stats.activeDays : 0,
         dormancy,
         firstSeenAt,
-        isNewRegistrant: dormancy === 'never' && withinNewRegistrantWindow(firstSeenAt, nowMs),
+        isNewRegistrant:
+          windowCoversNewRegistrants &&
+          dormancy === 'never' &&
+          withinNewRegistrantWindow(firstSeenAt, nowMs),
       };
     });
 

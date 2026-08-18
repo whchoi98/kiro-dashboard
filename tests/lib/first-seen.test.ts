@@ -74,7 +74,11 @@ describe('loadLedger/saveLedger IO', () => {
   });
 
   afterEach(() => {
-    process.env.ATHENA_OUTPUT_BUCKET = savedEnv;
+    if (savedEnv === undefined) {
+      delete process.env.ATHENA_OUTPUT_BUCKET;
+    } else {
+      process.env.ATHENA_OUTPUT_BUCKET = savedEnv;
+    }
   });
 
   it('env unset → loadLedger resolves null', async () => {
@@ -135,6 +139,33 @@ describe('loadLedger/saveLedger IO', () => {
     process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
     sendMock.mockResolvedValueOnce({
       Body: { transformToString: async () => '{"version":2}' },
+    });
+    const result = await loadLedger();
+    expect(result).toBeNull();
+  });
+
+  it('send resolves with array-shaped users → loadLedger returns null (not stamp-everyone)', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockResolvedValueOnce({
+      Body: { transformToString: async () => '{"version":1,"seededAt":"x","users":[]}' },
+    });
+    const result = await loadLedger();
+    expect(result).toBeNull();
+  });
+
+  it('send resolves with null users → loadLedger returns null', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockResolvedValueOnce({
+      Body: { transformToString: async () => '{"version":1,"seededAt":"x","users":null}' },
+    });
+    const result = await loadLedger();
+    expect(result).toBeNull();
+  });
+
+  it('send resolves with users missing entirely → loadLedger returns null', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockResolvedValueOnce({
+      Body: { transformToString: async () => '{"version":1,"seededAt":"x"}' },
     });
     const result = await loadLedger();
     expect(result).toBeNull();

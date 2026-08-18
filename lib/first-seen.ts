@@ -75,7 +75,8 @@ export async function loadLedger(): Promise<FirstSeenLedger | null> {
       parsed === null ||
       (parsed as { version?: unknown }).version !== 1 ||
       typeof (parsed as { users?: unknown }).users !== 'object' ||
-      (parsed as { users?: unknown }).users === null
+      (parsed as { users?: unknown }).users === null ||
+      Array.isArray((parsed as { users?: unknown }).users)
     ) {
       // Unrecognized shape → treat as absent; the caller re-seeds (all null),
       // which self-heals a corrupt ledger at the cost of its history.

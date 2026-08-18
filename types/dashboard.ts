@@ -335,6 +335,8 @@ export interface IdcUsersData {
   total: number;
   active: number;
   inactive: number;
+  /** Directory users badged as newly registered (see `isNewRegistrant` below). */
+  newRegistrants: number;
   /** Window used for the dormancy grading, in days. */
   windowDays: number;
   dormancy: DormancySummary[];
@@ -353,6 +355,10 @@ export interface IdcUsersData {
     daysSinceLastActive: number | null;
     activeDays: number;
     dormancy: DormancyBucket;
+    /** First-seen ledger stamp (ISO), null for pre-existing/seed-batch users. */
+    firstSeenAt: string | null;
+    /** True only when the window covers NEW_REGISTRANT_DAYS and the ledger stamp is still within it. */
+    isNewRegistrant: boolean;
   }>;
 }
 

@@ -56,6 +56,7 @@ const PLACEHOLDER_IDC_USERS: IdcUsersData = {
   total: 0,
   active: 0,
   inactive: 0,
+  newRegistrants: 0,
   windowDays: 0,
   dormancy: [],
   funnel: [],

@@ -37,7 +37,7 @@
 | `RolloutUserRow` | Per-user rollout row — `pickupLagDays` is `null` when left-censored at the window edge, never `0` |
 | `IngestHealthData` | `/api/ingest-health` response — freshness, delivery matrix, file inventory, header variants, row parity, legacy instrumentation |
 | `IngestDayCell` | One (date, client) delivery cell — two states only; a `false` cell is not a failure signal |
-| `IdcUsersData` | `/api/idc-users` response — directory users plus dormancy buckets and the directory→activity funnel |
+| `IdcUsersData` | `/api/idc-users` response — directory users plus dormancy buckets and the directory→activity funnel; top-level `newRegistrants` count, per-user `firstSeenAt` (ISO or null) and `isNewRegistrant` (window-gated, see `lib/first-seen.ts`) |
 | `DormancyBucket` | Directory-user activity grade (`active7`…`never`) — describes directory accounts, **not** Kiro seats or licenses |
 | `CreditEfficiency` | Credits per accepted AI code line — two independent sums over an overlapping window; a credit ratio, never a currency amount |
 | `UserModelSlice` | One model's share of a single user's messages — `{ model, messages, percentage }` |
