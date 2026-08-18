@@ -13,6 +13,7 @@ import { executeQuery } from '@/lib/athena';
 import { resolveUserDetails } from '@/lib/identity';
 import { buildSystemPrompt, resolveLocale } from '@/lib/analyze-prompt';
 import { getIdcUsersPayload, filterIdcUsers, IdcFilter } from '@/lib/idc-users';
+import { NEW_REGISTRANT_DAYS } from '@/lib/first-seen';
 
 const bedrockClient = new BedrockRuntimeClient({ region: 'ap-northeast-2' });
 
@@ -78,7 +79,7 @@ const tools: Tool[] = [
             },
             days: {
               type: 'number',
-              description: 'Activity window in days for active/dormancy grading (default 90)',
+              description: 'Activity window in days for active/dormancy grading (default 90; clamped to at least 7 when filter is "new")',
             },
             limit: {
               type: 'number',
@@ -132,12 +133,16 @@ async function executeToolCall(
 
   if (name === 'list_idc_users') {
     try {
-      const days = Math.max(1, Math.ceil(Number(input.days) || 90));
       const filter: IdcFilter = (['all', 'active', 'inactive', 'new'] as IdcFilter[]).includes(
         input.filter as IdcFilter,
       )
         ? (input.filter as IdcFilter)
         : 'all';
+      // 'new' is meaningless below the 7-day window (the isNewRegistrant gate
+      // suppresses the flag there) — clamp so a model-chosen short window can't
+      // produce a confident false "no new registrants".
+      const rawDays = Math.max(1, Math.ceil(Number(input.days) || 90));
+      const days = filter === 'new' ? Math.max(NEW_REGISTRANT_DAYS, rawDays) : rawDays;
       const limit = Number(input.limit) || 50;
       const payload = await getIdcUsersPayload(days);
       const { users, truncated } = filterIdcUsers(payload.users, filter, limit);
@@ -148,6 +153,7 @@ async function executeToolCall(
           inactive: payload.inactive,
           newRegistrants: payload.newRegistrants,
           windowDays: payload.windowDays,
+          dormancy: payload.dormancy,
           filter,
           truncated,
           users,
