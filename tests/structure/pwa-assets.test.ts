@@ -8,6 +8,9 @@ function pngSize(file: string): { w: number; h: number } {
   const buf = fs.readFileSync(file);
   // 8-byte PNG signature, then IHDR: width @16, height @20 (big-endian).
   expect(buf.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+  // colortype 2 = RGB truecolor, no alpha — pins the #9046FF flatten so a
+  // regenerated icon with transparent corners (iOS renders them black) fails.
+  expect(buf[25]).toBe(2);
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
 }
 
@@ -30,6 +33,10 @@ describe('PWA assets', () => {
     expect(m.display).toBe('standalone');
     expect(m.background_color).toBe('#000000');
     expect(m.theme_color).toBe('#000000');
-    expect((m.icons ?? []).map((i) => i.src)).toEqual(['/icon-192.png', '/icon-512.png']);
+    expect((m.icons ?? []).map((i) => `${i.src}|${i.sizes}|${i.purpose}`)).toEqual([
+      '/icon-192.png|192x192|any',
+      '/icon-512.png|512x512|any',
+      '/icon-512.png|512x512|maskable',
+    ]);
   });
 });

@@ -71,6 +71,7 @@ app/
 - Lambda@Edge validates Cognito JWT tokens in cookies before requests reach the origin
 - Authenticated user info is available via `X-User-Email` and `X-User-Name` request headers
 - Logout is handled by navigating to `/auth/logout` (Lambda@Edge clears cookies and redirects to Cognito logout)
+- Home-screen (standalone) installs keep a cookie/localStorage store SEPARATE from Safari: first launch always re-authenticates via Cognito (opened in the in-app overlay, returns on redirect) and `kiro-theme` starts over as dark
 
 ## Adding a New Dashboard Page
 
