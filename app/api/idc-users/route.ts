@@ -11,6 +11,7 @@ import { resolveTableName } from '@/lib/glue';
 import { isoDateLiteral } from '@/lib/athena-window';
 import { maskText, maskEmail } from '@/lib/mask';
 import { DormancyBucket, DormancySummary, FunnelStep } from '@/types/dashboard';
+import { applyLedger, withinNewRegistrantWindow, loadLedger, saveLedger } from '@/lib/first-seen';
 
 export interface IdcUserStatus {
   userId: string;
@@ -24,6 +25,8 @@ export interface IdcUserStatus {
   daysSinceLastActive: number | null;
   activeDays: number;
   dormancy: DormancyBucket;
+  firstSeenAt: string | null;
+  isNewRegistrant: boolean;
 }
 
 /**
@@ -180,6 +183,21 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
+    // First-seen ledger — failures must never break the directory listing.
+    let firstSeen: Record<string, string | null> = {};
+    try {
+      const { ledger, changed } = applyLedger(
+        await loadLedger(),
+        idcUsers.map((u) => u.userId),
+        new Date().toISOString(),
+      );
+      if (changed) await saveLedger(ledger);
+      firstSeen = ledger.users;
+    } catch (err) {
+      console.warn('[/api/idc-users] first-seen ledger unavailable:', err);
+    }
+    const nowMs = Date.now();
+
     const users: IdcUserStatus[] = idcUsers.map((idcUser) => {
       const stats = activeStatsMap.get(idcUser.userId);
       const isActive = stats !== undefined;
@@ -189,6 +207,8 @@ export async function GET(req: NextRequest) {
 
       const lastActive = isActive ? stats.lastActive : null;
       const daysSinceLastActive = lastActive ? daysSince(lastActive) : null;
+      const dormancy = gradeDormancy(daysSinceLastActive);
+      const firstSeenAt = firstSeen[idcUser.userId] ?? null;
 
       return {
         userId: idcUser.userId,
@@ -201,14 +221,23 @@ export async function GET(req: NextRequest) {
         organization: maskText(organization),
         daysSinceLastActive,
         activeDays: isActive ? stats.activeDays : 0,
-        dormancy: gradeDormancy(daysSinceLastActive),
+        dormancy,
+        firstSeenAt,
+        isNewRegistrant: dormancy === 'never' && withinNewRegistrantWindow(firstSeenAt, nowMs),
       };
     });
 
-    // Sort: active first, then inactive; within each group sort by totalMessages desc
+    // Sort: active (messages desc) → new registrants (first-seen desc) → other
+    // inactive (messages desc — all zero, so stable directory order).
     users.sort((a, b) => {
       if (a.status !== b.status) {
         return a.status === 'active' ? -1 : 1;
+      }
+      if (a.isNewRegistrant !== b.isNewRegistrant) {
+        return a.isNewRegistrant ? -1 : 1;
+      }
+      if (a.isNewRegistrant && b.isNewRegistrant) {
+        return (b.firstSeenAt ?? '').localeCompare(a.firstSeenAt ?? '');
       }
       return b.totalMessages - a.totalMessages;
     });
@@ -256,6 +285,7 @@ export async function GET(req: NextRequest) {
       total: users.length,
       active: activeCount,
       inactive: users.length - activeCount,
+      newRegistrants: users.filter((u) => u.isNewRegistrant).length,
       windowDays: days,
       dormancy,
       funnel,
