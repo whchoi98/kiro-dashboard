@@ -352,7 +352,7 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={9} className="text-center py-8 text-gray-600">
-                  {search ? 'No results found' : 'No users'}
+                  {search || statusFilter !== 'all' ? t('idc.noMatch') : t('idc.noUsers')}
                 </td>
               </tr>
             )}
