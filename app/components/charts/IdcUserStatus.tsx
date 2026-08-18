@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useI18n } from '@/lib/i18n';
+import { compareByKey, SortDir, SortKind } from '@/lib/table-sort';
 import { DormancyBucket, DormancySummary, FunnelStep } from '@/types/dashboard';
 
 export interface IdcUserStatus {
@@ -31,6 +32,40 @@ interface IdcUserStatusData {
   funnel?: FunnelStep[];
   newRegistrants?: number;
 }
+
+type StatusFilter = 'all' | 'active' | 'inactive' | 'new';
+
+const FILTER_LABEL_KEYS: Record<StatusFilter, string> = {
+  all: 'idc.filter.all',
+  active: 'idc.filter.active',
+  inactive: 'idc.filter.inactive',
+  new: 'idc.newRegistrant',
+};
+
+type SortKey =
+  | 'status'
+  | 'displayName'
+  | 'email'
+  | 'organization'
+  | 'totalMessages'
+  | 'totalCredits'
+  | 'activeDays'
+  | 'lastActive'
+  | 'daysSinceLastActive';
+
+// Column config drives BOTH the thead render and the comparator kind.
+// thClass values are verbatim from the previous hardcoded <th> blocks.
+const COLUMNS: Array<{ key: SortKey; labelKey: string; kind: SortKind; thClass: string }> = [
+  { key: 'status', labelKey: 'idc.status', kind: 'string', thClass: 'text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24' },
+  { key: 'displayName', labelKey: 'idc.name', kind: 'string', thClass: 'text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-40' },
+  { key: 'email', labelKey: 'idc.email', kind: 'string', thClass: 'text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider min-w-[220px]' },
+  { key: 'organization', labelKey: 'idc.org', kind: 'string', thClass: 'text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-44' },
+  { key: 'totalMessages', labelKey: 'metric.messages', kind: 'number', thClass: 'text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-28' },
+  { key: 'totalCredits', labelKey: 'metric.credits', kind: 'number', thClass: 'text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-28' },
+  { key: 'activeDays', labelKey: 'idc.activeDays', kind: 'number', thClass: 'text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24' },
+  { key: 'lastActive', labelKey: 'idc.lastActive', kind: 'string', thClass: 'text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-32' },
+  { key: 'daysSinceLastActive', labelKey: 'idc.daysSinceActive', kind: 'number', thClass: 'text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24' },
+];
 
 /**
  * Bucket colours run fresh → stale. `never` is deliberately neutral slate, not
@@ -113,6 +148,17 @@ function StatCard({
 export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserStatusProps) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+
+  // asc → desc → back to the server's default order (active → new → inactive).
+  const handleSort = (key: SortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: 'asc' };
+      if (prev.dir === 'asc') return { key, dir: 'desc' };
+      return null;
+    });
+  };
 
   const orgIndex = useMemo(() => {
     const seen = new Map<string, number>();
@@ -126,15 +172,26 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
   }, [data.users]);
 
   const filtered = useMemo(() => {
+    let rows = data.users;
+    if (statusFilter === 'active') rows = rows.filter((u) => u.status === 'active');
+    else if (statusFilter === 'inactive') rows = rows.filter((u) => u.status === 'inactive');
+    else if (statusFilter === 'new') rows = rows.filter((u) => u.isNewRegistrant);
     const q = search.toLowerCase().trim();
-    if (!q) return data.users;
-    return data.users.filter(
+    if (!q) return rows;
+    return rows.filter(
       (u) =>
         u.displayName.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
         u.organization.toLowerCase().includes(q),
     );
-  }, [data.users, search]);
+  }, [data.users, search, statusFilter]);
+
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const col = COLUMNS.find((c) => c.key === sort.key);
+    if (!col) return filtered;
+    return [...filtered].sort(compareByKey<IdcUserStatus>(sort.key, col.kind, sort.dir));
+  }, [filtered, sort]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -249,48 +306,57 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
         />
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {(['all', 'active', 'inactive', 'new'] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setStatusFilter(f)}
+            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+              statusFilter === f
+                ? 'border-[#9046FF] text-[#9046FF] bg-[#9046FF]/10'
+                : 'border-gray-800 text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            {t(FILTER_LABEL_KEYS[f])}
+          </button>
+        ))}
+      </div>
+
       <div className="rounded-xl border border-gray-800 overflow-x-auto">
         <table className="w-full text-sm min-w-[900px]">
           <thead>
             <tr className="border-b border-gray-800 bg-gray-900/70">
-              <th className="text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24">
-                {t('idc.status')}
-              </th>
-              <th className="text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-40">
-                {t('idc.name')}
-              </th>
-              <th className="text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider min-w-[220px]">
-                {t('idc.email')}
-              </th>
-              <th className="text-left px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-44">
-                {t('idc.org')}
-              </th>
-              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-28">
-                {t('metric.messages')}
-              </th>
-              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-28">
-                {t('metric.credits')}
-              </th>
-              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24">
-                {t('idc.activeDays')}
-              </th>
-              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-32">
-                {t('idc.lastActive')}
-              </th>
-              <th className="text-right px-4 py-3 text-gray-500 font-semibold uppercase tracking-wider w-24">
-                {t('idc.daysSinceActive')}
-              </th>
+              {COLUMNS.map((col) => (
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  aria-sort={
+                    sort?.key === col.key
+                      ? sort.dir === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                  className={`${col.thClass} cursor-pointer select-none hover:text-gray-300`}
+                >
+                  {t(col.labelKey)}
+                  {sort?.key === col.key && (
+                    <span className="text-[#9046FF]">{sort.dir === 'asc' ? ' ▲' : ' ▼'}</span>
+                  )}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
+            {sorted.length === 0 && (
               <tr>
                 <td colSpan={9} className="text-center py-8 text-gray-600">
                   {search ? 'No results found' : 'No users'}
                 </td>
               </tr>
             )}
-            {filtered.map((user) => {
+            {sorted.map((user) => {
               const isActive = user.status === 'active';
               const orgColorIdx = orgIndex.get(user.organization) ?? 0;
               const orgColor = getOrgColor(user.organization, orgColorIdx);
@@ -403,7 +469,7 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
         </table>
       </div>
 
-      {search && (
+      {(search || statusFilter !== 'all') && (
         <p className="text-xs text-gray-600 text-right">
           {filtered.length} / {data.users.length} {t('idc.registered')}
         </p>
