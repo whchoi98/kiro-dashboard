@@ -1,4 +1,11 @@
-import { applyLedger, withinNewRegistrantWindow, NEW_REGISTRANT_DAYS } from '@/lib/first-seen';
+const sendMock = jest.fn();
+jest.mock('@aws-sdk/client-s3', () => ({
+  S3Client: jest.fn(() => ({ send: (...args: unknown[]) => sendMock(...args) })),
+  GetObjectCommand: jest.fn((input) => ({ __type: 'Get', input })),
+  PutObjectCommand: jest.fn((input) => ({ __type: 'Put', input })),
+}));
+
+import { applyLedger, withinNewRegistrantWindow, NEW_REGISTRANT_DAYS, loadLedger, saveLedger } from '@/lib/first-seen';
 
 describe('applyLedger', () => {
   const NOW = '2026-08-18T12:00:00.000Z';
@@ -55,5 +62,113 @@ describe('withinNewRegistrantWindow', () => {
   it('future stamp (clock skew) still counts as new', () => {
     const future = new Date(now + 60_000).toISOString();
     expect(withinNewRegistrantWindow(future, now)).toBe(true);
+  });
+});
+
+describe('loadLedger/saveLedger IO', () => {
+  const savedEnv = process.env.ATHENA_OUTPUT_BUCKET;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    sendMock.mockClear();
+  });
+
+  afterEach(() => {
+    process.env.ATHENA_OUTPUT_BUCKET = savedEnv;
+  });
+
+  it('env unset → loadLedger resolves null', async () => {
+    delete process.env.ATHENA_OUTPUT_BUCKET;
+    const result = await loadLedger();
+    expect(result).toBeNull();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it('env unset → saveLedger resolves without calling send', async () => {
+    delete process.env.ATHENA_OUTPUT_BUCKET;
+    const ledger = { version: 1 as const, seededAt: '2026-08-01T00:00:00Z', users: {} };
+    await saveLedger(ledger);
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it('env s3://test-bucket/results/ → loadLedger sends GetObjectCommand with correct Bucket and Key', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockResolvedValueOnce({
+      Body: { transformToString: async () => '{"version":1,"seededAt":"2026-08-01T00:00:00Z","users":{}}' },
+    });
+    await loadLedger();
+    expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({
+        Bucket: 'test-bucket',
+        Key: 'results/idc-first-seen.json',
+      }),
+    }));
+  });
+
+  it('send rejects with NoSuchKey → loadLedger returns null', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockRejectedValueOnce({ name: 'NoSuchKey' });
+    const result = await loadLedger();
+    expect(result).toBeNull();
+  });
+
+  it('send rejects with httpStatusCode 404 → loadLedger returns null', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockRejectedValueOnce({
+      name: 'SomeError',
+      $metadata: { httpStatusCode: 404 },
+    });
+    const result = await loadLedger();
+    expect(result).toBeNull();
+  });
+
+  it('send resolves with invalid JSON → loadLedger returns null (self-heal)', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockResolvedValueOnce({
+      Body: { transformToString: async () => 'not json' },
+    });
+    const result = await loadLedger();
+    expect(result).toBeNull();
+  });
+
+  it('send resolves with wrong-shape JSON → loadLedger returns null', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockResolvedValueOnce({
+      Body: { transformToString: async () => '{"version":2}' },
+    });
+    const result = await loadLedger();
+    expect(result).toBeNull();
+  });
+
+  it('send resolves with valid version-1 ledger JSON → returns parsed ledger', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    const ledger = { version: 1 as const, seededAt: '2026-08-01T00:00:00Z', users: { a: null, b: '2026-08-10T00:00:00Z' } };
+    sendMock.mockResolvedValueOnce({
+      Body: { transformToString: async () => JSON.stringify(ledger) },
+    });
+    const result = await loadLedger();
+    expect(result).toEqual(ledger);
+  });
+
+  it('send rejects with AccessDenied → loadLedger rejects (rethrow)', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    const error = { name: 'AccessDenied' };
+    sendMock.mockRejectedValueOnce(error);
+    await expect(loadLedger()).rejects.toBe(error);
+  });
+
+  it('saveLedger with env set → sends PutObjectCommand with JSON body and ContentType', async () => {
+    process.env.ATHENA_OUTPUT_BUCKET = 's3://test-bucket/results/';
+    sendMock.mockResolvedValueOnce({});
+    const ledger = { version: 1 as const, seededAt: '2026-08-01T00:00:00Z', users: { a: null } };
+    await saveLedger(ledger);
+    expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({
+        Bucket: 'test-bucket',
+        Key: 'results/idc-first-seen.json',
+        Body: JSON.stringify(ledger),
+        ContentType: 'application/json',
+      }),
+    }));
   });
 });

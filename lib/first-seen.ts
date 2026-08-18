@@ -63,7 +63,13 @@ export async function loadLedger(): Promise<FirstSeenLedger | null> {
   try {
     const resp = await s3.send(new GetObjectCommand({ Bucket: loc.bucket, Key: loc.key }));
     const body = (await resp.Body?.transformToString()) ?? '';
-    const parsed = JSON.parse(body);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      // Corrupt/truncated/empty JSON → self-heal by re-seed
+      return null;
+    }
     if (parsed?.version !== 1 || typeof parsed?.users !== 'object' || parsed.users === null) {
       // Unrecognized shape → treat as absent; the caller re-seeds (all null),
       // which self-heals a corrupt ledger at the cost of its history.
