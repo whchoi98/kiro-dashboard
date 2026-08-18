@@ -13,6 +13,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-18
+
+Three visibility features for administrators, all born from one live question:
+"I just added a subscriber — where can I see them?"
+
+### Added
+
+- **Report-freshness banner** on `/subscription` and `/adoption` — shows the
+  as-of date (max report date already loaded by the page), a countdown to the
+  next daily 02:00 UTC report, and a pointer to the Kiro console for live
+  subscription state. Hydration-safe (countdown renders only after mount) and
+  cache-friendly (no timestamps in server responses). Pure window math lives
+  in `lib/freshness.ts`.
+  - Built as the supported alternative after confirming that
+    `user-subscriptions:ListUserSubscriptions` is a console-only API — no
+    public SDK, CLI model, or resolvable endpoint (evidence recorded in the
+    2026-08-18 freshness-banner spec).
+- **New-registrant badge** in the IdC user status section — users who
+  registered but have no activity yet are badged for 7 days, sorted to the
+  top of the inactive group, and counted in a fourth stat card ("New —
+  awaiting first report").
+  - Powered by an S3 first-seen ledger (`idc-first-seen.json` under the
+    Athena-results prefix — the one S3 location the task role can already
+    write; zero new IAM). The first run self-seeds everyone as pre-existing
+    so nobody is falsely badged; ledger failures degrade to "no badges",
+    never a broken listing.
+  - The badge is suppressed when the selected window is shorter than 7 days:
+    dormancy `never` is window-relative, and a 1-day window would badge users
+    whose first report already arrived.
+- **Status filter chips and column sorting** on the IdC user table — chips
+  (all/active/inactive/new) AND-combined with text search; all 9 columns sort
+  with an asc → desc → default cycle. String and numeric columns use
+  distinct comparators (`lib/table-sort.ts`), and missing values
+  (never-active users' last-active/days-since) sort last regardless of
+  direction. The empty state is now filter-aware and localized.
+
+### Fixed
+
+- `package-lock.json` carried a stale `1.7.0` version stamp since the v1.9.0
+  bump, so any `npm install` dirtied the lockfile with a two-line resync.
+- Changelog link references for 1.9.0 were never added (and `[Unreleased]`
+  still compared from v1.8.0) — backfilled.
 ## [1.9.0] - 2026-07-30
 
 Finishes the menu-latency work 1.8.0 started. 1.8.0 fixed the missing *feedback*
@@ -639,7 +681,9 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 - Bedrock model ID corrected to global inference profile (global.anthropic.claude-sonnet-4-6)
 - Bedrock IAM policy expanded to include inference-profile ARN pattern
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/whchoi98/kiro-dashboard/compare/v1.6.0...v1.6.1
@@ -659,6 +703,42 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-18
+
+관리자를 위한 가시성 기능 3종. 모두 하나의 실제 질문에서 출발했다:
+"방금 구독자를 추가했는데, 어디서 볼 수 있나요?"
+
+### Added
+
+- **데이터 신선도 배너** (`/subscription`·`/adoption`) — 페이지가 이미 로드한
+  시계열의 최신 리포트 날짜(기준일), 다음 02:00 UTC 리포트까지의 카운트다운,
+  실시간 구독 현황을 위한 Kiro 콘솔 안내 링크를 한 줄로 표시.
+  하이드레이션 안전(카운트다운은 마운트 후 렌더)하며 서버 응답에 시각을 넣지
+  않아 쿼리 캐시와 충돌하지 않는다. 순수 윈도우 계산은 `lib/freshness.ts`.
+  - `user-subscriptions:ListUserSubscriptions`가 공개 SDK·CLI 모델·엔드포인트가
+    없는 콘솔 전용 API임을 확인한 뒤 선택한 지원 범위 내 대안
+    (증거는 2026-08-18 freshness-banner 스펙에 기록).
+- **신규 등록 배지** (IdC 사용자 현황) — 등록했지만 아직 활동이 없는
+  사용자를 7일간 배지로 표시하고 비활성 그룹 최상단으로 정렬하며,
+  4번째 StatCard("신규 등록 — 첫 리포트 대기")로 집계한다.
+  - S3 최초 관측 원장(`idc-first-seen.json`, Athena 결과 프리픽스 — 태스크
+    롤이 이미 쓸 수 있는 유일한 위치, 신규 IAM 0) 기반. 최초 실행은 전원을
+    기존 사용자로 자가 시드해 오배지가 없고, 원장 장애는 "배지 없음"으로만
+    저하되며 목록을 절대 깨뜨리지 않는다.
+  - 조회 윈도우가 7일 미만이면 배지를 숨긴다: 휴면 등급 `never`는
+    윈도우 상대적이라 짧은 윈도우에서는 첫 리포트가 이미 도착한 사용자도
+    잘못 배지될 수 있기 때문.
+- **상태 필터 칩 + 컴럼 정렬** (IdC 사용자 표) — 칩(전체/활성/비활성/
+  신규 등록)은 검색어와 AND 결합, 9개 컴럼 전부 오름→내림→기본 3단
+  사이클로 정렬. 문자열/숫자 컴럼을 구분하는 비교자(`lib/table-sort.ts`)를
+  사용하며, 결측값(미활동 사용자의 마지막 활동·경과일)은 방향과 무관하게
+  항상 맨 뒤. 빈 결과 메시지도 필터 인지 + 현지화됨.
+
+### Fixed
+
+- v1.9.0 범프 이후 `package-lock.json`에 `1.7.0` 버전 스탬프가 남아 있어
+  모든 `npm install`이 lockfile을 더럽혔던 문제를 동기화로 해결.
+- 1.9.0의 체인지로그 링크 레퍼런스 누락(`[Unreleased]`도 v1.8.0 기준) 보완.
 ## [1.9.0] - 2026-07-30
 
 1.8.0에서 시작한 메뉴 지연 개선 작업을 마무리합니다. 1.8.0은 없던 *피드백*을
@@ -1259,7 +1339,9 @@ aws ecs wait services-stable --cluster kiro-dashboard-cluster \
 - Bedrock 모델 ID 수정 (global inference profile global.anthropic.claude-sonnet-4-6 적용)
 - Bedrock IAM 정책 확장 (inference-profile ARN 패턴 추가)
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/whchoi98/kiro-dashboard/compare/v1.6.0...v1.6.1
