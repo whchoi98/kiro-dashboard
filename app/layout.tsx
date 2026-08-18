@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import Sidebar from './components/layout/Sidebar';
@@ -22,7 +22,17 @@ const nanumSquare = localFont({
 
 export const metadata: Metadata = {
   title: 'Kiro Analytics Dashboard',
-  icons: { icon: '/kiro-logo.svg' },
+  icons: { icon: '/kiro-logo.svg', apple: '/apple-touch-icon.png' },
+  // 'black' (opaque) keeps the iOS status bar off the content, so no
+  // safe-area-inset work is needed (black-translucent would require it).
+  appleWebApp: { capable: true, title: 'Kiro Dashboard', statusBarStyle: 'black' },
+};
+
+// Matches Next's injected default, made explicit to add themeColor (dark bg).
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#000000',
 };
 
 export default function RootLayout({
