@@ -13,7 +13,7 @@
 - `/api/model-usage` or `/api/adoption` returns `{"error":"Failed to fetch model usage data"}` (500) or a well-shaped empty payload despite data existing in S3.
 - Response times over ~30 s on these two endpoints only.
 
-These endpoints do NOT use Athena/Glue — they list and read UAR CSVs directly from S3 via `lib/uar-s3.ts` (see ADR-0004). `docs/runbooks/athena-query-failure.md` does not apply.
+These endpoints do NOT use Athena/Glue — they list and read UAR CSVs directly from S3 via `lib/uar-s3.ts` (see ADR-0004). The same S3 access class now also covers `/api/idc-users`'s first-seen ledger GET/PUT (`athena-results/idc-first-seen.json`); ledger failures degrade to "no new-registrant badges" without breaking the listing, so they will not page — check task logs for `[/api/idc-users] first-seen ledger unavailable`. `docs/runbooks/athena-query-failure.md` does not apply.
 
 ## Impact
 

@@ -14,7 +14,7 @@ app/
                         fetches all 6 APIs in ONE Promise.all (it used to be three sequential waves,
                         which added two Athena round trips straight to the navigation stall).
     loading.tsx         Loading boundary for `/` ONLY. Scoped via the route group on purpose: every
-                        other page is prerendered, so a root `app/loading.tsx` would nest over 13
+                        other page is prerendered, so a root `app/loading.tsx` would nest over 14
                         children that resolve instantly and could flash a skeleton where none exists.
                         Also makes `/` prefetchable — without it the prefetch was an 80-byte stub.
                         Do NOT add loading.tsx to the prerendered pages; it is inert there.
@@ -29,8 +29,8 @@ app/
   productivity/         Productivity metrics dashboard page
   model-usage/          AI model usage analysis page (S3 direct read)
   exec/                 Executive one-page snapshot (composes existing APIs)
-  subscription/         Subscription tier & overage governance page
-  adoption/             New-user inflow & activation page (S3 direct read)
+  subscription/         Subscription tier & overage governance page — renders FreshnessBanner (as-of + next-report countdown)
+  adoption/             New-user inflow & activation page (S3 direct read) — renders FreshnessBanner (as-of + next-report countdown)
   dev-activity/         Legacy deep dev metrics page (TestGen/DocGen/Transform/InlineChat/CodeFix)
   rollout/              Client rollout & cross-client adoption page (Client_Type daily/cumulative, IDE↔CLI overlap)
   ingest-health/        Report delivery & freshness monitor (S3 inventory, delivery matrix, header drift, row parity)

@@ -32,6 +32,8 @@ npx cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/us-east-1  # Required for Lambda@Ed
 npx cdk deploy --all
 ```
 
+Before ANY CDK deploy read docs/runbooks/production-deploy.md Traps — EXISTING_VPC_ID and the shell AWS_REGION override both produce near-identical VPC-lookup failures.
+
 ## ECS Task Environment Variables
 
 Defined in `lib/ecs-stack.ts` — `taskDefinition.addContainer(...)` environment block:
@@ -46,6 +48,8 @@ Defined in `lib/ecs-stack.ts` — `taskDefinition.addContainer(...)` environment
 | `IDENTITY_STORE_ID` | `d-90663be888` | IAM Identity Center store ID |
 | `S3_REPORT_PREFIX` | `q-user-log/AWSLogs/<deploy-account>/KiroLogs/user_report/us-east-1/` | S3 prefix for user_report CSV files (model-usage API) — account-derived default, matches CatalogStack |
 | `S3_DATA_BUCKET` | _(only when `ATHENA_DATA_BUCKET_NAME` is set)_ | UAR data bucket for `/api/model-usage` in two-bucket deployments |
+| `NEXTAUTH_URL` | '' (empty) | Legacy NextAuth leftover — but load-bearing: app/(overview)/page.tsx uses it as the server-side fetch base, falling back to http://localhost:3000; keep it empty |
+| `NEXTAUTH_SECRET` | (Secrets Manager NextAuthSecret) | Legacy NextAuth leftover, still created and injected by ecs-stack.ts; unused by app code |
 
 All values above are the defaults — overridable per deploy via the env vars
 documented in `.env.deploy.example` (read by `bin/app.ts`), except `HOSTNAME`
@@ -62,7 +66,7 @@ that same bucket rather than the maintainer's.
 
 The Fargate task role uses least-privilege inline policies:
 - **AthenaQuery**: `athena:StartQueryExecution`, `GetQueryExecution`, `GetQueryResults`, `StopQueryExecution`, `GetWorkGroup` — scoped to account workgroups
-- **S3DataAccess**: `s3:GetObject`, `ListBucket`, `GetBucketLocation`, `PutObject` — scoped to `whchoi01-titan-q-log` bucket and `athena-results/` prefix
+- **S3DataAccess**: `s3:GetObject`, `ListBucket`, `GetBucketLocation`, `PutObject` — scoped to `whchoi01-titan-q-log` bucket and `athena-results/` prefix — NOTE: the PutObject grant also persists lib/first-seen.ts's idc-first-seen.json ledger under athena-results/; any future lifecycle/expiry rule on that prefix must exclude this key or all new-registrant stamps are silently wiped
 - **GlueCatalog**: `glue:GetTable`, `GetTables`, `GetDatabase`, `GetPartitions` — scoped to `titanlog` database
 - **IdentityStore**: `identitystore:ListUsers`, `DescribeUser` (inline)
 - **Bedrock**: `bedrock:InvokeModel`, `InvokeModelWithResponseStream` (inline, scoped to foundation models)
@@ -107,6 +111,10 @@ and resets the Cognito whitelist back to only the cloudfront.net URL.
 
 ECS container health check: `GET http://localhost:3000/api/health` → expect HTTP 200
 ALB target group health check: `GET /api/health` every 30s
+
+## Service Autoscaling
+
+- Service autoscaling: min 1 / max 4 tasks, target-tracking on 70% CPU (ecs-stack.ts autoScaleTaskCount) — this is why in-process caches are per-task and a scale-out pays cold-cache latency (see lib/CLAUDE.md "Result caching")
 
 ## CDK Conventions
 

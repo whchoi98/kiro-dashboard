@@ -63,6 +63,8 @@ aws s3 ls s3://whchoi01-titan-q-log/ --region us-east-1 | head -10
 aws s3 ls s3://whchoi01-titan-q-log/athena-results/ --region us-east-1 | tail -5
 ```
 
+# NOTE: idc-first-seen.json in this listing is a persistent ledger (new-registrant badge), not query output — do not delete it during cleanup.
+
 ### Step 4: Check ECS Task Role Permissions
 
 ```bash

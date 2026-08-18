@@ -34,8 +34,9 @@ Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.j
 # Development
 npm run dev            # Local development server (port 3000)
 npm run build          # Production build
+npm test             # jest — 35+ suites (structure/lib/api/infra); the real pre-deploy gate
 npm run start          # Start production server
-npm run lint           # ESLint checks
+npm run lint        # BROKEN: no ESLint config committed — use npm test + npm run build instead
 
 # Docker
 docker build -t kiro-dashboard .
@@ -61,6 +62,7 @@ docker push <account>.dkr.ecr.ap-northeast-2.amazonaws.com/kiro-dashboard:latest
 
 ```
 app/                    Next.js App Router pages & API routes
+  manifest.ts           PWA web manifest (standalone home-screen app; no service worker)
   api/                  19 API route handlers (see app/api/CLAUDE.md)
   components/           Shared React components (see app/components/CLAUDE.md)
   analyze/              AI analysis chat page (Bedrock streaming)
@@ -79,14 +81,14 @@ app/                    Next.js App Router pages & API routes
   changelog/            Bilingual changelog page (build-time static)
 lib/                    Shared AWS service clients (see lib/CLAUDE.md)
 types/                  TypeScript interfaces (see types/CLAUDE.md)
-public/                 Static assets (kiro-logo.svg)
+public/                 Static assets (kiro-logo.svg, apple-touch-icon.png, icon-192/512.png)
 infra/                  AWS CDK infrastructure (see infra/CLAUDE.md)
   bin/app.ts            CDK app entry — instantiates 6 stacks (incl. opt-in Catalog)
   lib/                  Stack definitions: network, security, ecs, cdn
   lambda/edge-auth/     Lambda@Edge Cognito auth function (PKCE + JWT)
 docs/                   Architecture docs, ADRs, runbooks
 scripts/                Setup and utility scripts
-tests/                  Project structure and hook tests
+tests/                  Jest suites (structure/lib/api/infra) + shell structure checks (run-all.sh)
 ```
 
 ---
@@ -226,7 +228,7 @@ Facts that constrain implementation:
 - Model message columns are dynamic (lowercase, alphabetical, Auto first) — hence the S3-direct-read path. See ADR-0004. **`Total_Messages` also ends in `_messages`**, so always pair `endsWith('_messages')` with the `!== 'total_messages'` exclusion as `app/api/model-usage/route.ts:25` does.
 - The legacy `by_user_analytic` report is documented as **CLI and plugin usage only**, despite this repo historically labelling `/productivity` as "IDE productivity". It has **no `Client_Type` column at all**, so its rows cannot be attributed to a client. Do not add new IDE-specific claims sourced from that table without cross-checking `Client_Type` in `user_report`.
 - **39 of the legacy report's 44 metric columns are the literal string `0` in every row** in this account. Before building any feature on a `by_user_analytic` column, run the value-existence check in `docs/kiro-user-activity-report-schema.md` §B-0 — otherwise you ship a page of zeros.
-- Neither report contains a subscription roster. **Never infer licensed seats from IdentityStore `ListUsers`** or group membership; the real source is `user-subscriptions:ListUserSubscriptions`, which is not granted to the task role. Pending subscriptions are not charged.
+- Neither report contains a subscription roster. **Never infer licensed seats from IdentityStore `ListUsers`** or group membership; the real source is `user-subscriptions:ListUserSubscriptions`, a console-only PRIVATE API (CloudTrail-verified 2026-08-18: no public SDK/CLI/endpoint exists — this is not one IAM grant away). Pending subscriptions are not charged.
 - `New_User` means the **subscription was activated** that day, not first use. Activation days are by construction also activity days, so time-to-first-value is not measurable from this column.
 
 Column-level detail, live-data cardinality (§B-0/§B-0b), and prompt-log observations (§D): `docs/kiro-user-activity-report-schema.md`.

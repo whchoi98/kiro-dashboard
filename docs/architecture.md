@@ -49,30 +49,32 @@ kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user ac
 │               KiroDashboardEcs Stack                                │
 │   ┌─────────────────────────────────────────────────────┐          │
 │   │  Next.js App Router                                  │          │
-│   │  ┌───────────────────┐  ┌─────────────────────────┐ │          │
-│   │  │ Pages (14)        │  │ API Routes (17)         │ │          │
-│   │  │ / /exec /users    │  │ metrics users trends    │ │          │
-│   │  │ /adoption /trends │  │ credits engagement      │ │          │
-│   │  │ /credits          │  │ productivity analyze    │ │          │
-│   │  │ /subscription     │  │ subscription adoption   │ │          │
-│   │  │ /productivity     │  │ dev-activity idc-users  │ │          │
-│   │  │ /dev-activity     │  │ user-detail client-dist │ │          │
-│   │  │ /engagement       │  │ rollout                 │ │          │
-│   │  │ /model-usage      │  │ model-usage (S3-direct) │ │          │
-│   │  │ /rollout /analyze │  │ ingest-health (S3+SQL)  │ │          │
-│   │  │ /ingest-health    │  │ health  ← ECS health    │ │          │
-│   │  │ /changelog        │  └───────────┬─────────────┘ │          │
+│   │  ┌───────────────────┐  ┌─────────────────────────────────┐ │  │
+│   │  │ Pages (15)        │  │ API Routes (19)                 │ │  │
+│   │  │ / /exec /users    │  │ metrics users trends            │ │  │
+│   │  │ /adoption /trends │  │ credits engagement release-notes│ │  │
+│   │  │ /credits          │  │ productivity analyze            │ │  │
+│   │  │ /subscription     │  │ subscription adoption           │ │  │
+│   │  │ /productivity     │  │ dev-activity idc-users          │ │  │
+│   │  │ /dev-activity     │  │ user-detail client-dist         │ │  │
+│   │  │ /engagement       │  │ rollout user-model-usage        │ │  │
+│   │  │ /model-usage      │  │ model-usage (S3-direct)         │ │  │
+│   │  │ /rollout /analyze │  │ ingest-health (S3+SQL)          │ │  │
+│   │  │ /ingest-health    │  │ health  ← ECS health            │ │  │
+│   │  │ /changelog        │  └───────────┬─────────────────────┘ │  │
 │   │  └───────────────────┘              │               │          │
 │   │  lib/                               │               │          │
 │   │  ┌─────────────────────────────────────────────────┐│          │
 │   │  │ athena · glue · identity · mask · uar-s3        ││          │
-│   │  │ i18n · version · useChatStream · export-report  ││          │
-│   │  │ theme · chart-theme · chat-scroll               ││          │
+│   │  │ athena-window · i18n · version · useChatStream  ││          │
+│   │  │ export-report · table-sort · theme · chart-theme││          │
+│   │  │ chat-scroll · query-cache · freshness           ││          │
+│   │  │ first-seen · idc-users · analyze-prompt         ││          │
 │   │  └─────────────────────────────────────────────────┘│          │
 │   └─────────────────────────────────────────────────────┘          │
 └──────┬───────────┬───────────┬───────────┬──────────────────────────┘
        │           │           │           │
-       ▼           ▼           ▼           ▼
+       ▼           ▼           ⇕           ▼   (⇕ = S3 write: idc-first-seen.json)
 ┌──────────┐ ┌─────────┐ ┌─────────┐ ┌──────────────────┐
 │  Athena  │ │  Glue   │ │   S3    │ │  IAM Identity    │
 │ (query)  │ │(catalog)│ │(data +  │ │  Center (IdC)    │
@@ -114,6 +116,8 @@ S3 CSVs → lib/uar-s3.ts (month-prefix parallel listing, header-name parsing)
   /api/ingest-health (object metadata + header sets — file-level, not column-level)
 ```
 
+S3 is not read-only from the app: `/api/idc-users` writes the new-registrant first-seen ledger, `idc-first-seen.json`, back to S3 via `PutObject` under the `athena-results/` prefix — last-writer-wins, self-seeding (all-null) on first run, with blast radius limited to the new-registrant badge.
+
 AI analysis path:
 ```
 User question → /api/analyze → Bedrock (Claude) streaming → SSE to browser
@@ -145,6 +149,12 @@ User question → /api/analyze → Bedrock (Claude) streaming → SSE to browser
 
 12. **Date windows are resolved in the app, never by Athena** — every route interpolates an explicit `YYYY-MM-DD` literal from `lib/athena-window.ts` instead of `DATE_ADD('day', -N, CURRENT_DATE)`. This is a prerequisite, not a style choice: Athena's `ResultReuseByAgeConfiguration` matches on the query **string**, so an engine-resolved window produces a stable string whose meaning silently changes, and can never be reused. Measured live on identical SQL, reuse flag the only variable: 100 304 bytes / 808 ms → 0 bytes / 242 ms; `/api/metrics?days=90` end to end went 2.17 s → 1.07 s. Reuse is capped at 60 minutes (not 1440) because `/api/analyze` runs LLM-authored SQL that still resolves its own window, and an hour bounds how far such a result can predate the newest 02:00 UTC report. Two layers now cache: this cross-task reuse (`ATHENA_RESULT_REUSE`) plus the per-task in-process memo (`lib/query-cache.ts`) — only the former helps a cold Fargate task. Both are safe solely because reports land once daily, so a 60-minute-old answer cannot be staler than a source already up to 24 h old; `/api/ingest-health` bypasses both because it is the freshness monitor. Verify a hit with `ResultReuseInformation.ReusedPreviousResult` from `GetQueryExecution`, reading the whole `Statistics` object (a nested `--query` multi-select can render the field as if absent); `DataScannedInBytes` dropping to 0 agrees with it. Enforced by `tests/api/date-literal-audit.test.ts`.
 
+13. **S3 first-seen ledger for new-registrant detection** — Neither `user_report` nor `by_user_analytic` carries a registration date, so "new registrant" status has to be derived and persisted somewhere durable. `lib/first-seen.ts` reads/writes `idc-first-seen.json` at the only S3 location the ECS task role can write to — the `athena-results/` output prefix — via `PutObject`. The ledger self-seeds with all-null timestamps on first run; any bucket lifecycle rule ever applied to that prefix must exclude `idc-first-seen.json`, or the ledger disappears and every user reappears as "new" once.
+
+14. **Report-derived subscription data only — `ListUserSubscriptions` is console-only** — CloudTrail evidence gathered 2026-08-18 confirms `user-subscriptions:ListUserSubscriptions` is invoked by the Kiro console's own browser front-end via SigV4, with no public SDK, CLI, or documented endpoint. The dashboard does not chase it; `/api/subscription`'s freshness banner plus a pointer to the Kiro console fill the gap instead.
+
+15. **PWA-lite without a service worker** — `app/manifest.ts` and three PNG icons make the dashboard installable, but no service worker ships. This is a realtime dashboard behind Lambda@Edge Cognito cookie auth: caching responses for offline use would show stale numbers, and a standalone install keeps its own separate cookie jar anyway (re-authenticates on first launch). Manifest-only gets the install affordance without the offline guarantee it can't honestly make.
+
 ### Operations
 
 See `docs/runbooks/` for operational procedures.
@@ -168,7 +178,7 @@ Column-level detail lives in `docs/kiro-user-activity-report-schema.md`.
 
 ### 시스템 개요
 
-kiro-dashboard는 Kiro IDE 사용자 활동 데이터를 S3에 수집하고, AWS Glue/Athena로 처리하며, Next.js 14 대시보드로 시각화하고 Amazon Bedrock으로 AI 인사이트를 제공하는 풀스택 분석 플랫폼입니다. Docker 컨테이너로 패키징되어 ECS Fargate에 CloudFront 뒤에 배포됩니다.
+kiro-dashboard는 Kiro IDE 사용자 활동 데이터를 S3에 수집하고, AWS Glue/Athena로 처리하며, Next.js 14 대시보드로 시각화하고 Amazon Bedrock으로 AI 인사이트를 제공하는 풀스택 분석 플랫폼입니다. Docker 컨테이너로 패키징되어 ECS Fargate에 CloudFront 뒤에 배포됩니다. UI는 한국어/영어 이중 언어를 지원하며, 768px 미만에서는 오프캔버스 사이드바 드로어로 전환되는 모바일 반응형이고, 다크(기본)/라이트 테마를 제공합니다. 자체 호스팅된 NanumSquare 폰트는 `next/font/local`을 통해 woff2로 제공됩니다. 선택적 커스텀 도메인(`kirodashboard.whchoi.net`)은 CloudFront 별칭으로 서비스됩니다.
 
 ### 아키텍처 다이어그램
 
@@ -200,6 +210,8 @@ S3 CSV → lib/uar-s3.ts (월 프리픽스 병렬 리스팅, 헤더 이름 기�
   /api/ingest-health (객체 메타데이터 + 헤더 집합 — 컬럼 단위가 아닌 파일 단위)
 ```
 
+S3는 더 이상 앱에서 읽기 전용이 아닙니다: `/api/idc-users`는 신규 가입자 최초 관측(first-seen) 원장인 `idc-first-seen.json`을 `PutObject`로 `athena-results/` 프리픽스에 다시 씁니다. 마지막 쓰기가 우선하며(last-writer-wins), 최초 실행 시 모든 값이 null인 상태로 자가 시딩되고, 영향 범위는 신규 가입자 배지에만 한정됩니다.
+
 AI 분석 경로:
 ```
 사용자 질문 → /api/analyze → Bedrock (Claude) 스트리밍 → SSE → 브라우저
@@ -230,6 +242,12 @@ AI 분석 경로:
 11. **리포트 간 지표는 조인하지 않고 각각 합산** — 수락 코드 라인당 크레딧 KPI는 `user_report.credits_used`와 `by_user_analytic`의 AI 코드 라인 컬럼을 두 테이블 자체의 경계에서 계산한 공통 기간에 대해 각각 독립적으로 합산합니다. `by_user_analytic`의 541개 (사용자, 날짜) 쌍 중 303개가 `user_report`에 대응 행이 없으므로 내부 조인은 레거시 데이터의 절반 이상을 조용히 버립니다. 두 값은 서로 다른 모집단이므로 응답에는 각 항의 모집단 `n`이 별도로 담깁니다.
 
 12. **날짜 기간은 Athena가 아니라 앱에서 계산** — 모든 라우트가 `DATE_ADD('day', -N, CURRENT_DATE)` 대신 `lib/athena-window.ts`의 명시적 `YYYY-MM-DD` 리터럴을 보간합니다. 이는 취향 문제가 아니라 전제 조건입니다. Athena의 `ResultReuseByAgeConfiguration`은 쿼리 **문자열**로 매칭하므로, 엔진이 기간을 계산하는 형태는 문자열은 그대로인데 의미만 조용히 바뀌어 절대 재사용되지 않습니다. 동일 SQL에서 재사용 플래그만 바꿔 실측: 100,304바이트 / 808ms → 0바이트 / 242ms. `/api/metrics?days=90`은 종단 간 2.17초 → 1.07초. 재사용 상한은 1440분이 아니라 60분입니다 — `/api/analyze`는 LLM이 작성한 SQL이 자체적으로 기간을 계산하므로, 1시간이면 그런 결과가 최신 02:00 UTC 리포트보다 앞설 수 있는 범위를 제한합니다. 이제 캐시 계층은 둘입니다: 태스크 간 공유되는 이 결과 재사용(`ATHENA_RESULT_REUSE`)과 태스크별 인프로세스 메모(`lib/query-cache.ts`) — 차가운 Fargate 태스크를 돕는 것은 전자뿐입니다. 두 계층 모두 안전한 이유는 리포트가 하루 한 번만 도착한다는 사실 하나입니다. 60분 지난 답이 이미 최대 24시간 지난 원본보다 더 오래됐을 수는 없습니다. `/api/ingest-health`는 신선도 모니터이므로 두 계층을 모두 우회합니다. 재사용 히트는 `GetQueryExecution`의 `ResultReuseInformation.ReusedPreviousResult`로 확인하며, `Statistics` 객체 전체를 읽으십시오(중첩 `--query` 다중 선택으로 뽑으면 필드가 없는 것처럼 보일 수 있습니다). `DataScannedInBytes`가 0으로 떨어지는 것도 함께 일치합니다. `tests/api/date-literal-audit.test.ts`가 이를 강제합니다.
+
+13. **신규 가입자 감지를 위한 S3 최초 관측(first-seen) 원장** — `user_report`와 `by_user_analytic` 모두 가입일을 담고 있지 않으므로, "신규 가입자" 상태는 파생한 뒤 어딘가에 영속화해야 합니다. `lib/first-seen.ts`는 ECS 태스크 역할이 쓸 수 있는 유일한 S3 위치 — `athena-results/` 출력 프리픽스 — 에 `PutObject`로 `idc-first-seen.json`을 읽고 씁니다. 원장은 최초 실행 시 모든 타임스탬프가 null인 상태로 자가 시딩되며, 이 프리픽스에 버킷 수명주기 규칙을 적용할 경우 반드시 `idc-first-seen.json`을 제외해야 합니다. 그렇지 않으면 원장이 사라지고 모든 사용자가 한 번씩 "신규"로 재등장합니다.
+
+14. **리포트 기반 구독 데이터만 사용 — `ListUserSubscriptions`는 콘솔 전용** — 2026-08-18에 수집한 CloudTrail 증거는 `user-subscriptions:ListUserSubscriptions`가 Kiro 콘솔 자체의 브라우저 프런트엔드가 SigV4로 직접 호출하는 API이며, 공개 SDK·CLI·문서화된 엔드포인트가 없음을 확인합니다. 대시보드는 이를 우회해서 얻으려 하지 않고, `/api/subscription`의 신선도 배너와 Kiro 콘솔로의 안내로 그 공백을 채웁니다.
+
+15. **서비스 워커 없는 PWA-lite** — `app/manifest.ts`와 PNG 아이콘 3개로 설치 가능하게 만들지만 서비스 워커는 배포하지 않습니다. 이 대시보드는 실시간이며 Lambda@Edge Cognito 쿠키 인증 뒤에 있으므로, 오프라인용 응답 캐싱은 오래된 수치를 보여줄 것이고, standalone 설치는 어차피 별도의 쿠키 저장소를 가져 최초 실행 시 재인증이 필요합니다. 매니페스트만 제공하는 방식은 지킬 수 없는 오프라인 보장 없이 설치 가능성만 제공합니다.
 
 ### 운영
 

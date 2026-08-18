@@ -112,10 +112,10 @@ Kiro reports land **once daily at 02:00 UTC**, so query results are immutable
 for ~24h. A 60s-old answer therefore cannot be staler than the source, which is
 already up to 24h old — caching costs no correctness here.
 
-- **Key** is `(UTC day, SQL string)`, not the SQL alone. Route SQL interpolates a
-  day *count* (`DATE_ADD('day', -${days}, CURRENT_DATE)`), so the string is
-  byte-identical either side of UTC midnight while `CURRENT_DATE` moves. The day
-  stamp makes every entry self-invalidate at 00:00 UTC.
+- **Key** is `(UTC day, SQL string)`, not the SQL alone. Route SQL now interpolates
+  literal dates from `lib/athena-window.ts`, and those literals roll at 00:00 UTC —
+  the same instant as the memo's `utcDayStamp` key, so key and SQL window move
+  together. The day stamp makes every entry self-invalidate at 00:00 UTC.
 - **The day boundary is 00:00 UTC, NOT the 02:00 UTC report drop.** Offsetting the
   stamp to 02:00 to "match ingest" is a correctness regression, not a fix: the
   key's job is to track the SQL *window*, and the window comes from Athena's

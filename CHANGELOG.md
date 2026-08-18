@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- iOS/iPadOS home-screen app (PWA-lite): `app/manifest.ts` (standalone, dark theme color),
+  `apple-touch-icon.png` + 192/512 icons rasterized from kiro-logo.svg with an opaque
+  #9046FF flatten, and `appleWebApp` metadata. No service worker by design — the
+  dashboard is realtime and cookie-authenticated. Standalone installs keep a cookie
+  store separate from Safari, so the first launch re-authenticates.
+- `list_idc_users` chatbot tool: the analyze agent can now answer directory questions
+  ("who registered?", "any new registrants?") from the IdC directory joined with
+  activity status and the first-seen ledger. Names/emails stay masked by policy; the
+  `days` window is clamped to ≥7 for the new-registrant filter so short windows cannot
+  yield a confident false "none". Enabled by extracting the /api/idc-users assembly
+  into `lib/idc-users.ts` (route is now a thin wrapper; the date-literal audit also
+  scans the moved SQL).
+
 ## [1.10.0] - 2026-08-18
 
 Three visibility features for administrators, all born from one live question:
@@ -702,6 +717,19 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+### Added
+
+- 아이폰·아이패드 홈 화면 앱(PWA-lite): `app/manifest.ts`(standalone, 다크 테마색),
+  kiro-logo.svg를 불투명 #9046FF로 플래튼한 apple-touch-icon(180)·192·512 아이콘,
+  `appleWebApp` 메타데이터. 실시간·쿠키 인증 대시보드이므로 서비스워커는 의도적으로
+  없음. standalone 설치는 Safari와 쿠키 저장소가 분리되어 첫 실행 시 재인증한다.
+- 챗봇 `list_idc_users` 도구: 분석 에이전트가 IdC 디렉터리(활동 상태·first-seen
+  원장 결합)에서 "누가 등록했나", "신규 등록자 있나" 질문에 답할 수 있다.
+  이름·이메일은 정책대로 마스킹 유지, 신규 필터의 `days`는 7 미만이면 자신 있는
+  오답("신규 없음")을 막기 위해 7로 클램프. `/api/idc-users` 조립 로직을
+  `lib/idc-users.ts`로 추출(라우트는 얇은 래퍼, 이동한 SQL도 date-literal 감사가
+  스캔)하며 가능해졌다.
 
 ## [1.10.0] - 2026-08-18
 

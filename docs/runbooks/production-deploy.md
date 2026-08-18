@@ -92,6 +92,8 @@ Verified on the v1.5.0 → v1.6.0 upgrade (2026-07-29): app-only, Path A.
 
 6. **`.dockerignore` filters the build context, so it can starve a build-time read.** `/changelog` is `force-static` and reads `CHANGELOG.md` from disk during `npm run build`; the blanket `*.md` in `.dockerignore` kept that file out of the *builder* stage, and the page shipped empty across releases without a single error (fixed in 1.6.1 with `!CHANGELOG.md` plus an unguarded read). When adding any build-time file read, confirm the file survives the context: `docker build --progress=plain -f - . <<< $'FROM node:20-alpine\nWORKDIR /app\nCOPY . .\nRUN ls -la <file>'`. `tests/structure/changelog-build-input.test.ts` guards this specific case.
 
+7. **athena-results/ now holds a PERSISTENT object.** s3://<results-bucket>/athena-results/idc-first-seen.json is the new-registrant first-seen ledger (lib/first-seen.ts), not query scratch. Any lifecycle/expiry rule on the prefix must exclude it — deletion silently wipes all first-seen stamps (failure direction is safe: badges vanish, none appear falsely; re-seed from IdentityStore + registration times if needed).
+
 ## Verification
 
 ```bash

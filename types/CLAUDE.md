@@ -10,6 +10,7 @@
 |------|-------------|
 | `dashboard.ts` | All dashboard data interfaces |
 | `css.d.ts` | CSS module type declarations |
+| `markdown.d.ts` | Ambient module declaration that lets `lib/release-notes.ts` import `../CHANGELOG.md` as a string (webpack asset/source pairing; jest mirrors it via tests/transform-raw.js) |
 
 ---
 

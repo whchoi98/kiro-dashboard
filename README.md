@@ -1,16 +1,18 @@
 # kiro-dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.5.0-purple.svg)]()
+[![Version](https://img.shields.io/badge/version-1.10.0-purple.svg)]()
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)]()
 [![AWS CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-orange.svg)]()
-[![English](https://img.shields.io/badge/lang-English-blue.svg)](#english)
-[![한국어](https://img.shields.io/badge/lang-한국어-red.svg)](#한국어)
+<a href="#english"><img src="https://img.shields.io/badge/lang-English-blue.svg" alt="English"></a>
+<a href="#korean"><img src="https://img.shields.io/badge/lang-한국어-red.svg" alt="Korean"></a>
 
 **EN** Kiro IDE user analytics dashboard with AI-powered analysis on AWS
 **KR** AWS 기반 AI 분석 기능을 갖춘 Kiro IDE 사용자 분석 대시보드
 
 ---
+
+<a id="english"></a>
 
 # English
 
@@ -73,6 +75,10 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 - **Mobile Responsive** — Below 768px the sidebar becomes an off-canvas drawer with a hamburger bar and grids/tables reflow; desktop layout unchanged
 - **Self-hosted NanumSquare Font** — Bundled as woff2 via `next/font/local`, no runtime CDN dependency behind CloudFront
 - **Custom Domain (optional)** — `CUSTOM_DOMAIN` + `CUSTOM_DOMAIN_CERT_ARN` add a CloudFront alias + ACM cert and whitelist it on the Cognito app client
+- **Report Freshness Banner** — `/subscription` and `/adoption` show the as-of date and a countdown to the next 02:00 UTC report
+- **New-Registrant Badge** — IdC user status flags recently-registered users via an S3 first-seen ledger with a 7-day window
+- **IdC Table Filtering & Sorting** — Status filter chips plus type-aware column sorting on the Identity Center user table
+- **iOS/iPadOS Home Screen App** — PWA-lite install (manifest + icons, standalone display, no service worker)
 
 ## Prerequisites
 
@@ -175,12 +181,19 @@ Tag each image with its version as well as `latest`, so a rollback has a named
 target. Full procedure, traps, and verification steps:
 [`docs/runbooks/production-deploy.md`](docs/runbooks/production-deploy.md).
 
-**v1.5.0 → v1.7.0 is app-only** — no new dependencies, ECS environment
+**v1.5.0 → v1.10.0 is still app-only** — no new dependencies, ECS environment
 variables, IAM permissions, or CloudFront behaviours. See the changelog's
 [Upgrading from 1.5.0](CHANGELOG.md#upgrading-from-150) block for the verified
 details and the two notes that matter to forks. Do not stop at 1.6.0: it built
 `/changelog` as an empty page because `.dockerignore` kept `CHANGELOG.md` out
 of the build context.
+
+One thing that changed under the hood: v1.10.0's new-registrant ledger
+persists `idc-first-seen.json` under the `ATHENA_OUTPUT_BUCKET` results
+prefix, reusing the `s3:PutObject` grant the task role already had — no new
+IAM is needed. Forks do not need to seed this file themselves: the first
+write self-seeds every existing user as pre-existing (all-null), so nobody is
+falsely badged as a new registrant.
 
 `CHANGELOG.md` is a **required build-context input** from 1.6.1 onward, and
 1.7.0 widens that dependency — `lib/release-notes.ts` imports it through a
@@ -271,13 +284,17 @@ app/                        Next.js App Router
     user-detail/            Per-user activity drill-down
     client-dist/            Client type distribution
     model-usage/            AI model usage analysis (S3 direct read)
+    user-model-usage/       Per-user model mix (S3 direct read)
+    release-notes/          Changelog section for the sidebar version dialog
     health/                 ECS health check
   components/               Shared React components
     layout/                 Sidebar (drawer + theme/lang toggles), Header, KiroLogo
     chat/                   FloatingChat, ChatPanel, MessageList, ChatComposer, ChatMarkdown
     charts/                 MetricCard, TrendChart, PieChart, BarChart, FunnelChart, IdcUserStatus
     tables/                 UserTable (sortable, searchable)
-    ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel
+    ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel,
+                            FreshnessBanner, PageSkeleton, ReleaseNotesDialog,
+                            ChangelogBlocks, UserModelUsage
   analyze/                  AI analysis chat page
   users/                    User activity page
   credits/                  Credit usage page
@@ -305,6 +322,18 @@ lib/                        Shared libraries
   chat-scroll.ts            Stick-to-bottom helper for streaming chat
   export-report.ts          Markdown/PDF exporters for AI answers
   version.ts                APP_VERSION single source (from package.json)
+  analyze-prompt.ts         Bedrock system prompt for /api/analyze
+  athena-window.ts          Explicit date-literal SQL windows (enables result reuse)
+  changelog-md.ts           CHANGELOG.md markdown parser
+  first-seen.ts             S3 first-seen ledger for the new-registrant badge
+  freshness.ts              Report-freshness banner helpers (as-of date, next-report ETA)
+  idc-users.ts              IdC directory assembly (shared by route + AI tool)
+  model-colors.ts           Stable per-model series colors
+  nav-state.ts              Sidebar nav-item pending/active state machine
+  query-cache.ts            In-process TTL query memo behind executeQuery
+  release-notes.ts          CHANGELOG.md section picker for the version dialog
+  skeleton-layout.ts        Loading-skeleton block shapes + policy
+  table-sort.ts             Type-aware table column comparator
 app/fonts/                  Self-hosted NanumSquare woff2 (next/font/local)
 types/                      TypeScript interfaces
   dashboard.ts              All data model types
@@ -314,15 +343,22 @@ infra/                      AWS CDK infrastructure
   lib/security-stack.ts     Security groups, Cognito, EdgeAuthClient
   lib/ecs-stack.ts          ECS Fargate, ALB, ECR, IAM, Auto Scaling
   lib/cdn-stack.ts          CloudFront + Lambda@Edge + SSM config
+  lib/catalog-stack.ts      Opt-in Glue database + user_report/by_user_analytic tables
   lambda/edge-auth/         Lambda@Edge Cognito auth (PKCE + JWT)
 public/                     Static assets
   kiro-logo.svg             Kiro ghost character SVG
+  apple-touch-icon.png      iOS/iPadOS home-screen icon
+  icon-192.png              PWA-lite manifest icon (192x192)
+  icon-512.png              PWA-lite manifest icon (512x512)
 docs/                       Architecture, ADRs, specs
 ```
 
 ## Testing
 
 ```bash
+# Run the test suite (33+ suites; the actual gate — run before any deploy)
+npx jest
+
 # Run project structure tests
 bash tests/run-all.sh
 
@@ -359,7 +395,7 @@ Key operational facts drawn from those pages:
 - The `00` segment in the S3 path is a fixed hour partition reflecting the 02:00 UTC write time. Prompt logs use a *real* `HH` partition instead, so do not assume `00` outside the activity-report prefixes.
 - Model message columns are **dynamic** — lowercase model names in alphabetical order starting with Auto — so the column set changes between files. This is why `/api/model-usage` and `/api/adoption` parse CSV by header name instead of going through Athena (see `docs/decisions/ADR-0004-s3-direct-read-for-positional-columns.md`). `/api/ingest-health` reads the same listing to surface this drift directly — per-file header *sets* and object metadata, which Athena cannot see at all because `OpenCSVSerDe` silently maps drifted columns onto the wrong names.
 - Cross-account report delivery is **not supported**; the bucket must be in the same account and Region as the Kiro profile.
-- Neither report contains a **subscription roster**. Total/Active/Pending seat counts come from `user-subscriptions:ListUserSubscriptions` (Kiro console only; never called by this repo), so IAM Identity Center `ListUsers` is a workforce directory and must never be labelled "licensed seats".
+- Neither report contains a **subscription roster**. Total/Active/Pending seat counts come from `user-subscriptions:ListUserSubscriptions` (Kiro console only; never called by this repo — confirmed 2026-08-18 via CloudTrail: the console front-end calls this private API directly; no public SDK/CLI/endpoint exists), so IAM Identity Center `ListUsers` is a workforce directory and must never be labelled "licensed seats".
 
 ### Project documentation
 
@@ -393,6 +429,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - Issues: [GitHub Issues](https://github.com/whchoi98/kiro-dashboard/issues)
 
 ---
+
+<a id="korean"></a>
 
 # 한국어
 
@@ -455,6 +493,10 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 - **모바일 반응형** — 768px 미만에서 사이드바가 햄버거 바 + 오프캔버스 드로어로 전환, 그리드·표 재배치. 데스크톱 레이아웃은 무변경
 - **나눔스퀘어 서체 셀프호스팅** — woff2를 `next/font/local`로 번들, CloudFront 뒤에서 CDN 런타임 의존 없음
 - **커스텀 도메인 (선택)** — `CUSTOM_DOMAIN` + `CUSTOM_DOMAIN_CERT_ARN`으로 CloudFront 별칭 + ACM 인증서 추가 및 Cognito 앱 클라이언트 허용 목록 등록
+- **리포트 신선도 배너** — `/subscription`과 `/adoption`에서 기준일과 다음 02:00 UTC 리포트까지의 카운트다운을 표시합니다
+- **신규 가입 배지** — IdC 사용자 상태에서 S3 최초 관측 원장을 이용해 7일 이내 신규 가입자를 배지로 표시합니다
+- **IdC 테이블 필터·정렬** — Identity Center 사용자 테이블에 상태 필터 칩과 타입 인지 컬럼 정렬을 제공합니다
+- **iOS/iPadOS 홈 화면 앱** — PWA-lite 설치 (manifest + 아이콘, standalone 표시, 서비스 워커 없음)
 
 ## 사전 요구 사항
 
@@ -558,12 +600,19 @@ cd infra && npx cdk diff --all
 [`docs/runbooks/production-deploy.md`](docs/runbooks/production-deploy.md)에
 있습니다.
 
-**v1.5.0 → v1.7.0은 앱 전용입니다** — 새 의존성, ECS 환경변수, IAM 권한,
+**v1.5.0 → v1.10.0도 여전히 앱 전용입니다** — 새 의존성, ECS 환경변수, IAM 권한,
 CloudFront 동작 추가가 모두 없습니다. 검증된 상세 내용과 포크에 해당되는 두 가지
 주의사항은 CHANGELOG의 [1.5.0에서 업그레이드하기](CHANGELOG.md#150에서-업그레이드하기)
 절을 참고하세요. 1.6.0에서 멈추지 마세요. 1.6.0은 `.dockerignore`가
 `CHANGELOG.md`를 빌드 컨텍스트에서 제외해 `/changelog`가 빈 페이지로
 빌드됩니다.
+
+내부적으로 바뀐 부분 한 가지: v1.10.0의 신규 가입 원장은
+`idc-first-seen.json`을 `ATHENA_OUTPUT_BUCKET` 결과 프리픽스 아래에
+저장하며, 태스크 역할이 이미 가지고 있던 `s3:PutObject` 권한을 그대로
+재사용합니다 — 새 IAM은 필요 없습니다. 포크에서 이 파일을 직접 시딩할
+필요도 없습니다. 첫 기록 시 기존 사용자 전체를 all-null(기존 사용자)로
+자동 시딩하므로, 아무도 신규 가입자로 잘못 배지되지 않습니다.
 
 `CHANGELOG.md`는 1.6.1부터 **필수 빌드 컨텍스트 입력**이며, 1.7.0에서 그 의존성이
 더 넓어집니다 — `lib/release-notes.ts`가 webpack `asset/source` 규칙으로 이 파일을
@@ -653,13 +702,17 @@ app/                        Next.js App Router
     user-detail/            개별 사용자 활동 드릴다운
     client-dist/            클라이언트 유형별 분포
     model-usage/            AI 모델 사용 분석 (S3 직접 읽기)
+    user-model-usage/       사용자별 모델 사용 비중 (S3 직접 읽기)
+    release-notes/          사이드바 버전 다이얼로그용 변경 이력 섹션
     health/                 ECS 헬스 체크
   components/               공유 React 컴포넌트
     layout/                 사이드바 (드로어 + 테마/언어 토글), 헤더, Kiro 로고
     chat/                   FloatingChat, ChatPanel, MessageList, ChatComposer, ChatMarkdown
     charts/                 MetricCard, TrendChart, PieChart, BarChart, FunnelChart, IdcUserStatus
     tables/                 UserTable (정렬, 검색 가능)
-    ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel
+    ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel,
+                            FreshnessBanner, PageSkeleton, ReleaseNotesDialog,
+                            ChangelogBlocks, UserModelUsage
   analyze/                  AI 분석 채팅 페이지
   users/                    사용자 활동 페이지
   credits/                  크레딧 사용 페이지
@@ -687,6 +740,18 @@ lib/                        공유 라이브러리
   chat-scroll.ts            스트리밍 채팅 stick-to-bottom 헬퍼
   export-report.ts          AI 답변 Markdown/PDF 내보내기
   version.ts                APP_VERSION 단일 소스 (package.json 기준)
+  analyze-prompt.ts         /api/analyze용 Bedrock 시스템 프롬프트
+  athena-window.ts          명시적 날짜 리터럴 SQL 윈도우 (결과 재사용 지원)
+  changelog-md.ts           CHANGELOG.md 마크다운 파서
+  first-seen.ts             신규 가입 배지용 S3 최초 관측 원장
+  freshness.ts              리포트 신선도 배너 헬퍼 (기준일, 다음 리포트 예상 시각)
+  idc-users.ts              IdC 디렉터리 조합 (라우트 + AI 도구 공유)
+  model-colors.ts           모델별 고정 시리즈 색상
+  nav-state.ts              사이드바 네비게이션 pending/active 상태 머신
+  query-cache.ts            executeQuery 뒤의 인프로세스 TTL 쿼리 메모
+  release-notes.ts          버전 다이얼로그용 CHANGELOG.md 섹션 선택기
+  skeleton-layout.ts        로딩 스켈레톤 블록 모양 + 정책
+  table-sort.ts             타입 인지 테이블 컬럼 비교자
 app/fonts/                  셀프호스팅 나눔스퀘어 woff2 (next/font/local)
 types/                      TypeScript 인터페이스
   dashboard.ts              전체 데이터 모델 타입
@@ -696,15 +761,22 @@ infra/                      AWS CDK 인프라
   lib/security-stack.ts     보안 그룹, Cognito, EdgeAuthClient
   lib/ecs-stack.ts          ECS Fargate, ALB, ECR, IAM, 오토 스케일링
   lib/cdn-stack.ts          CloudFront + Lambda@Edge + SSM 설정
+  lib/catalog-stack.ts      옵트-인 Glue 데이터베이스 + user_report/by_user_analytic 테이블
   lambda/edge-auth/         Lambda@Edge Cognito 인증 (PKCE + JWT)
 public/                     정적 에셋
   kiro-logo.svg             Kiro 유령 캐릭터 SVG
+  apple-touch-icon.png      iOS/iPadOS 홈 화면 아이콘
+  icon-192.png              PWA-lite manifest 아이콘 (192x192)
+  icon-512.png              PWA-lite manifest 아이콘 (512x512)
 docs/                       아키텍처, ADR, 스펙
 ```
 
 ## 테스트
 
 ```bash
+# 테스트 스위트 실행 (33개 이상 스위트 — 실제 배포 게이트, 배포 전 반드시 실행)
+npx jest
+
 # 프로젝트 구조 테스트 실행
 bash tests/run-all.sh
 
@@ -741,7 +813,7 @@ curl http://localhost:3000/api/health
 - S3 경로의 `00` 세그먼트는 02:00 UTC 기록 시각을 나타내는 고정 시간 파티션입니다. **프롬프트 로그는 실제 `HH` 파티션을 사용**하므로, 활동 리포트 프리픽스 밖에서 `00`을 가정하면 안 됩니다.
 - 모델 메시지 컬럼은 **동적**입니다(Auto부터 시작하는 소문자 모델명 알파벳순). 파일마다 컬럼 구성이 달라지기 때문에 `/api/model-usage`와 `/api/adoption`은 Athena 대신 헤더명 기반 CSV 파싱을 사용합니다 (`docs/decisions/ADR-0004-s3-direct-read-for-positional-columns.md` 참고). `/api/ingest-health`는 같은 리스팅으로 이 드리프트 자체를 노출합니다 — 파일별 헤더 *집합*과 객체 메타데이터를 읽으며, `OpenCSVSerDe`가 드리프트된 컬럼을 잘못된 이름에 조용히 매핑하므로 Athena로는 아예 볼 수 없는 정보입니다.
 - 리포트의 **크로스 계정 적재는 지원되지 않습니다**. 버킷은 Kiro 프로필과 동일한 계정·리전에 있어야 합니다.
-- 두 리포트 어디에도 **구독자 명부는 없습니다.** Total/Active/Pending 좌석 수는 `user-subscriptions:ListUserSubscriptions`(Kiro 콘솔 전용, 본 저장소 미호출) 기준이므로, IAM Identity Center `ListUsers` 결과를 "라이선스 좌석"으로 표기하면 안 됩니다.
+- 두 리포트 어디에도 **구독자 명부는 없습니다.** Total/Active/Pending 좌석 수는 `user-subscriptions:ListUserSubscriptions`(Kiro 콘솔 전용, 본 저장소 미호출 — 2026-08-18 CloudTrail로 확인: 콘솔 프론트엔드가 이 비공개 API를 직접 호출하며, 공개된 SDK·CLI·엔드포인트는 존재하지 않습니다) 기준이므로, IAM Identity Center `ListUsers` 결과를 "라이선스 좌석"으로 표기하면 안 됩니다.
 
 ### 프로젝트 문서
 

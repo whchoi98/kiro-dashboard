@@ -18,7 +18,7 @@ CloudFront Viewer Request Lambda@Edge function. Authenticates all requests via C
 ## Auth Flow
 
 1. Request arrives at CloudFront → Lambda@Edge (Viewer Request)
-2. `/api/health` passes through without auth
+2. `/api/health` passes through without auth — and it is the ONLY exempt path (index.ts): /manifest.webmanifest and the three PWA icon PNGs are behind Cognito too. Add-to-home-screen works because Safari fetches them with session cookies; if a device ever shows a screenshot icon instead of the Kiro icon, add those 4 paths to the passthrough. Standalone installs keep a separate cookie store and re-auth on first launch (see app/CLAUDE.md Auth).
 3. `/auth/callback` exchanges the authorization code for tokens (PKCE), then 302s to the original path (carried in `state`)
 4. `/auth/logout` clears cookies, redirects to Cognito logout endpoint
 5. All other paths: validate `id_token` cookie via JWKS → if valid, inject `X-User-Email`/`X-User-Name` headers → forward to origin
@@ -41,3 +41,8 @@ CloudFront Viewer Request Lambda@Edge function. Authenticates all requests via C
 
 - `aws-jwt-verify` — Cognito JWT/JWKS validation with automatic key caching
 - `@aws-sdk/client-ssm` — SSM GetParameter (runtime-provided, not bundled)
+
+## Ops
+
+- Edge logs live in us-east-1 REPLICATED log groups: aws logs tail "/aws/lambda/us-east-1.<function-name>" --region <viewer-region> — see docs/runbooks/auth-failure.md for the full flow
+- Redeploy: cd infra && npx cdk deploy KiroDashboardEdgeLambda KiroDashboardCdn (Lambda@Edge version replication takes minutes; old-version DELETE_FAILED is benign)
