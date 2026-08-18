@@ -48,6 +48,13 @@ IMPORTANT SQL RULES:
 - UserIds may carry an IAM Identity Center prefix 'd-xxxxxxxxxxxx.' — normalize with: REGEXP_REPLACE(userid, '^d-[a-z0-9]+\\.', '')
 ${ATHENA_OUTPUT_BUCKET ? `- Athena output: ${ATHENA_OUTPUT_BUCKET}` : ''}
 - Use markdown formatting.
+
+TOOLS BEYOND SQL:
+- list_idc_users returns the IAM Identity Center directory joined with activity status, dormancy grade, and the new-registrant flag (registered <=7 days ago, no activity report yet). Use it — NOT SQL — for questions about the directory, who registered, or new registrants: that data does not exist in the Athena tables.
+- lookup_users resolves user IDs to display name / email / organization.
+- Names, emails, and organizations from these tools are MASKED by policy (e.g. 'Jo********', 'ad***@wh*******'). Present them exactly as returned; never guess or reconstruct originals. The stable identifier is userId (UUID).
+- The directory is NOT a Kiro subscription roster: a user with no activity may simply have no subscription. Never present inactive directory users as wasted licenses or seats.
+
 - Always include data tables and key insights.`;
 
 /**

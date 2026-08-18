@@ -12,6 +12,7 @@ import type { DocumentType } from '@smithy/types';
 import { executeQuery } from '@/lib/athena';
 import { resolveUserDetails } from '@/lib/identity';
 import { buildSystemPrompt, resolveLocale } from '@/lib/analyze-prompt';
+import { getIdcUsersPayload, filterIdcUsers, IdcFilter } from '@/lib/idc-users';
 
 const bedrockClient = new BedrockRuntimeClient({ region: 'ap-northeast-2' });
 
@@ -61,6 +62,34 @@ const tools: Tool[] = [
       },
     },
   },
+  {
+    toolSpec: {
+      name: 'list_idc_users',
+      description:
+        'List IAM Identity Center directory users with activity status, dormancy grade, and new-registrant flag (registered <=7 days ago, no activity report yet). Names/emails are masked by policy. Use this — not SQL — for questions about the directory, registrations, or new registrants; that data is not in the Athena tables.',
+      inputSchema: {
+        json: {
+          type: 'object',
+          properties: {
+            filter: {
+              type: 'string',
+              enum: ['all', 'active', 'inactive', 'new'],
+              description: "Subset to return (default 'all'). 'new' = new registrants awaiting their first report.",
+            },
+            days: {
+              type: 'number',
+              description: 'Activity window in days for active/dormancy grading (default 90)',
+            },
+            limit: {
+              type: 'number',
+              description: 'Max users to return (default 50, max 200)',
+            },
+          },
+          required: [],
+        },
+      },
+    },
+  },
 ];
 
 function sseEncode(data: Record<string, unknown>): string {
@@ -95,6 +124,36 @@ async function executeToolCall(
         obj[key] = val;
       });
       return { result: JSON.stringify(obj), rowCount: userIds.length };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { result: JSON.stringify({ error: message }), rowCount: 0 };
+    }
+  }
+
+  if (name === 'list_idc_users') {
+    try {
+      const days = Math.max(1, Math.ceil(Number(input.days) || 90));
+      const filter: IdcFilter = (['all', 'active', 'inactive', 'new'] as IdcFilter[]).includes(
+        input.filter as IdcFilter,
+      )
+        ? (input.filter as IdcFilter)
+        : 'all';
+      const limit = Number(input.limit) || 50;
+      const payload = await getIdcUsersPayload(days);
+      const { users, truncated } = filterIdcUsers(payload.users, filter, limit);
+      return {
+        result: JSON.stringify({
+          total: payload.total,
+          active: payload.active,
+          inactive: payload.inactive,
+          newRegistrants: payload.newRegistrants,
+          windowDays: payload.windowDays,
+          filter,
+          truncated,
+          users,
+        }),
+        rowCount: users.length,
+      };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       return { result: JSON.stringify({ error: message }), rowCount: 0 };
@@ -179,7 +238,9 @@ export async function POST(request: NextRequest) {
                 description:
                   currentToolUseName === 'query_athena'
                     ? 'Athena SQL query'
-                    : 'User lookup',
+                    : currentToolUseName === 'lookup_users'
+                    ? 'User lookup'
+                    : 'Directory listing',
               });
             }
 

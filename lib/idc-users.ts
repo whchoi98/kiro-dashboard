@@ -319,3 +319,20 @@ export async function getIdcUsersPayload(days: number): Promise<IdcUsersPayload>
     users,
   };
 }
+
+export type IdcFilter = 'all' | 'active' | 'inactive' | 'new';
+
+// Pure subset+cap for the analyze chatbot's list_idc_users tool. The cap
+// bounds tool-result tokens; `truncated` tells the model the list is partial.
+export function filterIdcUsers(
+  users: IdcUserStatus[],
+  filter: IdcFilter,
+  limit: number,
+): { users: IdcUserStatus[]; truncated: boolean } {
+  const cap = Math.max(1, Math.min(200, Math.floor(limit) || 1));
+  let rows = users;
+  if (filter === 'active') rows = users.filter((u) => u.status === 'active');
+  else if (filter === 'inactive') rows = users.filter((u) => u.status === 'inactive');
+  else if (filter === 'new') rows = users.filter((u) => u.isNewRegistrant);
+  return { users: rows.slice(0, cap), truncated: rows.length > cap };
+}

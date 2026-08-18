@@ -15,7 +15,7 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/credits` | `credits/route.ts` | Credit consumption breakdown per user/period (masked) |
 | `GET /api/engagement` | `engagement/route.ts` | Engagement metrics: retention, active days, session depth |
 | `GET /api/productivity` | `productivity/route.ts` | Productivity metrics: code accepted, inline suggestions, guarded acceptance rates, credits-per-accepted-line KPI (masked) |
-| `GET /api/analyze` | `analyze/route.ts` | Bedrock AI streaming analysis (SSE / ReadableStream) |
+| `GET /api/analyze` | `analyze/route.ts` | Bedrock AI streaming analysis (SSE / ReadableStream) with three tools: `query_athena` (SQL), `lookup_users` (user details), + `list_idc_users` (directory/new-registrant questions; masked) |
 | `GET /api/idc-users` | `idc-users/route.ts` | IAM Identity Center user list via IdentityStore SDK + dormancy grading, directory→activity funnel, and S3 first-seen ledger (`lib/first-seen.ts`) marking `isNewRegistrant` (registered ≤7d, no activity yet; ledger failure degrades to no badges) (masked). Badge is suppressed entirely when `days < 7`: `dormancy === 'never'` is relative to the SELECTED window, not lifetime, so a short window would falsely badge users whose first report already arrived — thin wrapper over lib/idc-users.ts |
 | `GET /api/user-detail` | `user-detail/route.ts` | Single-user credit/message detail from `user_report` (via `resolveTableName()`, masked) |
 | `GET /api/model-usage` | `model-usage/route.ts` | AI model message distribution — reads S3 CSV directly via `lib/uar-s3.ts` (masked) |
