@@ -16,6 +16,8 @@ export interface IdcUserStatus {
   daysSinceLastActive?: number | null;
   activeDays?: number;
   dormancy?: DormancyBucket;
+  firstSeenAt?: string | null;
+  isNewRegistrant?: boolean;
 }
 
 interface IdcUserStatusData {
@@ -27,6 +29,7 @@ interface IdcUserStatusData {
   windowDays?: number;
   dormancy?: DormancySummary[];
   funnel?: FunnelStep[];
+  newRegistrants?: number;
 }
 
 /**
@@ -135,7 +138,7 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           label={t('idc.total')}
           value={data.total}
@@ -152,6 +155,12 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
           value={data.inactive}
           colorClass="text-gray-400"
           dot="bg-gray-500"
+        />
+        <StatCard
+          label={t('idc.awaitingFirst')}
+          value={data.newRegistrants ?? 0}
+          colorClass="text-[#9046FF]"
+          dot="bg-[#9046FF]"
         />
       </div>
 
@@ -308,6 +317,11 @@ export default function IdcUserStatusComponent({ data, onUserClick }: IdcUserSta
                       />
                       {isActive ? 'Active' : 'Inactive'}
                     </span>
+                    {user.isNewRegistrant && (
+                      <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#9046FF]/10 text-[#9046FF]">
+                        {t('idc.newRegistrant')}
+                      </span>
+                    )}
                   </td>
 
                   <td className="px-4 py-2.5 text-gray-200 font-medium whitespace-nowrap">
