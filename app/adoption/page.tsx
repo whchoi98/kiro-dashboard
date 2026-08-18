@@ -8,6 +8,7 @@ import Header from '@/app/components/layout/Header';
 import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
 import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
+import FreshnessBanner from '@/app/components/ui/FreshnessBanner';
 import { AdoptionData } from '@/types/dashboard';
 import { useChartTheme } from '@/lib/chart-theme';
 
@@ -53,6 +54,7 @@ export default function AdoptionPage() {
         days={days}
         onDaysChange={setDays}
       />
+      <FreshnessBanner dates={(data?.trend ?? []).map((p) => p.date)} />
 
       <SkeletonGate variant="chart" loading={loading} hasData={data !== null}>
       {/* Metric cards */}

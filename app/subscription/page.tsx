@@ -6,6 +6,7 @@ import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
 import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
 import ClientPieChart from '@/app/components/charts/PieChart';
+import FreshnessBanner from '@/app/components/ui/FreshnessBanner';
 import { SubscriptionData, ClientDistribution } from '@/types/dashboard';
 
 // Left-border accent (decorative — inline hex is fine on any theme).
@@ -76,6 +77,7 @@ export default function SubscriptionPage() {
         days={days}
         onDaysChange={setDays}
       />
+      <FreshnessBanner dates={(data?.tierTrend ?? []).map((p) => p.date)} />
 
       <SkeletonGate variant="split" loading={loading} hasData={data !== null}>
       {/* Summary metrics */}
