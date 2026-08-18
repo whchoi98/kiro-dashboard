@@ -44,6 +44,7 @@ components/
     UserTable.tsx       Sortable user activity data table
   ui/
     DateRangePicker.tsx Date range selector component
+    FreshnessBanner.tsx   Report-freshness banner (as-of date + next-report countdown + console docs link); props { dates }; used by /subscription and /adoption
     KiroIcon.tsx        Kiro icon SVG (small)
     KiroMascot.tsx      Kiro mascot SVG (large, decorative)
     UserDetailPanel.tsx Slide-in user detail side panel (Athena-backed /api/user-detail) + embeds UserModelUsage
