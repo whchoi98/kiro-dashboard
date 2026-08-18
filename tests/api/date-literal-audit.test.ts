@@ -40,8 +40,15 @@ function routeFiles(dir: string): string[] {
 /** Routes whose SQL the model writes, not us. */
 const EXEMPT = ['analyze'];
 
+/**
+ * SQL that used to live in a route and moved to lib keeps the same audit:
+ * result reuse dies just as silently there.
+ */
+const SQL_LIBS = [join(__dirname, '..', '..', 'lib', 'idc-users.ts')];
+
 function relative(file: string): string {
-  return file.slice(file.indexOf('app/api'));
+  const marker = file.includes('app/api') ? 'app/api' : 'lib';
+  return file.slice(file.indexOf(marker));
 }
 
 /**
@@ -60,9 +67,9 @@ function withoutComments(src: string): string {
 }
 
 describe('Athena route date windows are literals', () => {
-  const files = routeFiles(API_DIR).filter(
-    (f) => !EXEMPT.some((name) => f.includes(join('api', name) + '/'))
-  );
+  const files = routeFiles(API_DIR)
+    .filter((f) => !EXEMPT.some((name) => f.includes(join('api', name) + '/')))
+    .concat(SQL_LIBS);
 
   it('finds the route files (guards against a silently empty audit)', () => {
     expect(files.length).toBeGreaterThan(10);
