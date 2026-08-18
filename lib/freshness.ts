@@ -22,3 +22,16 @@ export function nextReportEtaMs(nowMs: number): number {
   );
   return nowMs < todayReportMs ? todayReportMs : todayReportMs + 86_400_000;
 }
+
+/**
+ * ISO instant → 'YYYY-MM-DD HH:MM KST'. KST is a fixed UTC+9 with no DST, so
+ * a constant offset is safe. Display-only: APIs keep emitting UTC ISO strings;
+ * this exists because "02:00 UTC" reads as 새벽 2시 to a KST-based operator.
+ */
+export function formatInstantKst(iso: string | null): string {
+  if (!iso) return '—';
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return '—';
+  const kst = new Date(ms + 9 * 3_600_000).toISOString();
+  return `${kst.slice(0, 10)} ${kst.slice(11, 16)} KST`;
+}

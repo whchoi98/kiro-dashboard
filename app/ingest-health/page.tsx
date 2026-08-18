@@ -7,6 +7,7 @@ import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
 import { IngestHealthData } from '@/types/dashboard';
 import { useI18n } from '@/lib/i18n';
+import { formatInstantKst } from '@/lib/freshness';
 
 const FILE_ROWS_SHOWN = 40;
 
@@ -22,11 +23,8 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
-/** ISO instant → `YYYY-MM-DD HH:MM UTC`; the UTC suffix is load-bearing. */
-function formatInstant(iso: string | null): string {
-  if (!iso) return '—';
-  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
-}
+// Timestamps render in KST via formatInstantKst (lib/freshness.ts) — the old
+// raw-UTC display read as 새벽 2시 to KST-based operators.
 
 function fileName(key: string): string {
   return key.slice(key.lastIndexOf('/') + 1);
@@ -99,7 +97,7 @@ export default function IngestHealthPage() {
               ? `${t('ingest.reportLag')} ${freshness.reportLagDays}${t('ingest.days')}`
               : t('ingest.reportLag')
           }
-          detail={`${t('ingest.latestDelivered')}: ${formatInstant(freshness?.latestDeliveredAt ?? null)}`}
+          detail={`${t('ingest.latestDelivered')}: ${formatInstantKst(freshness?.latestDeliveredAt ?? null)}`}
         />
         <MetricCard
           title={t('ingest.totalFiles')}
@@ -326,7 +324,7 @@ export default function IngestHealthPage() {
                       {formatBytes(file.sizeBytes)}
                     </td>
                     <td className="py-2.5 text-slate-500 font-mono text-xs">
-                      {formatInstant(file.deliveredAt)}
+                      {formatInstantKst(file.deliveredAt)}
                     </td>
                   </tr>
                 ))}
