@@ -5,6 +5,7 @@ import Header from '@/app/components/layout/Header';
 import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
 import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import MetricCard from '@/app/components/charts/MetricCard';
+import InfraDetailPanel from '@/app/components/ui/InfraDetailPanel';
 import { InfraStatusData } from '@/types/dashboard';
 import { useI18n } from '@/lib/i18n';
 
@@ -26,7 +27,10 @@ function pct(n: number | null): string {
 export default function InfraCostPage() {
   const [data, setData] = useState<InfraStatusData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { t } = useI18n();
+
+  const selected = data?.resources.find((r) => r.id === selectedId) ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +96,7 @@ export default function InfraCostPage() {
           </thead>
           <tbody>
             {(data?.resources ?? []).map((r) => (
-              <tr key={r.id} className="border-b border-gray-800/50 last:border-b-0 hover:bg-gray-800/30 transition-colors">
+              <tr key={r.id} onClick={() => setSelectedId(selectedId === r.id ? null : r.id)} className={`border-b border-gray-800/50 last:border-b-0 hover:bg-gray-800/30 transition-colors cursor-pointer ${selectedId === r.id ? 'bg-gray-800/40' : ''}`}>
                 <td className="px-4 py-2.5 text-gray-200 font-medium whitespace-nowrap">{r.type}</td>
                 <td className="px-4 py-2.5 text-gray-400 font-mono text-xs break-all">{r.name}</td>
                 <td className="px-4 py-2.5 text-gray-400 font-mono text-xs">{r.region}</td>
@@ -112,6 +116,8 @@ export default function InfraCostPage() {
       </div>
 
       <p className="text-xs text-gray-600">{t('infra.estimateNote')}</p>
+
+      <InfraDetailPanel resource={selected} metrics={data?.metrics ?? null} onClose={() => setSelectedId(null)} />
       </SkeletonGate>
     </div>
   );

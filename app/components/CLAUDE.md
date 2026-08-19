@@ -49,6 +49,7 @@ components/
     FreshnessBanner.tsx   Report-freshness banner (as-of date + next-report countdown + console docs link); props { dates }; used by /subscription and /adoption
     KiroIcon.tsx        Kiro icon SVG (small)
     KiroMascot.tsx      Kiro mascot SVG (large, decorative)
+    InfraDetailPanel.tsx Display-only right slide-over for /infra-cost rows (cost formula + related CloudWatch metrics; no fetch)
     UserDetailPanel.tsx Slide-in user detail side panel (Athena-backed /api/user-detail) + embeds UserModelUsage
     UserModelUsage.tsx  Per-user AI model mix card inside UserDetailPanel — stacked 100% bar, primary/distinct
                         cards, legend rows, client-type footnote. Fetches /api/user-model-usage SEPARATELY from

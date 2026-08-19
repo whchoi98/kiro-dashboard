@@ -27,7 +27,7 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/dev-activity` | `dev-activity/route.ts` | Legacy deep metrics: TestGen/DocGen/Transform/InlineChat/CodeFix from `by_user_analytic` (masked) |
 | `GET /api/rollout` | `rollout/route.ts` | Client rollout: per-`Client_Type` daily/cumulative adoption, IDE/CLI overlap segments, per-user pickup lag, tier × client matrix (masked) |
 | `GET /api/ingest-health` | `ingest-health/route.ts` | Report delivery & freshness: S3 file inventory, date × client delivery matrix, header drift, Athena↔CSV row parity, legacy column instrumentation |
-| `GET /api/infra` | `infra/route.ts` | Dashboard self-introspection: live ECS/ALB/CloudFront/ECR status + CloudWatch metrics (Seoul + us-east-1 for CloudFront) + static Seoul price estimates from `lib/infra-cost.ts`. `force-dynamic` (build box has no AWS creds); per-source degrade to `unknown` |
+| `GET /api/infra` | `infra/route.ts` | Dashboard self-introspection: live ECS/ALB/CloudFront/ECR status + CloudWatch metrics (Seoul + us-east-1 for CloudFront) + static Seoul price estimates from `lib/infra-cost.ts`. `force-dynamic` (build box has no AWS creds); per-source degrade to `unknown`; exposes CostLine formula/kind per resource |
 
 ## Common Query Parameters
 

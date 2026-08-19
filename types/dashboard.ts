@@ -418,6 +418,9 @@ export interface InfraResource {
   status: 'healthy' | 'degraded' | 'unknown' | 'static';
   detail: string;
   monthlyUsd: number | null; // null = usage-based or unmeasured
+  /** Human-readable cost calculation from lib/infra-cost's CostLine; absent on rows without a cost line. */
+  formula?: string | null;
+  costKind?: 'fixed' | 'usage-excluded' | null;
 }
 
 export interface InfraStatusData {

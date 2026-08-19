@@ -338,20 +338,31 @@ export async function GET() {
     ecrRepoGb: ecrInfo.repoGb,
     albAvgLcu: 0.25,
   });
-  const cost = (resource: string): number | null =>
-    lines.find((l) => l.resource === resource)?.monthlyUsd ?? null;
+  const costLine = (resource: string) => lines.find((l) => l.resource === resource) ?? null;
+  // Attach the whole cost line (amount + human-readable formula + kind) so the
+  // detail panel can show HOW an estimate was computed, not just the number.
+  const withCost = (r: InfraResource, lineName: string): InfraResource => {
+    const l = costLine(lineName);
+    return { ...r, monthlyUsd: l?.monthlyUsd ?? null, formula: l?.formula ?? null, costKind: l?.kind ?? null };
+  };
 
   const live: InfraResource[] = [
-    { ...ecsInfo.resource, monthlyUsd: cost('Fargate') },
-    { ...albInfo.resource, monthlyUsd: cost('ALB') },
-    { ...cfInfo.resource, monthlyUsd: cost('CloudFront') },
-    { ...ecrInfo.resource, monthlyUsd: cost('ECR') },
+    withCost(ecsInfo.resource, 'Fargate'),
+    withCost(albInfo.resource, 'ALB'),
+    withCost(cfInfo.resource, 'CloudFront'),
+    withCost(ecrInfo.resource, 'ECR'),
   ];
-  const statics = staticResources().map((r) => {
-    if (r.id === 'nat') return { ...r, monthlyUsd: cost('NAT Gateway') };
-    if (r.id === 'secrets') return { ...r, monthlyUsd: cost('Secrets Manager') };
-    return r;
-  });
+  const STATIC_LINE: Record<string, string> = {
+    nat: 'NAT Gateway',
+    secrets: 'Secrets Manager',
+    athena: 'Athena',
+    s3: 'S3',
+    bedrock: 'Bedrock',
+    logs: 'CloudWatch Logs',
+  };
+  const statics = staticResources().map((r) =>
+    STATIC_LINE[r.id] ? withCost(r, STATIC_LINE[r.id]) : r,
+  );
 
   const data: InfraStatusData = {
     resources: [...live, ...statics],
