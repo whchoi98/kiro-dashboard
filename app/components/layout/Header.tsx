@@ -11,8 +11,8 @@ interface HeaderProps {
   mascotMood?: 'happy' | 'excited' | 'thinking' | 'alert';
   mascotTheme?: 'dashboard' | 'users' | 'trends' | 'credits' | 'productivity' | 'engagement' | 'analyze';
   mascotMessage?: string;
-  days: number;
-  onDaysChange: (days: number) => void;
+  days?: number;
+  onDaysChange?: (days: number) => void;
 }
 
 export default function Header({
@@ -37,7 +37,9 @@ export default function Header({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <DateRangePicker value={days} onChange={onDaysChange} />
+        {days !== undefined && onDaysChange && (
+          <DateRangePicker value={days} onChange={onDaysChange} />
+        )}
         <button
           onClick={() => router.refresh()}
           className="bg-[#9046FF] hover:bg-[#7c3aed] text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors duration-150 shadow-lg shadow-purple-500/20"

@@ -9,7 +9,9 @@
 ```
 components/
   layout/
-    Header.tsx          Top navigation bar — language switcher, user info
+    Header.tsx          Top navigation bar — language switcher, user info.
+                        days/onDaysChange are OPTIONAL — the period picker renders only when both are
+                        passed (used by /infra-cost, which has no date-range concept)
     Sidebar.tsx         Left nav sidebar — page links, logout button, theme (다크/라이트) + language switchers, app version footer; off-canvas drawer + fixed hamburger top bar below md.
                         Nav item appearance comes from lib/nav-state.ts, NOT from `pathname === href`:
                         usePathname() only updates when a transition COMMITS, so clicking the slow `/`

@@ -307,7 +307,7 @@ function staticResources(): InfraResource[] {
     { id: 'cognito', type: 'Cognito', name: 'user pool', region: INFRA_REGION, status: 'static', detail: 'Hosted UI + PKCE — free tier', monthlyUsd: 0 },
     { id: 'edge', type: 'Lambda@Edge', name: 'edge-auth', region: 'us-east-1', status: 'static', detail: 'viewer-request auth', monthlyUsd: null },
     { id: 'secrets', type: 'Secrets Manager', name: 'NextAuthSecret', region: INFRA_REGION, status: 'static', detail: 'legacy, still provisioned', monthlyUsd: null },
-    { id: 'athena', type: 'Athena', name: 'titanlog', region: 'us-east-1', status: 'static', detail: 'per-TB-scanned', monthlyUsd: null },
+    { id: 'athena', type: 'Athena', name: process.env.ATHENA_DATABASE || 'titanlog', region: 'us-east-1', status: 'static', detail: 'per-TB-scanned', monthlyUsd: null },
     { id: 's3', type: 'S3', name: 'report + results buckets', region: 'us-east-1', status: 'static', detail: 'reports, athena results, first-seen ledger', monthlyUsd: null },
     { id: 'bedrock', type: 'Bedrock', name: 'Claude (analyze)', region: 'us-east-1', status: 'static', detail: 'per-token', monthlyUsd: null },
     { id: 'logs', type: 'CloudWatch Logs', name: 'ecs log group', region: INFRA_REGION, status: 'static', detail: '1-month retention', monthlyUsd: null },

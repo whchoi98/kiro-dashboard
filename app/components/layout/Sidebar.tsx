@@ -78,6 +78,7 @@ const navItems = [
   { key: 'nav.modelUsage', href: '/model-usage', accent: '#22d3ee' },
   { key: 'nav.analyze', href: '/analyze', accent: '#f59e0b' },
   { key: 'nav.ingestHealth', href: '/ingest-health', accent: '#94a3b8' },
+  { key: 'nav.infraCost', href: '/infra-cost', accent: '#64748b' },
 ];
 
 export default function Sidebar() {
