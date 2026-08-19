@@ -38,8 +38,12 @@
      `AWS/ECS` CPUUtilization·MemoryUtilization Avg {ClusterName, ServiceName},
      `AWS/ApplicationELB` RequestCount Sum·TargetResponseTime Avg {LoadBalancer=ARN에서 파생한 `app/...` 차원}
   6. CloudWatch (us-east-1): `AWS/CloudFront` Requests Sum {DistributionId, Region='Global'}
+- `resources[]` 구성 = **라이브 조회 4종**(ECS 서비스·ALB·CloudFront·ECR — status는
+  healthy/degraded/unknown) + **정적 항목**(NAT GW·VPC·Cognito·Lambda@Edge·Secrets
+  Manager·Athena·S3·Bedrock — 조회 권한이 없거나 조회가 무의미한 자원, status: 'static',
+  CDK 정의 기반 상세). 정적 항목도 리전 컬럼과 비용 라인(§3)을 가진다
 - 응답 `InfraStatusData` (types/dashboard.ts): `resources: InfraResource[]`
-  (`{ id, type, name, region, status: 'healthy'|'degraded'|'unknown', detail, monthlyUsd: number|null }`),
+  (`{ id, type, name, region, status: 'healthy'|'degraded'|'unknown'|'static', detail, monthlyUsd: number|null }`),
   `metrics: { ecsCpuPct, ecsMemPct, albRequests1h, albP50LatencySec, cfRequests1h }` (각 `number|null`),
   `summary: { fixedMonthlyUsd, runningTasks, desiredTasks, healthyTargets, totalTargets }`,
   `pricingAsOf: string`
