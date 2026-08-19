@@ -124,7 +124,7 @@ async function fetchAlb(): Promise<AlbInfo> {
       resource: {
         ...base,
         status: ok ? 'healthy' : 'degraded',
-        detail: `${lb.State?.Code ?? '?'} · targets ${healthy ?? '?'} / ${total ?? '?'}`,
+        detail: `${lb.State?.Code ?? '?'} · targets ${healthy ?? '?'} / ${total ?? '?'} · cost assumes ~0.25 avg LCU`,
         monthlyUsd: null,
       },
       lbDimension,
@@ -149,11 +149,15 @@ interface CfInfo {
 async function fetchCloudFront(albDns: string | null): Promise<CfInfo> {
   const base = { id: 'cloudfront', type: 'CloudFront', name: 'distribution', region: 'global' };
   try {
+    if (!albDns) {
+      return {
+        resource: { ...base, status: 'unknown', detail: 'no matching distribution', monthlyUsd: null },
+        distributionId: null,
+      };
+    }
     const list = await cf.send(new ListDistributionsCommand({}));
     const items = list.DistributionList?.Items ?? [];
-    const match = albDns
-      ? items.find((d) => d.Origins?.Items?.some((o) => o.DomainName === albDns))
-      : items[0];
+    const match = items.find((d) => d.Origins?.Items?.some((o) => o.DomainName === albDns));
     if (!match?.Id) {
       return {
         resource: { ...base, status: 'unknown', detail: 'no matching distribution', monthlyUsd: null },
@@ -302,7 +306,7 @@ async function fetchCfRequests(distributionId: string | null): Promise<number | 
 // to poll. Costs (where fixed) attach from the estimator below.
 function staticResources(): InfraResource[] {
   return [
-    { id: 'nat', type: 'NAT Gateway', name: 'network-stack NAT', region: INFRA_REGION, status: 'static', detail: '1 gateway (CDK network stack)', monthlyUsd: null },
+    { id: 'nat', type: 'NAT Gateway', name: 'network-stack NAT', region: INFRA_REGION, status: 'static', detail: '1 gateway (CDK network stack) · + data processing billed per GB (usage)', monthlyUsd: null },
     { id: 'vpc', type: 'VPC', name: 'kiro-dashboard VPC', region: INFRA_REGION, status: 'static', detail: '2 AZ, public/private subnets — no hourly charge', monthlyUsd: 0 },
     { id: 'cognito', type: 'Cognito', name: 'user pool', region: INFRA_REGION, status: 'static', detail: 'Hosted UI + PKCE — free tier', monthlyUsd: 0 },
     { id: 'edge', type: 'Lambda@Edge', name: 'edge-auth', region: 'us-east-1', status: 'static', detail: 'viewer-request auth', monthlyUsd: null },
@@ -324,6 +328,9 @@ export async function GET() {
   const cfRequests1h = await fetchCfRequests(cfInfo.distributionId);
 
   const { lines, fixedTotalUsd } = estimateMonthlyCost({
+    // Fallback 1 = the autoscaling floor (min capacity), not current capacity —
+    // the ECS row shows 'unknown' in that state, so the total is marked partial
+    // by the row itself. desiredTasks would be an equally blind guess here.
     runningTasks: ecsInfo.running ?? 1,
     taskVcpu: 0.5,
     taskMemoryGb: 1,

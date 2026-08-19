@@ -35,15 +35,35 @@ describe('InfraReadOnly task-role policy', () => {
           PolicyName: 'InfraReadOnly',
           PolicyDocument: Match.objectLike({
             Statement: Match.arrayWith([
+              // ecs:ListServices supports no resource types (AWS Service
+              // Authorization Reference: no resource types for this action) —
+              // it is silently denied if scoped to a cluster ARN inside a
+              // Resource array, so it must be its own statement on '*',
+              // least-privileged instead via the ecs:cluster condition key.
+              Match.objectLike({
+                Action: 'ecs:ListServices',
+                Effect: 'Allow',
+                Resource: '*',
+                Condition: Match.objectLike({
+                  ArnEquals: Match.objectLike({
+                    'ecs:cluster': Match.anyValue(),
+                  }),
+                }),
+              }),
               Match.objectLike({
                 Action: [
                   'ecs:DescribeClusters',
-                  'ecs:ListServices',
                   'ecs:DescribeServices',
                   'ecs:ListTasks',
                   'ecs:DescribeTasks',
                 ],
                 Effect: 'Allow',
+                Resource: [
+                  'arn:aws:ecs:ap-northeast-2:111111111111:cluster/kiro-dashboard-cluster',
+                  'arn:aws:ecs:ap-northeast-2:111111111111:service/kiro-dashboard-cluster/*',
+                  'arn:aws:ecs:ap-northeast-2:111111111111:task/kiro-dashboard-cluster/*',
+                  'arn:aws:ecs:ap-northeast-2:111111111111:container-instance/kiro-dashboard-cluster/*',
+                ],
               }),
               Match.objectLike({
                 Action: [
@@ -60,6 +80,7 @@ describe('InfraReadOnly task-role policy', () => {
               Match.objectLike({
                 Action: ['ecr:DescribeRepositories', 'ecr:DescribeImages'],
                 Effect: 'Allow',
+                Resource: 'arn:aws:ecr:ap-northeast-2:111111111111:repository/kiro-dashboard',
               }),
             ]),
           }),

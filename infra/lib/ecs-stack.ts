@@ -176,10 +176,20 @@ export class EcsStack extends cdk.Stack {
         // Describe* on ELB/CloudFront/CloudWatch has no resource-level support.
         InfraReadOnly: new iam.PolicyDocument({
           statements: [
+            // ListServices supports no resource types — it must be granted on
+            // '*' and least-privileged via the ecs:cluster condition key.
+            new iam.PolicyStatement({
+              actions: ['ecs:ListServices'],
+              resources: ['*'],
+              conditions: {
+                ArnEquals: {
+                  'ecs:cluster': `arn:aws:ecs:${this.region}:${this.account}:cluster/kiro-dashboard-cluster`,
+                },
+              },
+            }),
             new iam.PolicyStatement({
               actions: [
                 'ecs:DescribeClusters',
-                'ecs:ListServices',
                 'ecs:DescribeServices',
                 'ecs:ListTasks',
                 'ecs:DescribeTasks',
