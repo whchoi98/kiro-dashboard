@@ -48,6 +48,54 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 
 ![AI Analysis](screenshot/AI_analytics.png)
 
+## Architecture
+
+The full architecture reference lives in [docs/architecture.md](docs/architecture.md); this is the same system as a diagram.
+
+```mermaid
+flowchart TB
+    KIRO["Kiro service"] -- "daily CSV drop 02:00 UTC (= 11:00 KST)" --> S3
+
+    USER([User browser])
+
+    subgraph EDGE["Entry & auth (CloudFront / us-east-1 edge)"]
+        CF["CloudFront CDN"]
+        LE["Lambda@Edge - Cognito JWT check (PKCE)"]
+        COG["Cognito User Pool"]
+        SSM["SSM Parameter Store (edge config)"]
+    end
+
+    subgraph SEOUL["Serving (ap-northeast-2)"]
+        ALB["ALB - X-Custom-Secret gate"]
+        ECS["ECS Fargate - Next.js app (15 pages / 19 API routes)"]
+        NAT["NAT Gateway (outbound)"]
+        ECR["ECR (images)"]
+        CW["CloudWatch (logs + metrics)"]
+    end
+
+    subgraph DATA["Data & AI (us-east-1)"]
+        S3[("S3 - report CSVs / Athena results / first-seen ledger")]
+        GLUE["Glue Catalog"]
+        ATH["Athena SQL"]
+        IDC["IAM IdentityStore"]
+        BR["Bedrock - Claude Sonnet 4.6 (global inference profile)"]
+    end
+
+    USER --> CF --> LE
+    LE --> COG
+    LE -.-> SSM
+    CF -- "X-Custom-Secret header" --> ALB --> ECS
+    ECS -- "SQL (result reuse 60 min)" --> ATH
+    ATH --> GLUE
+    ATH --> S3
+    ECS -- "direct CSV read + ledger GET/PUT" --> S3
+    ECS -- "directory list (masked)" --> IDC
+    ECS -- "AI chat streaming" --> BR
+    ECS -- "self metrics (/infra-cost)" --> CW
+    ECS -.->|pull image| ECR
+    ECS -.->|egress| NAT
+```
+
 ## Features
 
 - **Real-time Usage Analytics** — Track users, messages, conversations, credits, and overage across configurable time periods (1 minute to 90 days)
@@ -465,6 +513,54 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 ### AI 기반 자연어 분석
 
 ![AI 분석](screenshot/AI_analytics.png)
+
+## 아키텍처
+
+전체 아키텍처 문서는 [docs/architecture.md](docs/architecture.md)에 있습니다. 같은 시스템을 다이어그램으로 나타내면 다음과 같습니다.
+
+```mermaid
+flowchart TB
+    KIRO["Kiro 서비스"] -- "매일 02:00 UTC(= 11:00 KST) CSV 적재" --> S3
+
+    USER([사용자 브라우저])
+
+    subgraph EDGE["진입·인증 (CloudFront / us-east-1 엣지)"]
+        CF["CloudFront CDN"]
+        LE["Lambda@Edge - Cognito JWT 검증 (PKCE)"]
+        COG["Cognito User Pool"]
+        SSM["SSM Parameter Store (엣지 설정)"]
+    end
+
+    subgraph SEOUL["서빙 (ap-northeast-2)"]
+        ALB["ALB - X-Custom-Secret 검증"]
+        ECS["ECS Fargate - Next.js 앱 (페이지 15 / API 19)"]
+        NAT["NAT Gateway (아웃바운드)"]
+        ECR["ECR (이미지)"]
+        CW["CloudWatch (로그·지표)"]
+    end
+
+    subgraph DATA["데이터·AI (us-east-1)"]
+        S3[("S3 - 리포트 CSV / Athena 결과 / first-seen 원장")]
+        GLUE["Glue 카탈로그"]
+        ATH["Athena SQL"]
+        IDC["IAM IdentityStore"]
+        BR["Bedrock - Claude Sonnet 4.6 (글로벌 추론 프로파일)"]
+    end
+
+    USER --> CF --> LE
+    LE --> COG
+    LE -.-> SSM
+    CF -- "X-Custom-Secret 헤더" --> ALB --> ECS
+    ECS -- "SQL (결과 재사용 60분)" --> ATH
+    ATH --> GLUE
+    ATH --> S3
+    ECS -- "CSV 직접 읽기 + 원장 GET/PUT" --> S3
+    ECS -- "디렉터리 조회 (마스킹)" --> IDC
+    ECS -- "AI 챗 스트리밍" --> BR
+    ECS -- "자기 지표 (/infra-cost)" --> CW
+    ECS -.->|이미지 pull| ECR
+    ECS -.->|이그레스| NAT
+```
 
 ## 주요 기능
 
