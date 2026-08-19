@@ -409,6 +409,36 @@ export interface ReleaseNotesResponse {
   history: Array<{ version: string; date: string | null }>;
 }
 
+/** One row on /infra-cost. 'static' = defined by CDK, not live-queried. */
+export interface InfraResource {
+  id: string;
+  type: string;
+  name: string;
+  region: string;
+  status: 'healthy' | 'degraded' | 'unknown' | 'static';
+  detail: string;
+  monthlyUsd: number | null; // null = usage-based or unmeasured
+}
+
+export interface InfraStatusData {
+  resources: InfraResource[];
+  metrics: {
+    ecsCpuPct: number | null;
+    ecsMemPct: number | null;
+    albRequests1h: number | null;
+    albP50LatencySec: number | null;
+    cfRequests1h: number | null;
+  };
+  summary: {
+    fixedMonthlyUsd: number;
+    runningTasks: number | null;
+    desiredTasks: number | null;
+    healthyTargets: number | null;
+    totalTargets: number | null;
+  };
+  pricingAsOf: string;
+}
+
 /** One model's share of a single user's messages. */
 export interface UserModelSlice {
   model: string;

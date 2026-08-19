@@ -44,6 +44,7 @@
 | `UserModelSlice` | One model's share of a single user's messages — `{ model, messages, percentage }` |
 | `UserModelUsageData` | `/api/user-model-usage` response — slices, daily trend, client-type split, `primaryModel`, plus `configured` and `daysWithModelColumns` which keep the three zero states distinguishable (env unset / no model columns in the reports / user had none) |
 | `ReleaseNotesResponse` | `/api/release-notes` response — `{ version, exact, section, history }`. `section` is a `VersionSection` from `lib/changelog-md.ts`; `exact: false` means the notes belong to a different version than the running build, which the dialog labels rather than hiding |
+| `InfraResource` / `InfraStatusData` | `/api/infra` response — one row per dashboard-owned AWS resource (`status: 'healthy'\|'degraded'\|'unknown'\|'static'`, `monthlyUsd` nullable) plus live CloudWatch metrics and a fixed-cost summary from `lib/infra-cost.ts` |
 
 ---
 

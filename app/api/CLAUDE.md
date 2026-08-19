@@ -4,7 +4,7 @@
 
 Next.js App Router API route handlers. All routes connect to Athena via `lib/athena.ts` and resolve the Glue table via `lib/glue.ts`.
 
-## All 19 Endpoints
+## All 20 Endpoints
 
 | Endpoint | File | Description |
 |----------|------|-------------|
@@ -27,6 +27,7 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/dev-activity` | `dev-activity/route.ts` | Legacy deep metrics: TestGen/DocGen/Transform/InlineChat/CodeFix from `by_user_analytic` (masked) |
 | `GET /api/rollout` | `rollout/route.ts` | Client rollout: per-`Client_Type` daily/cumulative adoption, IDE/CLI overlap segments, per-user pickup lag, tier × client matrix (masked) |
 | `GET /api/ingest-health` | `ingest-health/route.ts` | Report delivery & freshness: S3 file inventory, date × client delivery matrix, header drift, Athena↔CSV row parity, legacy column instrumentation |
+| `GET /api/infra` | `infra/route.ts` | Dashboard self-introspection: live ECS/ALB/CloudFront/ECR status + CloudWatch metrics (Seoul + us-east-1 for CloudFront) + static Seoul price estimates from `lib/infra-cost.ts`. `force-dynamic` (build box has no AWS creds); per-source degrade to `unknown` |
 
 ## Common Query Parameters
 
@@ -100,6 +101,7 @@ export async function GET(req: NextRequest) {
 - The `ingest-health` endpoint reads S3 objects via `lib/uar-s3.ts` **and** queries both Athena tables, each in its own try/catch. Its delivery matrix has only `delivered: true|false` — Kiro publishes no expected-file count, so a missing file is not a failure signal
 - User-facing routes (users, credits, productivity, user-detail, idc-users) return masked identifiers via `lib/mask.ts`
 - Authentication is handled by Lambda@Edge at the CDN layer — no auth middleware in API routes
+- The `infra` endpoint pins every SDK client region explicitly (infra lives in ap-northeast-2; the app default AWS_REGION is us-east-1). It performs NO caching — status is realtime.
 
 ## Adding a New Endpoint
 
