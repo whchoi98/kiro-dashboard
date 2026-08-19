@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-08-19
+
+Two visibility features that were sitting in Unreleased ship together with two
+new ones: the dashboard becomes installable on iPhone/iPad, the AI chatbot
+learns the directory, timestamps speak KST, and — for the first time — the
+dashboard turns its instruments on itself.
+
 ### Added
 
 - iOS/iPadOS home-screen app (PWA-lite): `app/manifest.ts` (standalone, dark theme color),
@@ -27,6 +34,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   yield a confident false "none". Enabled by extracting the /api/idc-users assembly
   into `lib/idc-users.ts` (route is now a thin wrapper; the date-literal audit also
   scans the moved SQL).
+- **Infrastructure & cost menu (`/infra-cost`)** — the dashboard now watches
+  itself. Live status of its own ECS service / ALB targets / CloudFront
+  distribution / ECR repository (via a new read-only `InfraReadOnly` task-role
+  policy), CloudWatch metrics (ECS CPU/memory, ALB requests/latency, CloudFront
+  requests — the latter from us-east-1, where CloudFront publishes metrics), and
+  a monthly cost estimate from static ap-northeast-2 on-demand prices (AWS
+  Pricing API 2026-08, Fargate ARM rates). Fixed costs (Fargate/ALB/NAT/ECR/
+  Secrets) are computed; usage-billed services are listed but honestly excluded.
+  Clicking a row opens a detail side panel showing the exact cost formula and
+  the resource's related metrics — no extra network call.
+  - IAM lesson recorded: `ecs:ListServices` supports no resource types, so it is
+    granted on `*` least-privileged via the `ecs:cluster` condition key — an
+    ARN-scoped grant is silently denied and the page's graceful degradation
+    would have hidden that forever.
+- **KST timestamps on `/ingest-health`** — file delivery times now render as
+  `YYYY-MM-DD HH:MM KST` (fixed UTC+9) instead of raw UTC, and the footnote
+  spells out that the daily target is 02:00 UTC = **11:00 KST**. Born from a
+  real "2 AM local time" misreading of the old UTC display.
 
 ## [1.10.0] - 2026-08-18
 
@@ -696,7 +721,8 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 - Bedrock model ID corrected to global inference profile (global.anthropic.claude-sonnet-4-6)
 - Bedrock IAM policy expanded to include inference-profile ARN pattern
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.7.0...v1.8.0
@@ -718,6 +744,12 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-08-19
+
+Unreleased에 있던 두 기능과 신규 두 기능을 함께 출시한다: 대시보드가
+아이폰·아이패드에 설치 가능해지고, AI 챗봇이 디렉터리를 알게 되고, 시각이
+KST로 말하며, 처음으로 대시보드가 계기판을 자기 자신에게 돌린다.
+
 ### Added
 
 - 아이폰·아이패드 홈 화면 앱(PWA-lite): `app/manifest.ts`(standalone, 다크 테마색),
@@ -730,6 +762,22 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
   오답("신규 없음")을 막기 위해 7로 클램프. `/api/idc-users` 조립 로직을
   `lib/idc-users.ts`로 추출(라우트는 얇은 래퍼, 이동한 SQL도 date-literal 감사가
   스캔)하며 가능해졌다.
+- **인프라·비용 메뉴 (`/infra-cost`)** — 대시보드가 자기 자신을 관측한다.
+  자체 ECS 서비스/ALB 타겟/CloudFront 배포/ECR 저장소의 실시간 상태(신규
+  읽기 전용 `InfraReadOnly` 태스크 롤 정책), CloudWatch 지표(ECS CPU·메모리,
+  ALB 요청·응답시간, CloudFront 요청 — CloudFront 지표는 us-east-1에서),
+  그리고 ap-northeast-2 온디맨드 정적 단가(AWS Pricing API 2026-08, Fargate
+  ARM 단가) 기반 월 비용 추정을 표시한다. 고정비(Fargate/ALB/NAT/ECR/
+  Secrets)는 계산하고, 사용량 과금 서비스는 나열하되 정직하게 추정에서
+  제외한다. 행을 클릭하면 우측 상세 패널이 열려 정확한 비용 계산식과 해당
+  자원의 관련 지표를 보여준다 — 추가 네트워크 호출 없음.
+  - 기록된 IAM 교훈: `ecs:ListServices`는 리소스 타입을 지원하지 않아 `*`에
+    `ecs:cluster` 조건 키로 최소 권한 부여해야 한다 — ARN 스코프 부여는
+    조용히 거부되며, 페이지의 우아한 저하가 그 실패를 영원히 숨겼을 것이다.
+- **`/ingest-health` KST 시각 표시** — 파일 적재 시각을 원시 UTC 대신
+  `YYYY-MM-DD HH:MM KST`(고정 UTC+9)로 표시하고, 각주에 일일 목표 시각이
+  02:00 UTC = **11:00 KST**임을 명시. 실제로 있었던 "새벽 2시" 오독에서
+  출발한 수정.
 
 ## [1.10.0] - 2026-08-18
 
@@ -1367,7 +1415,8 @@ aws ecs wait services-stable --cluster kiro-dashboard-cluster \
 - Bedrock 모델 ID 수정 (global inference profile global.anthropic.claude-sonnet-4-6 적용)
 - Bedrock IAM 정책 확장 (inference-profile ARN 패턴 추가)
 
-[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/whchoi98/kiro-dashboard/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/whchoi98/kiro-dashboard/compare/v1.7.0...v1.8.0
