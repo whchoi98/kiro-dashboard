@@ -70,7 +70,7 @@ The Fargate task role uses least-privilege inline policies:
 - **GlueCatalog**: `glue:GetTable`, `GetTables`, `GetDatabase`, `GetPartitions` — scoped to `titanlog` database
 - **IdentityStore**: `identitystore:ListUsers`, `DescribeUser` (inline)
 - **Bedrock**: `bedrock:InvokeModel`, `InvokeModelWithResponseStream` (inline, scoped to foundation models)
-- **InfraReadOnly**: `ecs:Describe*/List*` (kiro-dashboard-cluster 스코프), `elasticloadbalancing:Describe*`, `cloudfront:ListDistributions/GetDistribution`, `cloudwatch:GetMetricData`, `ecr:Describe*` (repo 스코프) — /infra-cost 페이지의 실시간 자기 상태 조회 (전부 읽기 전용)
+- **InfraReadOnly**: `ecs:ListServices` (resource-type 미지원 — `*`에 부여, `ecs:cluster` `ArnEquals` 조건 키로 least-privilege), `ecs:DescribeClusters/DescribeServices/ListTasks/DescribeTasks` (kiro-dashboard-cluster ARN 스코프), `elasticloadbalancing:Describe*`, `cloudfront:ListDistributions/GetDistribution`, `cloudwatch:GetMetricData`, `ecr:Describe*` (repo 스코프) — /infra-cost 페이지의 실시간 자기 상태 조회 (전부 읽기 전용)
 
 ## Custom Domain (CNAME)
 
