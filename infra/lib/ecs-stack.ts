@@ -171,6 +171,45 @@ export class EcsStack extends cdk.Stack {
             }),
           ],
         }),
+        // Read-only self-introspection for the /infra-cost page: live status of
+        // the dashboard's own ECS/ALB/CloudFront/ECR plus CloudWatch metrics.
+        // Describe* on ELB/CloudFront/CloudWatch has no resource-level support.
+        InfraReadOnly: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: [
+                'ecs:DescribeClusters',
+                'ecs:ListServices',
+                'ecs:DescribeServices',
+                'ecs:ListTasks',
+                'ecs:DescribeTasks',
+              ],
+              resources: [
+                `arn:aws:ecs:${this.region}:${this.account}:cluster/kiro-dashboard-cluster`,
+                `arn:aws:ecs:${this.region}:${this.account}:service/kiro-dashboard-cluster/*`,
+                `arn:aws:ecs:${this.region}:${this.account}:task/kiro-dashboard-cluster/*`,
+                `arn:aws:ecs:${this.region}:${this.account}:container-instance/kiro-dashboard-cluster/*`,
+              ],
+            }),
+            new iam.PolicyStatement({
+              actions: [
+                'elasticloadbalancing:DescribeLoadBalancers',
+                'elasticloadbalancing:DescribeTargetGroups',
+                'elasticloadbalancing:DescribeTargetHealth',
+                'cloudfront:ListDistributions',
+                'cloudfront:GetDistribution',
+                'cloudwatch:GetMetricData',
+              ],
+              resources: ['*'],
+            }),
+            new iam.PolicyStatement({
+              actions: ['ecr:DescribeRepositories', 'ecr:DescribeImages'],
+              resources: [
+                `arn:aws:ecr:${this.region}:${this.account}:repository/kiro-dashboard`,
+              ],
+            }),
+          ],
+        }),
       },
     });
 
