@@ -70,7 +70,7 @@ The Fargate task role uses least-privilege inline policies:
 - **GlueCatalog**: `glue:GetTable`, `GetTables`, `GetDatabase`, `GetPartitions` — scoped to `titanlog` database
 - **IdentityStore**: `identitystore:ListUsers`, `DescribeUser` (inline)
 - **Bedrock**: `bedrock:InvokeModel`, `InvokeModelWithResponseStream` (inline, scoped to foundation models)
-- **InfraReadOnly**: `ecs:ListServices` (resource-type 미지원 — `*`에 부여, `ecs:cluster` `ArnEquals` 조건 키로 least-privilege), `ecs:DescribeClusters/DescribeServices/ListTasks/DescribeTasks` (kiro-dashboard-cluster ARN 스코프), `elasticloadbalancing:Describe*`, `cloudfront:ListDistributions/GetDistribution`, `cloudwatch:GetMetricData`, `ecr:Describe*` (repo 스코프) — /infra-cost 페이지의 실시간 자기 상태 조회 (전부 읽기 전용)
+- **InfraReadOnly**: ecs:Describe*/List* (cluster-scoped ARNs; ListServices on '*' via the ecs:cluster ArnEquals condition key — the action supports no resource types), elasticloadbalancing:Describe*, cloudfront:ListDistributions/GetDistribution, cloudwatch:GetMetricData, ecr:Describe* (repo-scoped) — read-only self-introspection for /infra-cost
 
 ## Custom Domain (CNAME)
 
@@ -123,3 +123,11 @@ ALB target group health check: `GET /api/health` every 30s
 - Cross-stack resources pass through constructor props (VPC, security groups, ALB)
 - Use `RemovalPolicy.DESTROY` for dev/non-production resources
 - Log group retention: `ONE_MONTH`
+
+## Testing
+
+Run `npx jest tests/infra` — 4 suites assert synthesized templates (env-var table, network shape, catalog stack, and `ecs-stack-infra-read.test.ts`, which pins the InfraReadOnly policy shape including the ListServices condition-key statement).
+
+## cdk.context.json
+
+Deliberately git-ignored: its VPC-lookup cache key is bound to the maintainer's account (inert for forks), and a stale entry would pin dead subnet IDs. Run `npx cdk context --clear` if a lookup ever looks wrong.

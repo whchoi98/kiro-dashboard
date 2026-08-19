@@ -1,7 +1,7 @@
 # kiro-dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.10.0-purple.svg)]()
+[![Version](https://img.shields.io/badge/version-1.11.0-purple.svg)]()
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)]()
 [![AWS CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-orange.svg)]()
 <a href="#english"><img src="https://img.shields.io/badge/lang-English-blue.svg" alt="English"></a>
@@ -67,7 +67,7 @@ flowchart TB
 
     subgraph SEOUL["Serving (ap-northeast-2)"]
         ALB["ALB - X-Custom-Secret gate"]
-        ECS["ECS Fargate - Next.js app (15 pages / 19 API routes)"]
+        ECS["ECS Fargate - Next.js app (16 pages / 20 API routes)"]
         NAT["NAT Gateway (outbound)"]
         ECR["ECR (images)"]
         CW["CloudWatch (logs + metrics)"]
@@ -91,7 +91,7 @@ flowchart TB
     ECS -- "direct CSV read + ledger GET/PUT" --> S3
     ECS -- "directory list (masked)" --> IDC
     ECS -- "AI chat streaming" --> BR
-    ECS -- "self metrics (/infra-cost)" --> CW
+    ECS -- "self status + metrics (/infra-cost)" --> CW
     ECS -.->|pull image| ECR
     ECS -.->|egress| NAT
 ```
@@ -113,11 +113,11 @@ flowchart TB
 - **New Users & Adoption** — Daily new-user inflow (UAR `New_User` flag), active and cumulative user trends, and a recent-new-users table via S3 direct CSV parsing
 - **Dev Activity Detail** — TestGen, DocGen, Transform, InlineChat, and CodeFix activity groups from the legacy report: events, generated vs accepted lines, acceptance rates, daily trends
 - **Client Rollout & Cross-client Adoption** — Daily and cumulative adoption per `Client_Type` (`KIRO_IDE` / `KIRO_CLI` / `PLUGIN`), IDE↔CLI overlap segments, per-user pickup lag (left-censored users report `null`, never `0`), and a tier × client matrix
-- **Ingest Health Monitor** — Report freshness against the 02:00 UTC delivery cadence, a (date × client) delivery matrix, per-file S3 inventory, CSV header-drift detection, and Athena↔S3 row parity — the schema drift `OpenCSVSerDe` hides by silently mapping columns onto wrong names
+- **Ingest Health Monitor** — Report freshness against the 02:00 UTC delivery cadence (timestamps render in KST, 02:00 UTC = 11:00 KST), a (date × client) delivery matrix, per-file S3 inventory, CSV header-drift detection, and Athena↔S3 row parity — the schema drift `OpenCSVSerDe` hides by silently mapping columns onto wrong names
 - **Dormancy Grading & Activation Funnel** — Identity Center directory users bucketed by days since last activity (`active7` → `never`) plus a directory → any-activity → sustained-activity funnel. Graded accounts are **directory users, never licensed seats** — neither report contains a subscription roster
 - **Credits per Accepted AI Code Line** — Cross-report efficiency ratio summing `credits_used` and legacy AI-code-line columns independently over their overlapping window, with a separate population `n` per side (an inner join would drop 303 of 541 legacy pairs)
 - **Changelog Page** — Bilingual in-app changelog rendered from `CHANGELOG.md` at build time; the sidebar version footer links to it
-- **AI Chatbot Widget** — Global floating chat available on every page, backed by the same Bedrock agent as `/analyze`; multi-turn history, stop/new-chat, full-screen sheet on mobile
+- **AI Chatbot Widget** — Global floating chat available on every page, backed by the same Bedrock agent as `/analyze` — including its `list_idc_users` directory tool (masked names/emails); multi-turn history, stop/new-chat, full-screen sheet on mobile
 - **AI Analysis Export** — Save completed AI answers as Markdown or PDF (`html2canvas-pro` + `jspdf`; Korean text and dark-theme tables render intact)
 - **Dark / Light Theme** — Sidebar toggle, default dark, persisted in the browser; implemented as a Tailwind palette override so components stay dark-first
 - **Mobile Responsive** — Below 768px the sidebar becomes an off-canvas drawer with a hamburger bar and grids/tables reflow; desktop layout unchanged
@@ -127,6 +127,8 @@ flowchart TB
 - **New-Registrant Badge** — IdC user status flags recently-registered users via an S3 first-seen ledger with a 7-day window
 - **IdC Table Filtering & Sorting** — Status filter chips plus type-aware column sorting on the Identity Center user table
 - **iOS/iPadOS Home Screen App** — PWA-lite install (manifest + icons, standalone display, no service worker)
+- **Infrastructure & Cost** — `/infra-cost` shows live ECS/ALB/CloudFront/ECR status via a read-only IAM policy, CloudWatch metrics, and static Seoul (ap-northeast-2) on-demand cost estimates, with usage-billed line items honestly excluded
+- **Infra Resource Detail Panel** — Clicking a resource row opens a slide-over with the exact cost formula and related metrics, with no extra fetch
 
 ## Prerequisites
 
@@ -236,6 +238,18 @@ details and the two notes that matter to forks. Do not stop at 1.6.0: it built
 `/changelog` as an empty page because `.dockerignore` kept `CHANGELOG.md` out
 of the build context.
 
+**v1.11.0 is NOT app-only** — it is the first release since 1.5.0 to break that
+streak. It adds 5 new `@aws-sdk` dependencies (`client-ecs`,
+`client-elastic-load-balancing-v2`, `client-cloudfront`, `client-ecr`,
+`client-cloudwatch` — run `npm install`) and a new read-only task-role IAM
+policy (`InfraReadOnly`). Deploy `npx cdk deploy KiroDashboardEcs
+KiroDashboardCdn` in **one command**, before pushing the image — the
+synth-time `X-Custom-Secret` rotation forces Ecs and Cdn to move together.
+Skip that and every `/infra-cost` row silently shows `unknown`, because the
+route degrades per source instead of failing. See the changelog's
+[Upgrading from 1.10.0](CHANGELOG.md#upgrading-from-1100) block for the full
+detail.
+
 One thing that changed under the hood: v1.10.0's new-registrant ledger
 persists `idc-first-seen.json` under the `ATHENA_OUTPUT_BUCKET` results
 prefix, reusing the `s3:PutObject` grant the task role already had — no new
@@ -315,7 +329,7 @@ detect the underlying "missing table / empty data" signal and return a
 
 ```
 app/                        Next.js App Router
-  api/                      19 API routes
+  api/                      20 API routes
     analyze/                Bedrock AI analysis (SSE streaming)
     metrics/                KPI aggregations
     users/                  User rankings with IdC details
@@ -333,6 +347,7 @@ app/                        Next.js App Router
     client-dist/            Client type distribution
     model-usage/            AI model usage analysis (S3 direct read)
     user-model-usage/       Per-user model mix (S3 direct read)
+    infra/                  Dashboard self-status + CloudWatch metrics + cost estimate
     release-notes/          Changelog section for the sidebar version dialog
     health/                 ECS health check
   components/               Shared React components
@@ -342,7 +357,7 @@ app/                        Next.js App Router
     tables/                 UserTable (sortable, searchable)
     ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel,
                             FreshnessBanner, PageSkeleton, ReleaseNotesDialog,
-                            ChangelogBlocks, UserModelUsage
+                            ChangelogBlocks, UserModelUsage, InfraDetailPanel
   analyze/                  AI analysis chat page
   users/                    User activity page
   credits/                  Credit usage page
@@ -356,6 +371,7 @@ app/                        Next.js App Router
   dev-activity/             Dev activity detail page
   rollout/                  Client rollout & cross-client adoption page
   ingest-health/            Report delivery & freshness monitor
+  infra-cost/               Infrastructure self-status, metrics, and cost estimate
   changelog/                Bilingual changelog page (build-time static)
 lib/                        Shared libraries
   athena.ts                 Athena query client + NORMALIZE_USERID
@@ -382,6 +398,7 @@ lib/                        Shared libraries
   release-notes.ts          CHANGELOG.md section picker for the version dialog
   skeleton-layout.ts        Loading-skeleton block shapes + policy
   table-sort.ts             Type-aware table column comparator
+  infra-cost.ts             Static Seoul prices + monthly cost estimator
 app/fonts/                  Self-hosted NanumSquare woff2 (next/font/local)
 types/                      TypeScript interfaces
   dashboard.ts              All data model types
@@ -533,7 +550,7 @@ flowchart TB
 
     subgraph SEOUL["서빙 (ap-northeast-2)"]
         ALB["ALB - X-Custom-Secret 검증"]
-        ECS["ECS Fargate - Next.js 앱 (페이지 15 / API 19)"]
+        ECS["ECS Fargate - Next.js 앱 (페이지 16 / API 20)"]
         NAT["NAT Gateway (아웃바운드)"]
         ECR["ECR (이미지)"]
         CW["CloudWatch (로그·지표)"]
@@ -557,7 +574,7 @@ flowchart TB
     ECS -- "CSV 직접 읽기 + 원장 GET/PUT" --> S3
     ECS -- "디렉터리 조회 (마스킹)" --> IDC
     ECS -- "AI 챗 스트리밍" --> BR
-    ECS -- "자기 지표 (/infra-cost)" --> CW
+    ECS -- "자기 상태 + 지표 (/infra-cost)" --> CW
     ECS -.->|이미지 pull| ECR
     ECS -.->|이그레스| NAT
 ```
@@ -579,11 +596,11 @@ flowchart TB
 - **신규 사용자·온보딩** — 일별 신규 사용자 유입(UAR `New_User` 플래그), 활성·누적 사용자 추이, 최근 신규 사용자 테이블 (S3 CSV 직접 파싱)
 - **개발활동 상세** — 레거시 리포트의 TestGen, DocGen, Transform, InlineChat, CodeFix 그룹: 이벤트, 생성 대비 수락 라인, 수락률, 일별 추이
 - **클라이언트 확산·교차 사용** — `Client_Type`(`KIRO_IDE` / `KIRO_CLI` / `PLUGIN`)별 일별·누적 확산, IDE↔CLI 중복 세그먼트, 사용자별 도입 지연(윈도우 경계에서 좌측 절단된 사용자는 `0`이 아니라 `null`), 티어 × 클라이언트 매트릭스
-- **적재 상태 모니터** — 02:00 UTC 전송 주기 대비 신선도, (날짜 × 클라이언트) 전송 매트릭스, 파일별 S3 인벤토리, CSV 헤더 드리프트 감지, Athena↔S3 행 수 일치 검증 — `OpenCSVSerDe`가 드리프트된 컬럼을 잘못된 이름에 조용히 매핑해 감추는 문제를 드러냅니다
+- **적재 상태 모니터** — 02:00 UTC 전송 주기 대비 신선도(시각은 KST로 표시, 02:00 UTC = 11:00 KST), (날짜 × 클라이언트) 전송 매트릭스, 파일별 S3 인벤토리, CSV 헤더 드리프트 감지, Athena↔S3 행 수 일치 검증 — `OpenCSVSerDe`가 드리프트된 컬럼을 잘못된 이름에 조용히 매핑해 감추는 문제를 드러냅니다
 - **휴면 등급·활성화 퍼널** — Identity Center 디렉터리 사용자를 마지막 활동 경과일 기준으로 분류(`active7` → `never`)하고, 디렉터리 → 활동 있음 → 지속 활동 퍼널을 제공합니다. 등급이 매겨지는 대상은 **디렉터리 사용자이며 라이선스 좌석이 아닙니다** — 두 리포트 모두 구독 명부를 포함하지 않습니다
 - **수락 AI 코드 라인당 크레딧** — `credits_used`와 레거시 AI 코드 라인 컬럼을 공통 기간에 대해 각각 독립 합산한 리포트 간 효율 지표. 항별 모집단 `n`을 따로 표기합니다(내부 조인 시 레거시 541쌍 중 303쌍이 유실)
 - **Changelog 페이지** — 빌드 타임에 `CHANGELOG.md`를 렌더링하는 앱 내 이중언어 변경 이력, 사이드바 버전 표기에서 연결
-- **AI 챗봇 위젯** — 모든 페이지에 뜨는 플로팅 대화창, `/analyze`와 동일한 Bedrock 에이전트 기반. 멀티턴 이력, 중지/새 대화, 모바일 풀스크린 시트
+- **AI 챗봇 위젯** — 모든 페이지에 뜨는 플로팅 대화창, `/analyze`와 동일한 Bedrock 에이전트 기반(마스킹된 `list_idc_users` 디렉터리 도구 포함). 멀티턴 이력, 중지/새 대화, 모바일 풀스크린 시트
 - **AI 분석 내보내기** — 완료된 AI 답변을 Markdown 또는 PDF로 저장(`html2canvas-pro` + `jspdf`, 한국어·다크 테마 표 온전히 렌더링)
 - **다크 / 라이트 테마** — 사이드바 토글, 기본 다크, 브라우저에 저장. Tailwind 팔레트 오버라이드 방식이라 컴포넌트는 다크 기준 유지
 - **모바일 반응형** — 768px 미만에서 사이드바가 햄버거 바 + 오프캔버스 드로어로 전환, 그리드·표 재배치. 데스크톱 레이아웃은 무변경
@@ -593,6 +610,8 @@ flowchart TB
 - **신규 가입 배지** — IdC 사용자 상태에서 S3 최초 관측 원장을 이용해 7일 이내 신규 가입자를 배지로 표시합니다
 - **IdC 테이블 필터·정렬** — Identity Center 사용자 테이블에 상태 필터 칩과 타입 인지 컬럼 정렬을 제공합니다
 - **iOS/iPadOS 홈 화면 앱** — PWA-lite 설치 (manifest + 아이콘, standalone 표시, 서비스 워커 없음)
+- **인프라·비용** — `/infra-cost`에서 읽기 전용 IAM 정책으로 조회한 ECS/ALB/CloudFront/ECR 실시간 상태, CloudWatch 지표, 서울(ap-northeast-2) 온디맨드 정적 단가 기반 월 비용 추정치를 보여줍니다. 사용량 과금 항목은 정직하게 추정에서 제외합니다
+- **인프라 리소스 상세 패널** — 리소스 행을 클릭하면 정확한 비용 계산식과 관련 지표를 보여주는 슬라이드 패널이 열립니다. 추가 네트워크 호출은 없습니다
 
 ## 사전 요구 사항
 
@@ -703,6 +722,17 @@ CloudFront 동작 추가가 모두 없습니다. 검증된 상세 내용과 포�
 `CHANGELOG.md`를 빌드 컨텍스트에서 제외해 `/changelog`가 빈 페이지로
 빌드됩니다.
 
+**v1.11.0은 앱 전용이 아닙니다** — 1.5.0 이후 처음으로 이 흐름이 끊깁니다.
+신규 `@aws-sdk` 의존성 5개(`client-ecs`, `client-elastic-load-balancing-v2`,
+`client-cloudfront`, `client-ecr`, `client-cloudwatch` — `npm install` 실행
+필요)와 신규 읽기 전용 태스크 롤 IAM 정책(`InfraReadOnly`)이 추가되었습니다.
+이미지를 푸시하기 전에 `npx cdk deploy KiroDashboardEcs KiroDashboardCdn`을
+**한 번의 명령**으로 배포하세요 — synth 시점의 `X-Custom-Secret` 회전 때문에
+Ecs와 Cdn이 함께 이동해야 합니다. 이를 건너뛰면 라우트가 실패하는 대신
+소스별로 degradation 하기 때문에 `/infra-cost`의 모든 행이 조용히
+`unknown`으로 표시됩니다. 전체 내용은 CHANGELOG의
+[Upgrading from 1.10.0](CHANGELOG.md#upgrading-from-1100-1) 절을 참고하세요.
+
 내부적으로 바뀐 부분 한 가지: v1.10.0의 신규 가입 원장은
 `idc-first-seen.json`을 `ATHENA_OUTPUT_BUCKET` 결과 프리픽스 아래에
 저장하며, 태스크 역할이 이미 가지고 있던 `s3:PutObject` 권한을 그대로
@@ -781,7 +811,7 @@ User Activity Report CSV가 S3에 도착하기 전까지는 500 에러 페이지
 
 ```
 app/                        Next.js App Router
-  api/                      19개 API 라우트
+  api/                      20개 API 라우트
     analyze/                Bedrock AI 분석 (SSE 스트리밍)
     metrics/                KPI 집계
     users/                  IdC 정보 포함 사용자 순위
@@ -799,6 +829,7 @@ app/                        Next.js App Router
     client-dist/            클라이언트 유형별 분포
     model-usage/            AI 모델 사용 분석 (S3 직접 읽기)
     user-model-usage/       사용자별 모델 사용 비중 (S3 직접 읽기)
+    infra/                  대시보드 자체 상태 + CloudWatch 지표 + 비용 추정
     release-notes/          사이드바 버전 다이얼로그용 변경 이력 섹션
     health/                 ECS 헬스 체크
   components/               공유 React 컴포넌트
@@ -808,7 +839,7 @@ app/                        Next.js App Router
     tables/                 UserTable (정렬, 검색 가능)
     ui/                     KiroIcon, KiroMascot, DateRangePicker, UserDetailPanel,
                             FreshnessBanner, PageSkeleton, ReleaseNotesDialog,
-                            ChangelogBlocks, UserModelUsage
+                            ChangelogBlocks, UserModelUsage, InfraDetailPanel
   analyze/                  AI 분석 채팅 페이지
   users/                    사용자 활동 페이지
   credits/                  크레딧 사용 페이지
@@ -822,6 +853,7 @@ app/                        Next.js App Router
   dev-activity/             개발활동 상세 페이지
   rollout/                  클라이언트 확산·교차 사용 페이지
   ingest-health/            리포트 전송·신선도 모니터 페이지
+  infra-cost/               인프라 자체 상태·지표·비용 추정 페이지
   changelog/                이중언어 변경 이력 페이지 (빌드 타임 정적)
 lib/                        공유 라이브러리
   athena.ts                 Athena 쿼리 클라이언트 + NORMALIZE_USERID
@@ -848,6 +880,7 @@ lib/                        공유 라이브러리
   release-notes.ts          버전 다이얼로그용 CHANGELOG.md 섹션 선택기
   skeleton-layout.ts        로딩 스켈레톤 블록 모양 + 정책
   table-sort.ts             타입 인지 테이블 컬럼 비교자
+  infra-cost.ts             서울 리전 정적 단가 + 월간 비용 추정기
 app/fonts/                  셀프호스팅 나눔스퀘어 woff2 (next/font/local)
 types/                      TypeScript 인터페이스
   dashboard.ts              전체 데이터 모델 타입

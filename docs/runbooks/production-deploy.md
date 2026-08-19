@@ -79,7 +79,7 @@ Verified on the v1.5.0 → v1.6.0 upgrade (2026-07-29): app-only, Path A.
 
 3. **EdgeLambda `DELETE_FAILED` is benign.** Deploying `KiroDashboardEdgeLambda` publishes a new Lambda@Edge version; CloudFormation then fails to delete the old version ("replicated function") up to three times and finishes with "Update successful. One or more resources could not be deleted." AWS garbage-collects edge replicas hours later. Do not roll back for this.
 
-4. **`--require-approval never` is unnecessary** when the diff has no IAM/SG broadening — plain `cdk deploy --all` proceeds non-interactively and fails fast if approval would be required, which is the safer default.
+4. **`--require-approval never` is unnecessary** when the diff has no IAM/SG broadening — plain `cdk deploy --all` proceeds non-interactively and fails fast if approval would be required, which is the safer default. v1.11.0's InfraReadOnly policy IS IAM broadening — the first release where the approval prompt actually fires; --require-approval never (or interactive approval) is required for that hop.
 
 5. **`AWS_REGION` in your shell silently overrides `.env.deploy`.** The CDK CLI derives `CDK_DEFAULT_REGION` from the resolved credential chain *before* running `bin/app.ts`, so sourcing `.env.deploy` is not enough — an exported `AWS_REGION=us-east-1` (as on the VSCode server host) sends the VPC context lookup to the wrong region and `cdk diff` fails with:
 
@@ -93,6 +93,8 @@ Verified on the v1.5.0 → v1.6.0 upgrade (2026-07-29): app-only, Path A.
 6. **`.dockerignore` filters the build context, so it can starve a build-time read.** `/changelog` is `force-static` and reads `CHANGELOG.md` from disk during `npm run build`; the blanket `*.md` in `.dockerignore` kept that file out of the *builder* stage, and the page shipped empty across releases without a single error (fixed in 1.6.1 with `!CHANGELOG.md` plus an unguarded read). When adding any build-time file read, confirm the file survives the context: `docker build --progress=plain -f - . <<< $'FROM node:20-alpine\nWORKDIR /app\nCOPY . .\nRUN ls -la <file>'`. `tests/structure/changelog-build-input.test.ts` guards this specific case.
 
 7. **athena-results/ now holds a PERSISTENT object.** s3://<results-bucket>/athena-results/idc-first-seen.json is the new-registrant first-seen ledger (lib/first-seen.ts), not query scratch. Any lifecycle/expiry rule on the prefix must exclude it — deletion silently wipes all first-seen stamps (failure direction is safe: badges vanish, none appear falsely; re-seed from IdentityStore + registration times if needed).
+
+8. **Every /infra-cost row shows 'unknown'.** Designed-silent failure: the route degrades per source instead of erroring. Most likely cause: an app-only (image) deploy that skipped the v1.11.0 InfraReadOnly IAM policy — CDK-deploy KiroDashboardEcs (with Cdn) first, then redeploy the image. Second cause: an IAM denial visible only in CloudTrail (graceful degradation hides it — check CloudTrail, not the page). The page pins its own clients to ap-northeast-2, so shell AWS_REGION is NOT a factor at runtime.
 
 ## Verification
 

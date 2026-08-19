@@ -50,8 +50,8 @@ kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user ac
 │   ┌─────────────────────────────────────────────────────┐          │
 │   │  Next.js App Router                                  │          │
 │   │  ┌───────────────────┐  ┌─────────────────────────────────┐ │  │
-│   │  │ Pages (15)        │  │ API Routes (19)                 │ │  │
-│   │  │ / /exec /users    │  │ metrics users trends            │ │  │
+│   │  │ Pages (16)        │  │ API Routes (20)                 │ │  │
+│   │  │ / /exec /users    │  │ metrics users trends infra      │ │  │
 │   │  │ /adoption /trends │  │ credits engagement release-notes│ │  │
 │   │  │ /credits          │  │ productivity analyze            │ │  │
 │   │  │ /subscription     │  │ subscription adoption           │ │  │
@@ -62,6 +62,7 @@ kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user ac
 │   │  │ /rollout /analyze │  │ ingest-health (S3+SQL)          │ │  │
 │   │  │ /ingest-health    │  │ health  ← ECS health            │ │  │
 │   │  │ /changelog        │  └───────────┬─────────────────────┘ │  │
+│   │  │ /infra-cost       │              │               │          │
 │   │  └───────────────────┘              │               │          │
 │   │  lib/                               │               │          │
 │   │  ┌─────────────────────────────────────────────────┐│          │
@@ -70,6 +71,8 @@ kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user ac
 │   │  │ export-report · table-sort · theme · chart-theme││          │
 │   │  │ chat-scroll · query-cache · freshness           ││          │
 │   │  │ first-seen · idc-users · analyze-prompt         ││          │
+│   │  │ infra-cost · changelog-md · model-colors        ││          │
+│   │  │ nav-state · release-notes · skeleton-layout     ││          │
 │   │  └─────────────────────────────────────────────────┘│          │
 │   └─────────────────────────────────────────────────────┘          │
 └──────┬───────────┬───────────┬───────────┬──────────────────────────┘
@@ -88,6 +91,11 @@ kiro-dashboard is a full-stack analytics platform that collects Kiro IDE user ac
       │  (Claude)   │
       │  AI analyze │
       └─────────────┘
+
+(/api/infra — dashboard self-introspection, not drawn as a branch above: reads
+ECS/ELB/CloudFront/ECR Describe* + CloudWatch GetMetricData in ap-northeast-2
+and us-east-1 about this app's own infrastructure; no cache, force-dynamic,
+per-source degrade to 'unknown')
 ```
 
 ### CDK Stack Composition
@@ -123,6 +131,13 @@ AI analysis path:
 User question → /api/analyze → Bedrock (Claude) streaming → SSE to browser
 ```
 
+Self-introspection path (control-plane only, bypasses Athena/Glue/S3 entirely):
+```
+Self-introspection: /api/infra → ECS/ELB/CloudFront/ECR Describe + CloudWatch
+GetMetricData (ap-northeast-2; CloudFront metrics from us-east-1) → no cache,
+force-dynamic, per-source degrade to 'unknown'
+```
+
 ### Key Design Decisions
 
 1. **CloudFront + custom header secret** — The ALB is not publicly accessible. CloudFront injects a secret HTTP header; the ALB listener rule forwards only requests with the correct header. This prevents direct ALB access without WAF costs.
@@ -154,6 +169,10 @@ User question → /api/analyze → Bedrock (Claude) streaming → SSE to browser
 14. **Report-derived subscription data only — `ListUserSubscriptions` is console-only** — CloudTrail evidence gathered 2026-08-18 confirms `user-subscriptions:ListUserSubscriptions` is invoked by the Kiro console's own browser front-end via SigV4, with no public SDK, CLI, or documented endpoint. The dashboard does not chase it; `/api/subscription`'s freshness banner plus a pointer to the Kiro console fill the gap instead.
 
 15. **PWA-lite without a service worker** — `app/manifest.ts` and three PNG icons make the dashboard installable, but no service worker ships. This is a realtime dashboard behind Lambda@Edge Cognito cookie auth: caching responses for offline use would show stale numbers, and a standalone install keeps its own separate cookie jar anyway (re-authenticates on first launch). Manifest-only gets the install affordance without the offline guarantee it can't honestly make.
+
+16. **Dashboard self-introspection with bounded scope** — A read-only `InfraReadOnly` task-role IAM policy lets the app watch its own infrastructure (ECS/ELB/CloudFront/ECR + CloudWatch) via `/api/infra`. The scope is deliberately bounded: read-only only, no caching (status has to be realtime), per-source degrade to `'unknown'` so one AWS API failure never breaks the whole page, and no Billing/Cost Explorer access. Recorded consequence: graceful degradation hides IAM denials — the `ecs:ListServices` lesson: the action has no resource-type support, so it must be granted on `*` with the `ecs:cluster` `ArnEquals` condition key; an ARN-scoped grant is silently denied and looks identical to "not deployed yet" in the UI. Check CloudTrail, not the page, whenever a source shows `unknown`.
+
+17. **Static price table over Cost Explorer/Pricing API** — `lib/infra-cost.ts` pins Seoul on-demand unit prices (AWS Pricing API snapshot, 2026-08, Fargate ARM rates) as constants with an `asOf` marker; fixed costs are computed from those constants, and usage-billed services are listed but excluded (`monthlyUsd: null`) — the same honesty principle as decision #10, applied to money instead of acceptance rates. Rejected: Cost Explorer (account-wide, billed per API call, needs tag-based isolation this account doesn't have) and a live Pricing API call (adds latency and IAM surface for a number that's purely informational). Maintenance rule: update the constants table by hand when prices change; never wire up live pricing.
 
 ### Operations
 
@@ -217,6 +236,13 @@ AI 분석 경로:
 사용자 질문 → /api/analyze → Bedrock (Claude) 스트리밍 → SSE → 브라우저
 ```
 
+자체 진단(self-introspection) 경로 (제어 플레인 전용, Athena/Glue/S3를 거치지 않음):
+```
+Self-introspection: /api/infra → ECS/ELB/CloudFront/ECR Describe + CloudWatch
+GetMetricData (ap-northeast-2; CloudFront 지표는 us-east-1에서 조회) → 캐시 없음,
+force-dynamic, 소스별 장애 시 'unknown'으로 저하
+```
+
 ### 주요 설계 결정
 
 1. **CloudFront + 커스텀 헤더 시크릿** — ALB는 공개적으로 접근 불가. CloudFront가 시크릿 HTTP 헤더를 주입하고 ALB 리스너 규칙이 올바른 헤더가 있는 요청만 전달합니다. WAF 비용 없이 직접 ALB 접근을 차단합니다.
@@ -248,6 +274,10 @@ AI 분석 경로:
 14. **리포트 기반 구독 데이터만 사용 — `ListUserSubscriptions`는 콘솔 전용** — 2026-08-18에 수집한 CloudTrail 증거는 `user-subscriptions:ListUserSubscriptions`가 Kiro 콘솔 자체의 브라우저 프런트엔드가 SigV4로 직접 호출하는 API이며, 공개 SDK·CLI·문서화된 엔드포인트가 없음을 확인합니다. 대시보드는 이를 우회해서 얻으려 하지 않고, `/api/subscription`의 신선도 배너와 Kiro 콘솔로의 안내로 그 공백을 채웁니다.
 
 15. **서비스 워커 없는 PWA-lite** — `app/manifest.ts`와 PNG 아이콘 3개로 설치 가능하게 만들지만 서비스 워커는 배포하지 않습니다. 이 대시보드는 실시간이며 Lambda@Edge Cognito 쿠키 인증 뒤에 있으므로, 오프라인용 응답 캐싱은 오래된 수치를 보여줄 것이고, standalone 설치는 어차피 별도의 쿠키 저장소를 가져 최초 실행 시 재인증이 필요합니다. 매니페스트만 제공하는 방식은 지킬 수 없는 오프라인 보장 없이 설치 가능성만 제공합니다.
+
+16. **범위가 제한된 대시보드 자체 진단** — 읽기 전용 `InfraReadOnly` 태스크 역할 IAM 정책 덕분에 앱은 `/api/infra`를 통해 자신의 인프라(ECS/ELB/CloudFront/ECR + CloudWatch)를 관찰합니다. 범위는 의도적으로 제한되어 있습니다: 읽기 전용만 허용, 캐싱 없음(상태는 실시간이어야 함), 소스별로 실패하면 `'unknown'`으로 저하되어 AWS API 하나의 실패가 페이지 전체를 깨뜨리지 않으며, Billing/Cost Explorer 접근 권한은 없습니다. 기록해 둘 결과: 우아한 저하(graceful degradation)는 IAM 거부를 감춥니다 — `ecs:ListServices` 사례가 그 교훈입니다. 이 액션은 리소스 타입을 지원하지 않으므로 `ecs:cluster` `ArnEquals` 조건 키와 함께 `*`에 부여해야 하며, ARN으로 범위를 좁혀 부여하면 조용히 거부되고 화면상으로는 "아직 배포되지 않음"과 구별되지 않습니다. 어떤 소스가 `unknown`으로 표시되면 화면이 아니라 CloudTrail을 확인해야 합니다.
+
+17. **Cost Explorer/Pricing API 대신 정적 가격 테이블** — `lib/infra-cost.ts`는 서울 리전 온디맨드 단가(AWS Pricing API 스냅샷, 2026-08, Fargate ARM 요율)를 `asOf` 마커와 함께 상수로 고정합니다. 고정 비용은 이 상수로 계산하고, 사용량 기반 과금 서비스는 목록에는 나열하되 제외합니다(`monthlyUsd: null`) — 결정 #10과 동일한 정직성 원칙을 수락률이 아니라 금액에 적용한 것입니다. 기각한 대안: Cost Explorer(계정 전체 단위이며 호출당 과금되고, 이 계정에는 없는 태그 기반 분리가 필요), 그리고 실시간 Pricing API 호출(단순 정보성 숫자에 지연 시간과 IAM 노출을 추가). 유지 관리 규칙: 가격이 바뀌면 상수 테이블을 손으로 갱신하며, 실시간 가격 연동은 절대 만들지 않습니다.
 
 ### 운영
 

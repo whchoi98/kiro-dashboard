@@ -79,7 +79,7 @@ Read each directory's `CLAUDE.md` for detailed conventions.
 
 ### Running Tests
 
-`npx jest` is the test gate for this project (33+ suites — structure, lib, api, infra). `bash tests/run-all.sh` runs shell-based structure checks only (hooks, secret patterns, plugin structure); it does not replace `npx jest`. `npm run lint` does not work — there is no ESLint config committed, so `next lint` hangs on an interactive prompt. Use build + jest instead, as `docs/runbooks/production-deploy.md` documents:
+`npx jest` is the test gate for this project (39 suites — structure, lib, api, infra). `bash tests/run-all.sh` runs shell-based structure checks only (hooks, secret patterns, plugin structure); it does not replace `npx jest`. `npm run lint` does not work — there is no ESLint config committed, so `next lint` hangs on an interactive prompt. Use build + jest instead, as `docs/runbooks/production-deploy.md` documents:
 
 ```bash
 # TypeScript / build check
@@ -178,7 +178,7 @@ app/api/          API 라우트 핸들러 — Athena/Bedrock/IdC/S3 연동
 app/components/   React UI 컴포넌트 (차트, 테이블, 레이아웃)
 app/*/page.tsx    대시보드 페이지 (users, credits, trends 등)
 app/manifest.ts   PWA manifest
-lib/              AWS SDK 클라이언트 + 공유 유틸 (athena, glue, identity, mask, uar-s3, i18n, theme, chart-theme, query-cache, athena-window, freshness, first-seen, idc-users, table-sort, version 등 — 전체 25개 모듈 표는 lib/CLAUDE.md 참고)
+lib/              AWS SDK 클라이언트 + 공유 유틸 (athena, glue, identity, mask, uar-s3, i18n, theme, chart-theme, query-cache, athena-window, freshness, first-seen, idc-users, infra-cost, table-sort, version 등 — 전체 25개 모듈 표는 lib/CLAUDE.md 참고)
 types/            모든 데이터 형태에 대한 TypeScript 인터페이스
 public/           정적 자산 (kiro-logo.svg, 아이콘 PNG)
 infra/            AWS CDK 스택 (network, security, ecs, cdn, edge-lambda, opt-in catalog)
@@ -202,7 +202,7 @@ infra/            AWS CDK 스택 (network, security, ecs, cdn, edge-lambda, opt-
 # TypeScript / 빌드 검사
 npm run build
 
-# 전체 테스트 스위트 (structure, lib, api, infra — 33개 이상)
+# 전체 테스트 스위트 (structure, lib, api, infra — 39 suites)
 npx jest
 
 # 셸 기반 구조 검사만 실행

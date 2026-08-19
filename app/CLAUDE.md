@@ -14,7 +14,7 @@ app/
                         fetches all 6 APIs in ONE Promise.all (it used to be three sequential waves,
                         which added two Athena round trips straight to the navigation stall).
     loading.tsx         Loading boundary for `/` ONLY. Scoped via the route group on purpose: every
-                        other page is prerendered, so a root `app/loading.tsx` would nest over 14
+                        other page is prerendered, so a root `app/loading.tsx` would nest over 15
                         children that resolve instantly and could flash a skeleton where none exists.
                         Also makes `/` prefetchable — without it the prefetch was an 80-byte stub.
                         Do NOT add loading.tsx to the prerendered pages; it is inert there.
@@ -34,7 +34,7 @@ app/
   dev-activity/         Legacy deep dev metrics page (TestGen/DocGen/Transform/InlineChat/CodeFix)
   rollout/              Client rollout & cross-client adoption page (Client_Type daily/cumulative, IDE↔CLI overlap)
   ingest-health/        Report delivery & freshness monitor (S3 inventory, delivery matrix, header drift, row parity)
-  infra-cost/           대시보드 자체 인프라 상태·비용 (self-introspection, /api/infra)
+  infra-cost/           Dashboard self-infrastructure status & cost page (live control-plane reads via /api/infra)
   changelog/            Bilingual changelog rendered from CHANGELOG.md at build time (force-static).
                         CHANGELOG.md is a required BUILD-CONTEXT input — `.dockerignore` excludes `*.md`,
                         so the `!CHANGELOG.md` re-include must stay after it or the page ships empty.

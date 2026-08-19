@@ -34,7 +34,7 @@ Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.j
 # Development
 npm run dev            # Local development server (port 3000)
 npm run build          # Production build
-npm test             # jest — 35+ suites (structure/lib/api/infra); the real pre-deploy gate
+npm test             # jest — 39 suites (structure/lib/api/infra); the real pre-deploy gate
 npm run start          # Start production server
 npm run lint        # BROKEN: no ESLint config committed — use npm test + npm run build instead
 
@@ -63,7 +63,7 @@ docker push <account>.dkr.ecr.ap-northeast-2.amazonaws.com/kiro-dashboard:latest
 ```
 app/                    Next.js App Router pages & API routes
   manifest.ts           PWA web manifest (standalone home-screen app; no service worker)
-  api/                  19 API route handlers (see app/api/CLAUDE.md)
+  api/                  20 API route handlers (see app/api/CLAUDE.md)
   components/           Shared React components (see app/components/CLAUDE.md)
   analyze/              AI analysis chat page (Bedrock streaming)
   users/                User activity dashboard page
@@ -78,6 +78,7 @@ app/                    Next.js App Router pages & API routes
   dev-activity/         Legacy deep dev metrics page (by_user_analytic)
   rollout/              Client rollout & cross-client adoption page (Client_Type)
   ingest-health/        Report delivery & freshness monitor (S3 inventory + header drift)
+  infra-cost/           Self-infrastructure status & monthly cost estimate (control-plane reads, no Athena)
   changelog/            Bilingual changelog page (build-time static)
 lib/                    Shared AWS service clients (see lib/CLAUDE.md)
 types/                  TypeScript interfaces (see types/CLAUDE.md)
@@ -189,7 +190,7 @@ Most API routes follow this pattern:
 4. Execute via `executeQuery()` from `lib/athena.ts`
 5. Return `NextResponse.json(data)` or `NextResponse.json({ error }, { status: 500 })`
 
-Exception: `/api/model-usage`, `/api/user-model-usage`, and `/api/adoption` read S3 CSV files directly via `lib/uar-s3.ts` because dynamic `{Model_name}_Messages` columns and the late-appended `New_User`/`User_Email` columns cannot be queried safely through Glue/Athena (OpenCSVSerDe uses positional mapping, but these columns appear in different positions across files; header-name CSV parsing sidesteps this).
+Exception: `/api/model-usage`, `/api/user-model-usage`, and `/api/adoption` read S3 CSV files directly via `lib/uar-s3.ts` because dynamic `{Model_name}_Messages` columns and the late-appended `New_User`/`User_Email` columns cannot be queried safely through Glue/Athena (OpenCSVSerDe uses positional mapping, but these columns appear in different positions across files; header-name CSV parsing sidesteps this). A third exception class: /api/infra touches neither Athena nor report S3 — it reads the dashboard's own AWS control plane (region-pinned clients, no cache, force-dynamic because the Docker build has no AWS credentials).
 
 Two Next.js constraints on `route.ts`, both of which fail *silently or confusingly*:
 - **Export only route handlers and Next's config symbols.** Anything else fails the build with `Type '…' is not assignable to type 'never'`, which never mentions routes. Put helpers in `lib/` — e.g. the `/api/analyze` system prompt lives in `lib/analyze-prompt.ts`.

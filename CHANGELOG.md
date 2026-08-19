@@ -20,6 +20,19 @@ new ones: the dashboard becomes installable on iPhone/iPad, the AI chatbot
 learns the directory, timestamps speak KST, and — for the first time — the
 dashboard turns its instruments on itself.
 
+### Upgrading from 1.10.0
+
+This is the first release since 1.5.0 that is NOT app-only:
+
+- **5 new dependencies** (`@aws-sdk/client-ecs`, `client-elastic-load-balancing-v2`,
+  `client-cloudfront`, `client-ecr`, `client-cloudwatch`) — run `npm install`.
+- **New task-role IAM policy** (`InfraReadOnly`, read-only) — deploy CDK BEFORE the
+  image: `npx cdk deploy KiroDashboardEcs KiroDashboardCdn --require-approval never`
+  (one command: the synth-time X-Custom-Secret rotation forces Ecs+Cdn to move
+  together). Skipping this leaves every `/infra-cost` row at `unknown` — silently,
+  because the route degrades per source instead of failing.
+- Then the usual image path (build → ECR push → force new deployment).
+
 ### Added
 
 - iOS/iPadOS home-screen app (PWA-lite): `app/manifest.ts` (standalone, dark theme color),
@@ -749,6 +762,19 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 Unreleased에 있던 두 기능과 신규 두 기능을 함께 출시한다: 대시보드가
 아이폰·아이패드에 설치 가능해지고, AI 챗봇이 디렉터리를 알게 되고, 시각이
 KST로 말하며, 처음으로 대시보드가 계기판을 자기 자신에게 돌린다.
+
+### Upgrading from 1.10.0
+
+이번 릴리스는 1.5.0 이후 처음으로 앱 전용이 아닙니다:
+
+- **신규 의존성 5개** (`@aws-sdk/client-ecs`, `client-elastic-load-balancing-v2`,
+  `client-cloudfront`, `client-ecr`, `client-cloudwatch`) — `npm install`을 실행하세요.
+- **신규 태스크 롤 IAM 정책** (`InfraReadOnly`, 읽기 전용) — 이미지보다 CDK를 먼저
+  배포하세요: `npx cdk deploy KiroDashboardEcs KiroDashboardCdn --require-approval never`
+  (한 명령으로: synth 시점의 X-Custom-Secret 회전 때문에 Ecs와 Cdn이 함께 이동해야
+  합니다). 이를 건너뛰면 `/infra-cost`의 모든 행이 조용히 `unknown`으로 남습니다 —
+  라우트가 실패하는 대신 소스별로 degradation 하기 때문입니다.
+- 그 다음 평소의 이미지 경로(빌드 → ECR 푸시 → force new deployment)를 따르세요.
 
 ### Added
 

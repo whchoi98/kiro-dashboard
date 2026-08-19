@@ -56,4 +56,12 @@ describe('version sync (package.json ↔ CHANGELOG.md ↔ CLAUDE.md ↔ sidebar)
     // No literal version strings hiding in the sidebar
     expect(sidebar).not.toMatch(/v\d+\.\d+\.\d+/);
   });
+
+  test('README version badge matches package.json', () => {
+    // The badge is the one version copy no other test guards — it drifted on
+    // two consecutive releases (1.5.0 stuck through 1.10.0, then 1.10.0
+    // through 1.11.0) before this test existed.
+    const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+    expect(readme).toContain(`version-${pkg.version}-purple`);
+  });
 });

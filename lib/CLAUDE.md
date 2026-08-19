@@ -262,7 +262,7 @@ All returned values (displayName, email, username, organization) are automatical
 ### Directory snapshot cache
 
 `resolveUserDetails` walks the **entire** directory with `do/while` `ListUsers`
-pagination. 10 of the 19 API routes call it and an Overview load fans out to six
+pagination. 10 of the 20 API routes call it and an Overview load fans out to six
 of them at once, so a single page view used to pay six full directory walks —
 while its sibling `resolveUsernames` had a 1h cache all along.
 
