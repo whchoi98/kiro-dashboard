@@ -5,6 +5,7 @@ import Sidebar from './components/layout/Sidebar';
 import FloatingChat from './components/chat/FloatingChat';
 import { I18nProvider } from '@/lib/i18n';
 import { ThemeProvider } from '@/lib/theme';
+import { RefreshProvider } from '@/lib/refresh';
 
 // NanumSquareOTF web build (OFL-licensed), self-hosted so the dashboard has
 // no runtime CDN dependency behind CloudFront. NanumSquare ships 4 weights;
@@ -53,18 +54,20 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <I18nProvider>
-          <ThemeProvider>
-            <div className="flex">
-              <Sidebar />
-              {/* Mobile: no sidebar margin, room for the fixed top bar instead */}
-              <main className="ml-0 md:ml-[220px] p-4 pt-16 md:p-6 md:pt-6 min-h-screen w-full">
-                {children}
-              </main>
-            </div>
-            <FloatingChat />
-          </ThemeProvider>
-        </I18nProvider>
+        <RefreshProvider>
+          <I18nProvider>
+            <ThemeProvider>
+              <div className="flex">
+                <Sidebar />
+                {/* Mobile: no sidebar margin, room for the fixed top bar instead */}
+                <main className="ml-0 md:ml-[220px] p-4 pt-16 md:p-6 md:pt-6 min-h-screen w-full">
+                  {children}
+                </main>
+              </div>
+              <FloatingChat />
+            </ThemeProvider>
+          </I18nProvider>
+        </RefreshProvider>
       </body>
     </html>
   );

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
+import { useRefresh } from '@/lib/refresh';
 import KiroMascot from '@/app/components/ui/KiroMascot';
 import DateRangePicker from '@/app/components/ui/DateRangePicker';
 
@@ -26,6 +27,7 @@ export default function Header({
 }: HeaderProps) {
   const router = useRouter();
   const { t } = useI18n();
+  const { refresh } = useRefresh();
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-0 mb-6">
@@ -41,7 +43,12 @@ export default function Header({
           <DateRangePicker value={days} onChange={onDaysChange} />
         )}
         <button
-          onClick={() => router.refresh()}
+          onClick={() => {
+            // Bump the client-fetch nonce AND refresh server components: the
+            // overview page fetches server-side, everything else client-side.
+            refresh();
+            router.refresh();
+          }}
           className="bg-[#9046FF] hover:bg-[#7c3aed] text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors duration-150 shadow-lg shadow-purple-500/20"
         >
           {t('common.refresh')}

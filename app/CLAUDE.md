@@ -58,6 +58,7 @@ app/
 ## Layout
 
 `app/layout.tsx` wraps all pages with:
+- `RefreshProvider` from `lib/refresh.tsx` — global 새로고침 nonce (Header button re-runs every client fetch effect)
 - i18n `I18nProvider`
 - `ThemeProvider` from `lib/theme.tsx` (dark/light) — with a no-FOUC bootstrap `<script>` in `<head>` that applies the stored `kiro-theme` before hydration; `<html suppressHydrationWarning>`
 - `Sidebar` and `Header` from `components/layout/`
