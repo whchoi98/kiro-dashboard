@@ -14,6 +14,8 @@ const EXEMPT = [
   'components/ui/ReleaseNotesDialog.tsx',
   'components/ui/UserDetailPanel.tsx',
   'components/ui/UserModelUsage.tsx',
+  // Server component with async server-side fetch — no useEffect to wire
+  '(overview)/page.tsx',
 ];
 
 function tsxFiles(dir: string): string[] {
@@ -28,12 +30,12 @@ function tsxFiles(dir: string): string[] {
 
 const fetchers = tsxFiles(APP_DIR).filter((f) => {
   const src = readFileSync(f, 'utf8');
-  return /fetch\((["'`])\/api/.test(src);
+  return /(["'`])\/api\//.test(src);
 });
 
 describe('refresh wiring', () => {
   it('found the expected fetching files (guards the scan itself)', () => {
-    expect(fetchers.length).toBeGreaterThanOrEqual(14);
+    expect(fetchers.length).toBeGreaterThanOrEqual(18);
   });
 
   it.each(fetchers.map((f) => [f.slice(f.indexOf('app/'))] as const))(

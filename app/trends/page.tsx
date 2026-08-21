@@ -6,8 +6,10 @@ import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
 import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import TrendChart from '@/app/components/charts/TrendChart';
 import { DailyTrend } from '@/types/dashboard';
+import { useRefresh } from '@/lib/refresh';
 
 export default function TrendsPage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [trends, setTrends] = useState<DailyTrend[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +31,7 @@ export default function TrendsPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   return (
     <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, trends.length > 0)}`}>

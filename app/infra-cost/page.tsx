@@ -8,6 +8,7 @@ import MetricCard from '@/app/components/charts/MetricCard';
 import InfraDetailPanel from '@/app/components/ui/InfraDetailPanel';
 import { InfraStatusData } from '@/types/dashboard';
 import { useI18n } from '@/lib/i18n';
+import { useRefresh } from '@/lib/refresh';
 
 const STATUS_STYLE: Record<string, string> = {
   healthy: 'bg-emerald-500/10 text-emerald-400',
@@ -25,6 +26,7 @@ function pct(n: number | null): string {
 }
 
 export default function InfraCostPage() {
+  const { nonce } = useRefresh();
   const [data, setData] = useState<InfraStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export default function InfraCostPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [nonce]);
 
   const s = data?.summary;
   const m = data?.metrics;

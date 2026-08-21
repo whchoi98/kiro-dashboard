@@ -19,6 +19,7 @@ import MetricCard from '@/app/components/charts/MetricCard';
 import { RolloutData } from '@/types/dashboard';
 import { useI18n } from '@/lib/i18n';
 import { useChartTheme } from '@/lib/chart-theme';
+import { useRefresh } from '@/lib/refresh';
 
 // Series accents are theme-invariant hexes (Recharts SVG attributes can't
 // resolve CSS variables — see lib/chart-theme.ts).
@@ -39,6 +40,7 @@ function formatNumber(n: number): string {
 }
 
 export default function RolloutPage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [data, setData] = useState<RolloutData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,7 @@ export default function RolloutPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   const clients = data?.clients ?? [];
   const overlap = data?.overlap;

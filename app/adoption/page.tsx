@@ -11,6 +11,7 @@ import MetricCard from '@/app/components/charts/MetricCard';
 import FreshnessBanner from '@/app/components/ui/FreshnessBanner';
 import { AdoptionData } from '@/types/dashboard';
 import { useChartTheme } from '@/lib/chart-theme';
+import { useRefresh } from '@/lib/refresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,7 @@ export default function AdoptionPage() {
     color: chartTheme.tooltipText,
     fontSize: 12,
   };
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [data, setData] = useState<AdoptionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function AdoptionPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [days]);
+  }, [days, nonce]);
 
   const newUsers = data?.totals.newUsers ?? 0;
   const activeUsers = data?.totals.activeUsers ?? 0;

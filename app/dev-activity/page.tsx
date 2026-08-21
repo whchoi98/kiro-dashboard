@@ -15,6 +15,7 @@ import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
 import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import { DevActivityData, DevActivityGroup } from '@/types/dashboard';
 import { useChartTheme } from '@/lib/chart-theme';
+import { useRefresh } from '@/lib/refresh';
 
 const GROUP_ORDER = ['TestGen', 'DocGen', 'Transform', 'InlineChat', 'CodeFix'] as const;
 
@@ -35,6 +36,7 @@ const EMPTY_GROUP = (key: string): DevActivityGroup => ({
 });
 
 export default function DevActivityPage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [data, setData] = useState<DevActivityData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,7 @@ export default function DevActivityPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   const groups: DevActivityGroup[] = GROUP_ORDER.map(
     (key) => data?.groups?.find((g) => g.key === key) ?? EMPTY_GROUP(key)

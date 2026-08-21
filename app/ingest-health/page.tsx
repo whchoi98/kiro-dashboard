@@ -8,6 +8,7 @@ import MetricCard from '@/app/components/charts/MetricCard';
 import { IngestHealthData } from '@/types/dashboard';
 import { useI18n } from '@/lib/i18n';
 import { formatInstantKst } from '@/lib/freshness';
+import { useRefresh } from '@/lib/refresh';
 
 const FILE_ROWS_SHOWN = 40;
 
@@ -31,6 +32,7 @@ function fileName(key: string): string {
 }
 
 export default function IngestHealthPage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [data, setData] = useState<IngestHealthData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export default function IngestHealthPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   const freshness = data?.freshness;
   const clients = data?.clients ?? [];

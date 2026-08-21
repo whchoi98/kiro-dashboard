@@ -11,6 +11,7 @@ import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import { useI18n } from '@/lib/i18n';
 import { useChartTheme } from '@/lib/chart-theme';
 import { ModelUsageData } from '@/types/dashboard';
+import { useRefresh } from '@/lib/refresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ function getModelColor(model: string, index: number): string {
 }
 
 export default function ModelUsagePage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [data, setData] = useState<ModelUsageData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +51,7 @@ export default function ModelUsagePage() {
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [days]);
+  }, [days, nonce]);
 
   const totalMessages = data?.distribution?.reduce((s, d) => s + d.messages, 0) ?? 0;
   const autoMessages = data?.distribution.find((d) => d.model === 'Auto')?.messages ?? 0;

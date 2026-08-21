@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useI18n } from '@/lib/i18n';
+import { useRefresh } from '@/lib/refresh';
 import Header from '@/app/components/layout/Header';
 import MetricCard from '@/app/components/charts/MetricCard';
 import TrendChart from '@/app/components/charts/TrendChart';
@@ -139,6 +140,7 @@ function StatusIcon({ color, children }: { color: string; children: React.ReactN
 }
 
 export default function OverviewClient({ data }: { data: OverviewData }) {
+  const { nonce } = useRefresh();
   const { t } = useI18n();
   const [days, setDays] = useState(90);
   const [liveData, setLiveData] = useState(data);
@@ -167,7 +169,7 @@ export default function OverviewClient({ data }: { data: OverviewData }) {
     return () => {
       cancelled = true;
     };
-  }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [days, nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { metrics, changeRates: cr, trends, topUsers, funnel, clientDist, powerUsers, overageUp, mascotMood, idcUsers } = liveData;
 

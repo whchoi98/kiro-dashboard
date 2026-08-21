@@ -8,6 +8,7 @@ import MetricCard from '@/app/components/charts/MetricCard';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import FreshnessBanner from '@/app/components/ui/FreshnessBanner';
 import { SubscriptionData, ClientDistribution } from '@/types/dashboard';
+import { useRefresh } from '@/lib/refresh';
 
 // Left-border accent (decorative — inline hex is fine on any theme).
 const TIER_COLORS: Record<string, string> = {
@@ -33,6 +34,7 @@ function formatNumber(n: number): string {
 }
 
 export default function SubscriptionPage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [data, setData] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export default function SubscriptionPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   const summary = data?.overageSummary;
   const tiers = data?.tiers ?? [];

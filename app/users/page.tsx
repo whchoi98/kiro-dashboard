@@ -8,8 +8,10 @@ import UserBarChart from '@/app/components/charts/BarChart';
 import UserTable from '@/app/components/tables/UserTable';
 import UserDetailPanel from '@/app/components/ui/UserDetailPanel';
 import { TopUser } from '@/types/dashboard';
+import { useRefresh } from '@/lib/refresh';
 
 export default function UsersPage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [top100, setTop100] = useState<TopUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,7 @@ export default function UsersPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   const top10 = useMemo(() => top100.slice(0, 10), [top100]);
 

@@ -17,6 +17,7 @@ import {
   ClientDistribution,
 } from '@/types/dashboard';
 import { useChartTheme, type ChartTheme } from '@/lib/chart-theme';
+import { useRefresh } from '@/lib/refresh';
 
 const TIER_COLORS: Record<string, string> = {
   POWER: '#22d3ee',
@@ -51,6 +52,7 @@ async function safeFetch<T>(url: string): Promise<T | null> {
 }
 
 export default function ExecPage() {
+  const { nonce } = useRefresh();
   const chartTheme = useChartTheme();
   const [days, setDays] = useState(90);
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
@@ -84,7 +86,7 @@ export default function ExecPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   const cr = metrics?.changeRates ?? {};
 

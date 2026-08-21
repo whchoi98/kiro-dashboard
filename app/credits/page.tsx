@@ -6,6 +6,7 @@ import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
 import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import { CreditAnalysis, ClientDistribution } from '@/types/dashboard';
+import { useRefresh } from '@/lib/refresh';
 
 const TIER_COLORS: Record<string, string> = {
   POWER: '#22d3ee',
@@ -14,6 +15,7 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export default function CreditsPage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [credits, setCredits] = useState<CreditAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function CreditsPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   // Build base vs overage pie data
   const totalBVO = (credits?.baseVsOverage.base ?? 0) + (credits?.baseVsOverage.overage ?? 0);

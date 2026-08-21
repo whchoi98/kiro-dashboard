@@ -19,6 +19,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { useChartTheme } from '@/lib/chart-theme';
 import { CreditEfficiency } from '@/types/dashboard';
+import { useRefresh } from '@/lib/refresh';
 
 interface ProductivitySummary {
   activeUsers: number;
@@ -86,6 +87,7 @@ function fmt(n: number): string {
 }
 
 export default function ProductivityPage() {
+  const { nonce } = useRefresh();
   const { t } = useI18n();
   const chartTheme = useChartTheme();
   const [days, setDays] = useState(90);
@@ -107,7 +109,7 @@ export default function ProductivityPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   const s = data?.summary;
   const credit = data?.creditEfficiency;

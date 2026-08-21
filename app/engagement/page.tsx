@@ -7,6 +7,7 @@ import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import FunnelChart from '@/app/components/charts/FunnelChart';
 import { EngagementData, ClientDistribution } from '@/types/dashboard';
+import { useRefresh } from '@/lib/refresh';
 
 // `color` is the decorative accent (bars, tint backgrounds — inline hex, OK on
 // any theme). `text` is a palette class for the label so it inverts to a
@@ -39,6 +40,7 @@ const TIER_META: Record<string, { color: string; text: string; description: stri
 };
 
 export default function EngagementPage() {
+  const { nonce } = useRefresh();
   const [days, setDays] = useState(90);
   const [engagement, setEngagement] = useState<EngagementData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +63,7 @@ export default function EngagementPage() {
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, nonce]);
 
   const segmentsPieData: ClientDistribution[] = (engagement?.segments ?? []).map((seg) => ({
     clientType: seg.tier,
