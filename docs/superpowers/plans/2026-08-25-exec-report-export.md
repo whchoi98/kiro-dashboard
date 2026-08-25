@@ -255,7 +255,7 @@ export function buildExecReportHtml(input: ExecReportInput): string {
 
 export function wrapForWord(html: string): string {
   return (
-    '﻿' +
+    '\ufeff' + // explicit escape — an invisible literal BOM in source is a maintenance trap
     html.replace(
       /<html /,
       '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" ',
