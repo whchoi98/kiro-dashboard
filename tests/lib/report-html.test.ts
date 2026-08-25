@@ -39,6 +39,7 @@ describe('buildExecReportHtml', () => {
     expect(html.startsWith('<!DOCTYPE html>')).toBe(true);
     expect(html).toContain('<title>');
     expect(html).not.toMatch(/src="http|href="http/);
+    expect(html).not.toMatch(/display\s*:\s*(flex|grid)|position\s*:/);
   });
 
   it('carries period, generated-at, and the report-cadence footer', () => {
@@ -55,6 +56,22 @@ describe('buildExecReportHtml', () => {
     });
     expect(hostile).not.toContain('<img src=x');
     expect(hostile).toContain('&lt;img src=x');
+  });
+
+  it('escapes hostile input in organization and model fields', () => {
+    const hostileOrg = buildExecReportHtml({
+      ...BASE,
+      topUsers: [{ ...BASE.topUsers[0], organization: '<script>alert("xss")</script>' }],
+    });
+    expect(hostileOrg).not.toContain('<script>');
+    expect(hostileOrg).toContain('&lt;script&gt;');
+
+    const hostileModel = buildExecReportHtml({
+      ...BASE,
+      models: [{ model: '"><svg/onload=alert(1)>', messages: 100, percentage: 50 }],
+    });
+    expect(hostileModel).not.toContain('"><svg');
+    expect(hostileModel).toContain('&quot;&gt;&lt;svg');
   });
 
   it('degrades: null metrics → em dashes, empty trends → no-data row', () => {

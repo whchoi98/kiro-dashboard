@@ -128,9 +128,6 @@ export async function exportPdf(element: HTMLElement): Promise<void> {
 export function downloadBlob(filename: string, mime: string, content: string): void {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
+  triggerDownload(url, filename);
   URL.revokeObjectURL(url);
 }
