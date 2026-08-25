@@ -1,5 +1,5 @@
 ---
-description: Release Skill — 6-step deployment workflow (build, Docker, ECR push, CDK deploy, ECS update, verify) with rollback procedure
+description: Release Skill — version upgrade (semver bump, 4-file sync, bilingual changelog, tests) followed by a deploy via the deploy skill. Use for /release, "릴리스", "버전 올려줘".
 ---
 
 # Release Skill
@@ -7,107 +7,84 @@ description: Release Skill — 6-step deployment workflow (build, Docker, ECR pu
 ## Trigger
 
 Use when the user asks to:
-- "deploy to AWS", "AWS에 배포해줘"
-- "build and push", "빌드하고 푸시"
-- "release", "릴리스"
-- `/release`, `/deploy`
+- `/release`, "릴리스", "release vX.Y.Z"
+- "버전 올려줘", "vX.Y.Z 범프", "버전 업그레이드"
+- "체인지로그까지 묶어서 처리"
 
-## Release Workflow
+A release = **version bump + changelog + tests + commit**, then a deploy.
+For a deploy without a version change, use the `deploy` skill directly.
 
-### Prerequisites
+## Step 0: Decide the version
 
-```bash
-# Verify AWS credentials
-aws sts get-caller-identity
+Semver against the undeployed/unreleased changes since the last `## [X.Y.Z]`
+heading in CHANGELOG.md:
+- New menu/page/feature → **minor** (1.11.0 → 1.12.0)
+- Fixes/docs/perf only → **patch** (1.11.0 → 1.11.1)
 
-# Set CDK environment
-export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-export CDK_DEFAULT_REGION=ap-northeast-2
-```
+Confirm the number with the user if they didn't state one.
 
-### Step 1: Build
+## Step 1: Update the four synced copies
 
-```bash
-cd /home/ec2-user/my-project/kiro-dashboard
-npm run build
-```
+`tests/structure/version-sync.test.ts` enforces all of these — run it and it
+tells you exactly what you missed:
 
-Verify: build completes without TypeScript errors.
+1. **`package.json`** — `"version"`. (`lib/version.ts` derives `APP_VERSION`
+   from it automatically; never edit lib/version.ts or the Sidebar.)
+2. **`CHANGELOG.md`** — insert `## [X.Y.Z] - YYYY-MM-DD` as the newest
+   release heading in **BOTH** sections: `# English` (before the `# 한국어`
+   line) and `# 한국어` (after it). Move `[Unreleased]` content into it.
+   - Both sections must list the same versions in the same order.
+   - **EN entries must contain zero Hangul** — `tests/lib/release-notes.test.ts`
+     fails on a single Korean character in the English section (write
+     "2 AM local time", not "새벽 2시"). KO entries must contain Hangul.
+   - Category headings stay in English in both sections (Added/Changed/Fixed).
+3. **`CLAUDE.md`** — the `**Version**: X.Y.Z` line. If the release added a
+   page, also add it to the Project Structure tree in the same file.
+4. **`README.md`** — the badge: `version-X.Y.Z-purple`. (Drifted on two
+   consecutive releases before the test pinned it.)
 
-### Step 2: Docker Build
-
-```bash
-docker build -t kiro-dashboard .
-```
-
-Verify: image builds successfully. Check image size.
-
-### Step 3: ECR Push
-
-```bash
-AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-ECR_REGION=ap-northeast-2
-ECR_REPO="$AWS_ACCOUNT.dkr.ecr.$ECR_REGION.amazonaws.com/kiro-dashboard"
-
-# Login to ECR
-aws ecr get-login-password --region $ECR_REGION \
-  | docker login --username AWS --password-stdin "$AWS_ACCOUNT.dkr.ecr.$ECR_REGION.amazonaws.com"
-
-# Tag and push
-docker tag kiro-dashboard:latest "$ECR_REPO:latest"
-docker push "$ECR_REPO:latest"
-```
-
-### Step 4: CDK Deploy
+## Step 2: Test gate
 
 ```bash
-cd infra
-npx cdk deploy --all --require-approval never
+npx jest tests/structure/version-sync.test.ts tests/lib/release-notes.test.ts
+npx jest && npm run build     # full suite + type check (npm run lint is BROKEN)
 ```
 
-Or deploy only the ECS stack if only app code changed:
-```bash
-npx cdk deploy KiroDashboardEcs --require-approval never
-```
+`/changelog` renders CHANGELOG.md at **build time** — `.dockerignore` must
+keep its `!CHANGELOG.md` exception (guarded by
+`tests/structure/changelog-build-input.test.ts`; don't touch it).
 
-### Step 5: ECS Service Update (Force New Deployment)
-
-If CDK deploy doesn't trigger a new task (e.g., only image changed):
-```bash
-aws ecs update-service \
-  --cluster kiro-dashboard-cluster \
-  --service kiro-dashboard-service \
-  --force-new-deployment \
-  --region ap-northeast-2
-```
-
-### Step 6: Verify Deployment
+## Step 3: Commit
 
 ```bash
-# Check ECS service stability
-aws ecs wait services-stable \
-  --cluster kiro-dashboard-cluster \
-  --services kiro-dashboard-service \
-  --region ap-northeast-2
-
-# Health check via ALB or CloudFront
-curl -s https://<cloudfront-domain>/api/health
+git add package.json CHANGELOG.md CLAUDE.md README.md
+git commit -m "chore(release): vX.Y.Z — <one-line summary of headline features>"
 ```
 
-## Rollback
+Push only when the user says so ("푸시").
 
-If the new deployment is unhealthy:
-```bash
-# Force previous task version by updating service with older image
-aws ecs update-service \
-  --cluster kiro-dashboard-cluster \
-  --service kiro-dashboard-service \
-  --task-definition kiro-dashboard:<previous-revision> \
-  --region ap-northeast-2
-```
+## Step 4: Deploy (invoke the deploy skill)
 
-## Notes
+Follow `.claude/skills/deploy/SKILL.md` end to end — it owns the Path A/B
+decision, real resource names, verification, and rollback. Release-specific
+additions on top of it:
 
-- Only the `KiroDashboardEcs` stack needs redeploy for app code changes
-- CDK infra changes (network, security, CDN) require full `--all` deploy
-- NEXTAUTH_SECRET must be set to a secure value in ecs-stack.ts before production deploy
+- Tag the ECR image with the **version** as well as `latest` + git sha:
+
+  ```bash
+  docker tag kiro-dashboard:latest "$ECR/kiro-dashboard:X.Y.Z"
+  docker push "$ECR/kiro-dashboard:X.Y.Z"
+  ```
+
+  `latest` alone leaves rollback without a named target — during the
+  v1.8.0→v1.9.0 hop, two distinct builds briefly claimed one version and
+  only per-commit/per-version tags disambiguated them.
+
+- After verification, confirm the live version: the Sidebar renders
+  `v{APP_VERSION}`, so a curl of any page via the ALB + `X-Custom-Secret`
+  header should contain `vX.Y.Z`.
+
+## Step 5: Record
+
+Report to the user: version, commit, image digest, ECR tags, verification
+results. Update the deploy record (previous digest = rollback anchor).
