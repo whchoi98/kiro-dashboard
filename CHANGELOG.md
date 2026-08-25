@@ -13,6 +13,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-08-25
+
+The executive snapshot learns to leave the browser, and the refresh button
+starts telling the truth: one click now genuinely re-fetches every panel.
+
+### Added
+
+- **Executive report download** — two buttons on `/exec` export the snapshot
+  as a beautified standalone HTML document or a Word-compatible DOC file
+  (same HTML with a BOM and Office namespaces). The report carries the four
+  headline KPIs, a last-14-days daily table, the top-5 credit users (masked,
+  as on screen), the top-5 models, and a footer stating the 02:00 UTC data
+  basis. Tables-only layout, inline CSS, zero external requests, zero new
+  dependencies; every dynamic value is HTML-escaped. Fully bilingual (KO/EN).
+
+### Fixed
+
+- **Header refresh button now refreshes** — it previously called only
+  `router.refresh()`, which re-renders server components but never re-runs
+  client-side `fetch` effects, so every dashboard page kept showing stale
+  data. A global refresh-nonce context (`lib/refresh.tsx`) now bumps a
+  counter that all 18+ client fetch effects depend on; a structure test
+  (`tests/structure/refresh-wiring.test.ts`) fails the build if a new page
+  fetches `/api/*` without wiring the nonce.
+
+### Docs
+
+- README gains a bilingual Mermaid architecture diagram generated from
+  `docs/architecture.md`; all seven screenshots re-captured against live data.
+- Deploy procedure single-sourced: new `deploy` skill (Path A/B decision,
+  real resource names, verification, rollback) and a rewritten `release`
+  skill (version-sync checklist, bilingual changelog rules).
+
 ## [1.11.0] - 2026-08-19
 
 Two visibility features that were sitting in Unreleased ship together with two
@@ -756,6 +789,39 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+## [1.12.0] - 2026-08-25
+
+경영진 스냅샷이 브라우저 밖으로 나가는 법을 배우고, 새로고침 버튼이 정직해진다:
+이제 한 번의 클릭이 모든 패널을 실제로 다시 불러온다.
+
+### Added
+
+- **경영진 리포트 다운로드** — `/exec`의 버튼 두 개로 스냅샷을 뷰티파이된
+  단독 HTML 문서 또는 Word 호환 DOC 파일(같은 HTML에 BOM과 Office 네임스페이스를
+  얹은 형태)로 내보낸다. 리포트에는 핵심 KPI 4종, 최근 14일 일별 표, Top 5
+  크레딧 사용자(화면과 동일하게 마스킹), Top 5 모델, 그리고 02:00 UTC 데이터
+  기준을 명시한 푸터가 담긴다. 테이블 전용 레이아웃, 인라인 CSS, 외부 요청
+  0건, 신규 의존성 0개이며 모든 동적 값은 HTML 이스케이프 처리된다. 한/영
+  완전 이중 언어 지원.
+
+### Fixed
+
+- **헤더 새로고침 버튼이 실제로 새로고침** — 기존에는 `router.refresh()`만
+  호출해 서버 컴포넌트만 다시 렌더링될 뿐 클라이언트 `fetch` 이펙트는 다시
+  실행되지 않아 모든 대시보드 페이지가 이전 데이터를 계속 보여줬다. 전역
+  새로고침 논스 컨텍스트(`lib/refresh.tsx`)가 카운터를 증가시키면 18개 이상의
+  클라이언트 fetch 이펙트가 이를 의존성으로 재실행된다. 새 페이지가 논스
+  배선 없이 `/api/*`를 호출하면 구조 테스트
+  (`tests/structure/refresh-wiring.test.ts`)가 빌드를 실패시킨다.
+
+### Docs
+
+- README에 `docs/architecture.md`에서 생성한 이중 언어 Mermaid 아키텍처
+  다이어그램 추가; 스크린샷 7장 전부를 실데이터 기준으로 재캡처.
+- 배포 절차 단일화: 신규 `deploy` 스킬(Path A/B 판별, 실제 리소스명, 검증,
+  롤백)과 재작성된 `release` 스킬(버전 동기화 체크리스트, 이중 언어
+  체인지로그 규칙).
 
 ## [1.11.0] - 2026-08-19
 
