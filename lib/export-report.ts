@@ -123,3 +123,14 @@ export async function exportPdf(element: HTMLElement): Promise<void> {
 
   pdf.save(`kiro-ai-analysis-${timestampSlug()}.pdf`);
 }
+
+/** Client-side file download via Blob + anchor click (no server round trip). */
+export function downloadBlob(filename: string, mime: string, content: string): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

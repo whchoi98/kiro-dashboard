@@ -18,6 +18,10 @@ import {
 } from '@/types/dashboard';
 import { useChartTheme, type ChartTheme } from '@/lib/chart-theme';
 import { useRefresh } from '@/lib/refresh';
+import { buildExecReportHtml, wrapForWord } from '@/lib/report-html';
+import { downloadBlob } from '@/lib/export-report';
+import { formatInstantKst } from '@/lib/freshness';
+import { useI18n } from '@/lib/i18n';
 
 const TIER_COLORS: Record<string, string> = {
   POWER: '#22d3ee',
@@ -54,6 +58,7 @@ async function safeFetch<T>(url: string): Promise<T | null> {
 export default function ExecPage() {
   const { nonce } = useRefresh();
   const chartTheme = useChartTheme();
+  const { t, locale } = useI18n();
   const [days, setDays] = useState(90);
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
   const [trends, setTrends] = useState<DailyTrend[]>([]);
@@ -102,6 +107,22 @@ export default function ExecPage() {
   const topUsers = (credits?.topUsers ?? []).slice(0, 5);
   const maxTopCredits = topUsers[0]?.totalCredits ?? 1;
 
+  const buildReport = () => {
+    const generatedAtKst = formatInstantKst(new Date().toISOString());
+    return {
+      html: buildExecReportHtml({
+        locale,
+        days,
+        generatedAtKst,
+        metrics,
+        trends,
+        topUsers: (credits?.topUsers ?? []).slice(0, 5),
+        models: (modelUsage?.distribution ?? []).slice(0, 5),
+      }),
+      stamp: `${generatedAtKst.replace(/[^0-9]/g, '').slice(0, 8)}-${generatedAtKst.replace(/[^0-9]/g, '').slice(8, 12)}`,
+    };
+  };
+
   return (
     <div className={`flex flex-col gap-6 transition-opacity duration-200 ${pageBodyOpacityClass(loading, metrics !== null)}`}>
       <Header
@@ -112,6 +133,31 @@ export default function ExecPage() {
         days={days}
         onDaysChange={setDays}
       />
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={loading || !metrics}
+          onClick={() => {
+            const { html, stamp } = buildReport();
+            downloadBlob(`kiro-exec-report-${stamp}.html`, 'text/html;charset=utf-8', html);
+          }}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-800 text-gray-300 hover:text-white hover:border-[#9046FF] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {t('exec.downloadHtml')}
+        </button>
+        <button
+          type="button"
+          disabled={loading || !metrics}
+          onClick={() => {
+            const { html, stamp } = buildReport();
+            downloadBlob(`kiro-exec-report-${stamp}.doc`, 'application/msword', wrapForWord(html));
+          }}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-800 text-gray-300 hover:text-white hover:border-[#9046FF] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {t('exec.downloadDoc')}
+        </button>
+      </div>
 
       <SkeletonGate variant="overview" loading={loading} hasData={metrics !== null}>
       {/* Row 1: Headline KPIs */}

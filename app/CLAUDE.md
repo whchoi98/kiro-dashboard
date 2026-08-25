@@ -28,7 +28,7 @@ app/
   engagement/           Engagement metric dashboard page
   productivity/         Productivity metrics dashboard page
   model-usage/          AI model usage analysis page (S3 direct read)
-  exec/                 Executive one-page snapshot (composes existing APIs)
+  exec/                 Executive one-page snapshot (composes existing APIs) — HTML/DOC report download (lib/report-html.ts)
   subscription/         Subscription tier & overage governance page — renders FreshnessBanner (as-of + next-report countdown)
   adoption/             New-user inflow & activation page (S3 direct read) — renders FreshnessBanner (as-of + next-report countdown)
   dev-activity/         Legacy deep dev metrics page (TestGen/DocGen/Transform/InlineChat/CodeFix)
