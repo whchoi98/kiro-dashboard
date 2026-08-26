@@ -263,6 +263,23 @@ webpack `asset/source` rule, so the sidebar release-notes dialog is empty
 without it. Keep the `!CHANGELOG.md` re-include *after* the `*.md` exclusion in
 `.dockerignore` (Docker applies the last matching pattern).
 
+## Claude Code Skills
+
+The repository ships versioned [Claude Code](https://claude.com/claude-code)
+skills under `.claude/skills/` — open a Claude Code session in this
+directory and they are available immediately. Three of them cover the full
+operations lifecycle:
+
+| Skill | Invoke with | What it does |
+|-------|-------------|--------------|
+| `install` | `/install`, "set up the project" | First-time setup. Track A: local development (wraps `scripts/setup.sh`, `.env.local`). Track B: fresh-AWS-account production install — what must pre-exist vs what CDK creates, bootstrap in both regions, first-image ordering (ARM64), first Cognito user, verification. |
+| `deploy` | `/deploy`, "deploy" | Ship changes to the running environment. Owns the Path A (image-only) vs Path B (CDK) decision via `cdk diff`, real resource names, the region trap, post-deploy verification, and rollback. Defers to `docs/runbooks/production-deploy.md` for the full trap list. |
+| `release` | `/release`, "release vX.Y.Z" | Version upgrade. Semver decision, the four synced version copies (`package.json`, bilingual `CHANGELOG.md`, `CLAUDE.md`, README badge — enforced by `tests/structure/version-sync.test.ts`), test gate, release commit, then a deploy with per-version ECR tags. |
+
+Typical lifecycle: `install` once, `deploy` for every change, `release`
+when the change deserves a version. Three more skills support development:
+`code-review`, `refactor`, and `sync-docs` (documentation sync).
+
 ## Configuration
 
 ### Runtime container env (ECS task)
@@ -745,6 +762,23 @@ Ecs와 Cdn이 함께 이동해야 합니다. 이를 건너뛰면 라우트가 �
 import하므로, 없으면 사이드바 릴리스 노트 다이얼로그가 비어 있게 됩니다.
 `.dockerignore`에서 `!CHANGELOG.md` 재포함은 반드시 `*.md` 제외 **뒤에** 두세요
 (Docker는 마지막으로 일치하는 패턴을 적용합니다).
+
+## Claude Code 스킬
+
+이 저장소는 [Claude Code](https://claude.com/claude-code) 스킬을
+`.claude/skills/`에 버전 관리하여 함께 배포합니다 — 이 디렉터리에서 Claude
+Code 세션을 열면 즉시 사용할 수 있습니다. 그중 3개가 운영 수명주기 전체를
+담당합니다:
+
+| 스킬 | 호출 방법 | 하는 일 |
+|------|-----------|---------|
+| `install` | `/install`, "설치해줘" | 최초 설치. Track A: 로컬 개발 환경(`scripts/setup.sh`, `.env.local` 활용). Track B: 신규 AWS 계정 프로덕션 구축 — 사전 준비물 vs CDK가 생성하는 것의 경계, 2개 리전 bootstrap, 첫 이미지 순서(ARM64), 첫 Cognito 사용자 생성, 검증. |
+| `deploy` | `/deploy`, "배포" | 실행 중인 환경에 변경 사항 배포. `cdk diff` 기반 Path A(이미지만)/Path B(CDK) 판별, 실제 리소스명, 리전 함정, 배포 후 검증, 롤백을 담당. 전체 함정 목록은 `docs/runbooks/production-deploy.md`에 위임. |
+| `release` | `/release`, "릴리스" | 버전 업그레이드. Semver 결정, 4개 버전 동기화 지점(`package.json`, 이중 언어 `CHANGELOG.md`, `CLAUDE.md`, README 배지 — `tests/structure/version-sync.test.ts`가 강제), 테스트 게이트, 릴리스 커밋, 버전 태그를 포함한 배포까지. |
+
+일반적인 수명주기: `install`은 한 번, `deploy`는 변경마다, 버전을 붙일 만한
+변경이면 `release`. 개발을 돕는 스킬 3개가 더 있습니다: `code-review`,
+`refactor`, `sync-docs`(문서 동기화).
 
 ## 환경 설정
 
