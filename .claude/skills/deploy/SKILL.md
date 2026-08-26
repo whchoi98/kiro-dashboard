@@ -63,6 +63,8 @@ kinds never on their own justify a CDK deploy:
 ## Path A: image-only (app code, docs, tests)
 
 ```bash
+# Fargate task is pinned to ARM64. This box is aarch64 so a plain build is
+# native-correct; from an x86_64 host use --platform linux/arm64 (buildx).
 docker build -t kiro-dashboard .
 
 ECR=120443221648.dkr.ecr.ap-northeast-2.amazonaws.com
