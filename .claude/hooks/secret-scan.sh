@@ -48,7 +48,7 @@ if echo "$FILE_CONTENT" | grep -qiE '(password|passwd|pwd)\s*[:=]\s*["\x27][^"\x
 fi
 
 # Private key blocks
-if echo "$FILE_CONTENT" | grep -qE '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'; then
+if echo "$FILE_CONTENT" | grep -qE -- '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'; then
   FINDINGS+=("Private key block")
 fi
 

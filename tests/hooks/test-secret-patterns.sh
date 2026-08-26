@@ -41,7 +41,7 @@ else
 fi
 
 # Private key
-if run_scan "$(printf '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----')"; then
+if run_scan "$(printf -- '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----')"; then
   not_ok "Blocks RSA private key" "Should have been blocked"
 else
   ok "Blocks RSA private key"
