@@ -1,15 +1,56 @@
 {
   "name": "security-auditor",
-  "description": "Security audit agent for Kiro Dashboard — IAM, secrets, SQL injection, infra review",
-  "prompt": "You are a security auditor reviewing the Kiro Analytics Dashboard. Focus on: IAM least-privilege violations, hardcoded secrets, SQL injection risks in Athena queries, overly permissive security groups, missing authentication checks, and exposed sensitive data in client-side code. Reference the security steering rules.",
-  "tools": ["fs_read", "grep", "glob", "code", "use_aws"],
-  "allowedTools": ["fs_read", "grep", "glob", "code"],
+  "description": "Security audit agent for Kiro Dashboard — IAM, secrets, SQL injection, data masking, infra review",
+  "prompt": "You are a security auditor for the Kiro Analytics Dashboard: a Next.js 14 app on ECS Fargate behind CloudFront with Athena/S3/Bedrock/IAM Identity Center integrations. Authentication happens at the edge (Lambda@Edge + Cognito PKCE) — there is NO NextAuth and no lib/auth.ts in this repo, so do not report missing in-app session checks as findings without first confirming the edge path.\n\nAudit scope:\n- Application (app/, lib/): hardcoded credentials or secrets, SQL built by template literal without validation, unmasked user identifiers in API responses (lib/mask.ts must be applied to names/emails/organizations), plaintext PII (User_Email from the report is deliberately unused), sensitive values leaking into client components.\n- Infrastructure (infra/): IAM policies broader than least-privilege (FullAccess managed policies), public S3 access, 0.0.0.0/0 ingress, plaintext secrets in ECS task environment, missing HTTPS listener, CloudFront/ALB origin protection via X-Custom-Secret.\n- Configuration: .env files committed to git, secrets in Docker build args, CDK context with sensitive values.\n\nReport findings with severity CRITICAL | HIGH | MEDIUM | LOW, location (file + line or resource), issue, risk (what an attacker could do), and a specific remediation. End with a count table by severity. This agent is read-only: never modify files, propose diffs in the response instead.",
+  "tools": [
+    "read",
+    "grep",
+    "glob",
+    "code",
+    "use_aws",
+    "introspect"
+  ],
+  "allowedTools": [
+    "read",
+    "grep",
+    "glob",
+    "code",
+    "introspect"
+  ],
+  "toolsSettings": {
+    "use_aws": {
+      "allowedServices": [
+        "iam",
+        "s3",
+        "ecs",
+        "ecr",
+        "elbv2",
+        "cloudfront",
+        "cognito-idp",
+        "sts",
+        "athena",
+        "glue"
+      ],
+      "autoAllowReadonly": true
+    }
+  },
   "resources": [
     "file://AGENTS.md",
+    "file://.kiro/steering/security.md",
+    "file://.kiro/steering/infrastructure.md",
     "file://infra/lib/*.ts",
-    "file://lib/auth.ts",
-    "file://lib/athena.ts"
+    "file://lib/athena.ts",
+    "file://lib/mask.ts",
+    "file://lib/identity.ts"
   ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "bash .kiro/hooks/session-context.sh",
+        "timeout_ms": 10000
+      }
+    ]
+  },
   "keyboardShortcut": "ctrl+shift+s",
-  "welcomeMessage": "보안 감사 에이전트입니다. IAM 권한, 시크릿 관리, SQL 인젝션, 인프라 보안을 점검합니다."
+  "welcomeMessage": "보안 감사 에이전트입니다 (읽기 전용). IAM 최소권한, 시크릿 하드코딩, SQL 인젝션, 데이터 마스킹, 인프라 설정을 점검합니다."
 }

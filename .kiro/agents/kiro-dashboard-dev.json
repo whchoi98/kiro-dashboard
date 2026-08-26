@@ -1,32 +1,144 @@
 {
   "name": "kiro-dashboard-dev",
-  "description": "Kiro Analytics Dashboard development agent — Next.js, Athena, CDK",
-  "prompt": "You are a senior full-stack developer working on the Kiro Analytics Dashboard. This is a Next.js 14 App Router project with TypeScript, Tailwind CSS 4, and Recharts for the frontend, AWS Athena for data queries, and AWS CDK for infrastructure. Follow the steering rules in .kiro/steering/ for code style, data conventions, security, and infrastructure patterns.",
-  "tools": ["*"],
-  "allowedTools": [
-    "fs_read",
+  "description": "Kiro Analytics Dashboard development agent — Next.js 14, Athena, CDK",
+  "prompt": "You are a senior full-stack developer working on the Kiro Analytics Dashboard: a Next.js 14 App Router app (TypeScript, Tailwind CSS 4, Recharts) that reads Kiro User Activity Report data through AWS Athena and S3, and is deployed by AWS CDK to ECS Fargate behind CloudFront. Follow the rules in .kiro/steering/ for code style, Athena/data conventions, security, testing, and infrastructure. Answer in Korean unless the user writes in English. The verification gate is `npx jest` plus `npm run build` — `npm run lint` is broken in this repo (no ESLint config), so never rely on it.",
+  "tools": [
+    "read",
+    "write",
+    "shell",
     "grep",
     "glob",
     "code",
     "knowledge",
     "use_aws",
     "web_fetch",
-    "web_search"
+    "web_search",
+    "introspect",
+    "subagent",
+    "todo_list"
   ],
+  "allowedTools": [
+    "read",
+    "grep",
+    "glob",
+    "code",
+    "knowledge",
+    "introspect",
+    "todo_list"
+  ],
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "app/**",
+        "lib/**",
+        "types/**",
+        "infra/**",
+        "tests/**",
+        "docs/**",
+        "scripts/**",
+        ".kiro/**",
+        "public/**",
+        "*.md",
+        "*.json",
+        "*.ts",
+        "*.js"
+      ],
+      "deniedPaths": [
+        ".env",
+        ".env.local",
+        ".env.deploy",
+        "node_modules/**",
+        "infra/node_modules/**",
+        ".next/**",
+        "infra/cdk.out/**",
+        ".git/**"
+      ]
+    },
+    "shell": {
+      "allowedCommands": [
+        "npx jest.*",
+        "npm run build",
+        "npx tsc --noEmit",
+        "bash tests/run-all.sh",
+        "git status.*",
+        "git diff.*",
+        "git log.*"
+      ],
+      "deniedCommands": [
+        "rm\\s+-rf\\s+/.*",
+        "git\\s+push\\s+--force.*",
+        "git\\s+reset\\s+--hard.*",
+        "git\\s+checkout\\s+--\\s+.*",
+        "git\\s+clean\\s+-f.*",
+        ".*>\\s*\\.env(\\.local|\\.deploy)?\\s*$",
+        "sudo\\s+.*",
+        "npx\\s+cdk\\s+destroy.*"
+      ],
+      "autoAllowReadonly": true,
+      "denyByDefault": false
+    },
+    "use_aws": {
+      "allowedServices": [
+        "athena",
+        "glue",
+        "s3",
+        "identitystore",
+        "ecs",
+        "ecr",
+        "elbv2",
+        "cloudfront",
+        "cloudwatch",
+        "logs",
+        "sts",
+        "ssm",
+        "cognito-idp"
+      ],
+      "autoAllowReadonly": true
+    },
+    "web_fetch": {
+      "trusted": [
+        ".*kiro\\.dev.*",
+        ".*docs\\.aws\\.amazon\\.com.*",
+        ".*nextjs\\.org.*"
+      ]
+    }
+  },
   "resources": [
     "file://AGENTS.md",
+    "file://.kiro/AGENTS.md",
+    "file://.kiro/steering/**/*.md",
     "file://docs/kiro-user-activity-report-schema.md",
     "file://types/dashboard.ts",
-    "skill://.kiro/skills/**/SKILL.md"
+    "skill://.kiro/skills/*/SKILL.md"
   ],
   "hooks": {
     "agentSpawn": [
       {
-        "command": "echo \"Node: $(node -v) | Next.js project: $(cat package.json | grep '\"name\"' | head -1 | tr -d ' \",' | cut -d: -f2) | Git: $(git log --oneline -1 2>/dev/null || echo 'no commits')\"",
-        "timeout_ms": 5000
+        "command": "bash .kiro/hooks/session-context.sh",
+        "timeout_ms": 10000
+      }
+    ],
+    "preToolUse": [
+      {
+        "matcher": "write",
+        "command": "bash .kiro/hooks/secret-scan.sh",
+        "timeout_ms": 10000
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "write",
+        "command": "bash .kiro/hooks/check-doc-sync.sh",
+        "timeout_ms": 10000
+      }
+    ],
+    "stop": [
+      {
+        "command": "bash .kiro/hooks/notify.sh",
+        "timeout_ms": 8000
       }
     ]
   },
   "keyboardShortcut": "ctrl+shift+d",
-  "welcomeMessage": "Kiro Dashboard 개발 에이전트입니다. 프론트엔드, API, Athena 쿼리, CDK 인프라 작업을 도와드립니다."
+  "welcomeMessage": "Kiro Dashboard 개발 에이전트입니다. 프론트엔드, API 라우트, Athena 쿼리, CDK 인프라 작업을 도와드립니다. 스킬: /code-review-guide /refactor-guide /release-guide /cdk-deploy-guide"
 }

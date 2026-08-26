@@ -81,8 +81,20 @@ if ! bash "$PROJECT_ROOT/tests/hooks/test-secret-patterns.sh" 2>/dev/null; then
 fi
 
 echo ""
+echo "# Running: Kiro hook tests"
+if ! bash "$PROJECT_ROOT/tests/hooks/test-kiro-hooks.sh" 2>/dev/null; then
+  SUITE_FAILURES=$((SUITE_FAILURES + 1))
+fi
+
+echo ""
 echo "# Running: structure tests"
 if ! bash "$PROJECT_ROOT/tests/structure/test-plugin-structure.sh" 2>/dev/null; then
+  SUITE_FAILURES=$((SUITE_FAILURES + 1))
+fi
+
+echo ""
+echo "# Running: .kiro config tests"
+if ! bash "$PROJECT_ROOT/tests/structure/test-kiro-config.sh" 2>/dev/null; then
   SUITE_FAILURES=$((SUITE_FAILURES + 1))
 fi
 
@@ -91,7 +103,7 @@ fi
 # ---------------------------------------------------------------
 echo ""
 echo "# Test Summary"
-echo "# Suites run: 3, Suite failures: $SUITE_FAILURES"
+echo "# Suites run: 5, Suite failures: $SUITE_FAILURES"
 
 if [[ $SUITE_FAILURES -gt 0 ]]; then
   echo "# RESULT: FAILED ($SUITE_FAILURES suite(s) had failures)"
