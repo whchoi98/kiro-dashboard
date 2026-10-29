@@ -64,7 +64,7 @@ app/
 - `Sidebar` and `Header` from `components/layout/`
 - `FloatingChat` from `components/chat/` — global chatbot widget (hidden on `/analyze`, which hosts the full-page chat)
 - NanumSquare font via `next/font/local` (`app/fonts/*.woff2`, self-hosted, OFL) — exposed as `--font-nanum-square` and wired to the Tailwind sans stack in `globals.css` (`@theme inline`)
-- Responsive shell: `<main>` uses `ml-0 md:ml-[220px]` + `pt-16 md:pt-6` (mobile top bar from Sidebar); desktop layout unchanged at md+
+- Responsive shell: `<main>` uses `ml-0 md:ml-[220px]` + `pt-16 md:pt-6` (mobile top bar from Sidebar); desktop layout unchanged at md+. `<main>` also needs `min-w-0`: as a flex item its min-width defaults to its content's min-content width, so one wide table (e.g. the /model-usage per-model preference table) stretched the page past the viewport even inside `overflow-x-auto`
 - PWA-lite home-screen support: `app/manifest.ts` (standalone, #000000 theme) + `apple-touch-icon.png`/`icon-192/512.png` in `public/` (rasterized from kiro-logo.svg, #9046FF flattened) + `appleWebApp` meta in layout — no service worker by design
 
 ## Auth

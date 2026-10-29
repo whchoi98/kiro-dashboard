@@ -85,15 +85,74 @@ export interface CreditAnalysis {
   }>;
 }
 
+/**
+ * Usage intensity for one client type (or the whole org). `Total_Messages`
+ * counts prompts, tool calls AND responses, so messagesPerConversation is a
+ * measure of how agentic a conversation is — not of how many questions were
+ * asked. Rates are null when their denominator is 0 (never a fake 0).
+ */
+export interface ClientEfficiency {
+  /** 'KIRO_IDE' | 'KIRO_CLI' | 'PLUGIN' | …, or 'ALL' for the org-wide row. */
+  clientType: string;
+  /** Distinct users. The ALL row counts each user once, not once per client. */
+  users: number;
+  messages: number;
+  conversations: number;
+  credits: number;
+  messagesPerConversation: number | null;
+  creditsPerMessage: number | null;
+  creditsPerConversation: number | null;
+}
+
 export interface EngagementData {
   segments: EngagementSegment[];
   funnel: FunnelStep[];
+  efficiency: {
+    overall: ClientEfficiency | null;
+    byClient: ClientEfficiency[];
+  };
 }
+
+/**
+ * Who serves a model. Derived from the column name (`claude_*` → anthropic,
+ * `auto` → Kiro's router), so any model Kiro adds later still classifies.
+ */
+export type ModelVendor = 'anthropic' | 'third_party' | 'auto';
 
 export interface ModelDistribution {
   model: string;
   messages: number;
   percentage: number;
+  vendor: ModelVendor;
+}
+
+export interface VendorShare {
+  vendor: ModelVendor;
+  messages: number;
+  percentage: number;
+}
+
+/** Model mix of one client type — from that client's own CSV files. */
+export interface ClientModelMix {
+  clientType: string;
+  totalMessages: number;
+  models: ModelDistribution[];
+  vendors: VendorShare[];
+}
+
+/** When a model appeared in the window, how widely it spread, and its recent pull. */
+export interface ModelAdoption {
+  model: string;
+  vendor: ModelVendor;
+  /** First report date with messages for this model, within the window. */
+  firstSeen: string;
+  lastSeen: string;
+  /** firstSeen is the window's first date, so the model may predate the window. */
+  firstSeenAtWindowStart: boolean;
+  users: number;
+  messages: number;
+  /** Share of all messages in the last 7 report dates of the window; null if none. */
+  recentShare: number | null;
 }
 
 export interface ModelTrendPoint {
@@ -114,6 +173,10 @@ export interface ModelUsageData {
   trend: ModelTrendPoint[];
   userPreferences: ModelUserPreference[];
   availableModels: string[];
+  vendors: VendorShare[];
+  byClient: ClientModelMix[];
+  /** Newest firstSeen first. */
+  adoption: ModelAdoption[];
 }
 
 export interface TierSlice {
@@ -280,6 +343,20 @@ export interface IngestHealthData {
     csvRows: number;
     /** null when the Athena side is unavailable (fresh account). */
     deltaRows: number | null;
+  };
+  /**
+   * Per row, the dynamic `{model}_messages` columns should sum to
+   * `total_messages` (verified exact across every file in this account). A
+   * mismatch means a model column was dropped, renamed or mis-parsed. Files
+   * that predate model columns are skipped, not counted as passing.
+   */
+  modelParity: {
+    checkedFiles: number;
+    skippedFiles: number;
+    checkedRows: number;
+    mismatchedRows: number;
+    /** Up to 5 mismatching rows, newest file first. */
+    examples: Array<{ reportDate: string; clientType: string; totalMessages: number; modelSum: number }>;
   };
   /** Which by_user_analytic metric columns actually carry values. */
   legacyInstrumentation: {

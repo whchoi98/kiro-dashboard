@@ -13,12 +13,12 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/users` | `users/route.ts` | User list with activity rankings (masked) |
 | `GET /api/trends` | `trends/route.ts` | Daily/weekly usage trend time series |
 | `GET /api/credits` | `credits/route.ts` | Credit consumption breakdown per user/period (masked) |
-| `GET /api/engagement` | `engagement/route.ts` | Engagement metrics: retention, active days, session depth |
+| `GET /api/engagement` | `engagement/route.ts` | Engagement tiers + funnel, plus `efficiency` per `client_type` (messages/conversation, credits/message, credits/conversation via `lib/usage-efficiency.ts`; rates null on a 0 denominator; the ALL row counts distinct users once) |
 | `GET /api/productivity` | `productivity/route.ts` | Productivity metrics: code accepted, inline suggestions, guarded acceptance rates, credits-per-accepted-line KPI (masked) |
 | `GET /api/analyze` | `analyze/route.ts` | Bedrock AI streaming analysis (SSE / ReadableStream) with three tools: `query_athena` (SQL), `lookup_users` (user details), + `list_idc_users` (directory/new-registrant questions; masked) |
 | `GET /api/idc-users` | `idc-users/route.ts` | IAM Identity Center user list via IdentityStore SDK + dormancy grading, directory→activity funnel, and S3 first-seen ledger (`lib/first-seen.ts`) marking `isNewRegistrant` (registered ≤7d, no activity yet; ledger failure degrades to no badges) (masked). Badge is suppressed entirely when `days < 7`: `dormancy === 'never'` is relative to the SELECTED window, not lifetime, so a short window would falsely badge users whose first report already arrived — thin wrapper over lib/idc-users.ts |
 | `GET /api/user-detail` | `user-detail/route.ts` | Single-user credit/message detail from `user_report` (via `resolveTableName()`, masked) |
-| `GET /api/model-usage` | `model-usage/route.ts` | AI model message distribution — reads S3 CSV directly via `lib/uar-s3.ts` (masked) |
+| `GET /api/model-usage` | `model-usage/route.ts` | AI model message distribution — reads S3 CSV directly via `lib/uar-s3.ts` (masked). Also `vendors` (Anthropic / third-party / Auto), `byClient` (model mix per client, client taken from each file NAME via `clientTypeFromKey`) and `adoption` (first/last seen, users, last-7-day share) — all from `lib/model-insights.ts` |
 | `GET /api/user-model-usage` | `user-model-usage/route.ts` | Per-user model mix for the user detail panel — S3-direct like `model-usage`; `force-dynamic`; validates `userid` against `/^[a-f0-9-]{36}$/` (400 otherwise, before any S3 call) |
 | `GET /api/release-notes` | `release-notes/route.ts` | One CHANGELOG.md section for the sidebar version badge dialog — no AWS calls; markdown is webpack-inlined at build time via `lib/release-notes.ts` |
 | `GET /api/client-dist` | `client-dist/route.ts` | Client distribution breakdown (IDE version, OS, etc.) |
@@ -26,7 +26,7 @@ Next.js App Router API route handlers. All routes connect to Athena via `lib/ath
 | `GET /api/adoption` | `adoption/route.ts` | New-user inflow & activation — reads S3 CSV directly via `lib/uar-s3.ts` (header-name based `new_user` parsing; masked) |
 | `GET /api/dev-activity` | `dev-activity/route.ts` | Legacy deep metrics: TestGen/DocGen/Transform/InlineChat/CodeFix from `by_user_analytic` (masked) |
 | `GET /api/rollout` | `rollout/route.ts` | Client rollout: per-`Client_Type` daily/cumulative adoption, IDE/CLI overlap segments, per-user pickup lag, tier × client matrix (masked) |
-| `GET /api/ingest-health` | `ingest-health/route.ts` | Report delivery & freshness: S3 file inventory, date × client delivery matrix, header drift, Athena↔CSV row parity, legacy column instrumentation |
+| `GET /api/ingest-health` | `ingest-health/route.ts` | Report delivery & freshness: S3 file inventory, date × client delivery matrix, header drift, Athena↔CSV row parity, model-column parity (Σ `{model}_messages` = `total_messages` per row; files without model columns are skipped, not passed), legacy column instrumentation |
 | `GET /api/infra` | `infra/route.ts` | Dashboard self-introspection: live ECS/ALB/CloudFront/ECR status + CloudWatch metrics (Seoul + us-east-1 for CloudFront) + static Seoul price estimates from `lib/infra-cost.ts`. `force-dynamic` (build box has no AWS creds); per-source degrade to `unknown`; exposes CostLine formula/kind per resource |
 
 ## Common Query Parameters

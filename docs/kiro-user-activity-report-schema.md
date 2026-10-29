@@ -3,7 +3,7 @@
 > 출처: [Kiro 공식 문서 - Viewing per-user activity](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/)
 > S3 버킷: `s3://whchoi01-titan-q-log/q-user-log/`
 > AWS 계정: 120443221648
-> 최종 업데이트: 2026-07-29
+> 최종 업데이트: 2026-10-29 (§A-2 모델 표 재검증, OpenTelemetry 내보내기 추가)
 
 > **문서 성격:** 이 문서의 컬럼 표는 **공식 문서의 스키마**와 **본 계정 S3 실데이터 관찰 결과**를 함께 담고 있습니다.
 > 두 내용이 다를 경우 공식 문서가 기준이며, 관찰 결과는 "현재 계정에서는 이렇게 보인다"는 참고 정보입니다.
@@ -24,6 +24,7 @@
 | 버킷 루트 | 사용 불가 — prefix(서브폴더) 필수 |
 | 버킷 정책 | `q.amazonaws.com` 서비스 프린시펄에 `s3:PutObject` 허용, 조건은 `aws:SourceAccount` + `aws:SourceArn`(`arn:aws:codewhisperer:<region>:<account>:*`) |
 | 보존 기간 | 공식 문서에 정의 없음 — S3 라이프사이클로 소비자가 직접 관리 |
+| 내보내기 형식 | **CSV(S3)와 OpenTelemetry 두 가지**, 독립적으로 켜고 끕니다. OTel은 같은 일별 집계 메트릭을 OTLP로 변환해 OTel 호환 수집기로 푸시합니다 ([Export user activity with OpenTelemetry](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/opentelemetry/)). **새 메트릭은 없습니다** — 이 대시보드는 CSV 경로만 사용하며, OTel은 푸시 기반 파이프라인이 필요할 때의 대안입니다 (2026-10-29 확인, 공식 페이지 갱신일 2026-10-06) |
 
 > **`part_N` 분할 처리 상태:** `lib/uar-s3.ts`의 `listAllKeys()`는 `.csv`로 끝나는 모든 키를 수집하므로 분할 파일도 자동으로 포함됩니다.
 > 단, Athena 경로(`user_report` Glue 테이블)도 프리픽스 전체를 스캔하므로 동일하게 안전합니다.
@@ -92,25 +93,34 @@
 |-----------|------|------|
 | `{model_name}_messages` | integer | 특정 모델이 사용자에게 처리한 메시지 수. Auto 포함, 실제 사용 모델에 따라 동적 생성, 알파벳순 정렬 |
 
-**확인된 모델 컬럼 (S3 실데이터 기준, 2026-07-29 재검증 — 전체 214개 파일):**
+**확인된 모델 컬럼 (S3 실데이터 기준, 2026-10-29 재검증 — 2026-08~10 파일 133개, 메시지 수):**
 
-| 컬럼명 | 출현 파일 수 | 설명 |
-|--------|------------|------|
-| `claude_opus_4.8_messages` | 80 | Claude Opus 4.8 |
-| `auto_messages` | 51 | Auto 모드로 처리된 메시지 수 |
-| `claude_opus_4.7_messages` | 36 | Claude Opus 4.7 |
-| `claude_opus_4.6_messages` | 21 | Claude Opus 4.6 |
-| `gpt_5.6_sol_messages` | 11 | 서드파티 모델 (GPT) |
-| `claude_opus_5_messages` | 3 | Claude Opus 5 |
-| `claude_sonnet_4_messages` | 1 | Claude Sonnet 4 |
-| `claude_sonnet_4.6_messages` | 1 | Claude Sonnet 4.6 |
-| `qwen3_coder_next_messages` | 1 | 서드파티 모델 (Qwen) |
-| `glm_5_messages` | 1 | 서드파티 모델 (GLM) |
+| 컬럼명 | 공급사 | KIRO_CLI | KIRO_IDE |
+|--------|--------|---------:|---------:|
+| `claude_opus_5_messages` | Anthropic | 27,810 | 17,097 |
+| `claude_opus_5.5_messages` | Anthropic | 6,546 | 8 |
+| `claude_sonnet_5.5_messages` | Anthropic | 1,333 | 2 |
+| `claude_opus_4.8_messages` | Anthropic | 919 | 2 |
+| `claude_sonnet_5_messages` | Anthropic | 180 | 525 |
+| `claude_fable_5.1_messages` | Anthropic | 28 | 856 |
+| `claude_haiku_4.5_messages` | Anthropic | 61 | 1 |
+| `claude_sonnet_4.6_messages` | Anthropic | 32 | — |
+| `gpt_5.6_terra_messages` | 서드파티 (GPT) | 8 | 1,033 |
+| `gpt_5.6_sol_messages` | 서드파티 (GPT) | 237 | — |
+| `gpt_5.6_luna_messages` | 서드파티 (GPT) | — | 36 |
+| `qwen3_coder_next_messages` | 서드파티 (Qwen) | 215 | 38 |
+| `glm_5_messages` | 서드파티 (GLM) | 50 | — |
+| `deepseek_3.2_messages` | 서드파티 (DeepSeek) | 34 | — |
+| `minimax_m2.1_messages` | 서드파티 (MiniMax) | 6 | — |
+| `auto_messages` | Auto (라우터) | — | 25 |
+
+이 기간 서드파티 비중은 KIRO_IDE 5.6%, KIRO_CLI 1.5%입니다. 이전 재검증(2026-07-29, 파일 214개)에서 본 `claude_opus_4.7/4.6`, `claude_sonnet_4`는 이 기간에 나타나지 않았습니다.
 
 > **참고:**
 > - 동적 컬럼은 해당 기간에 실제 사용된 모델에 따라 CSV 파일마다 순서와 개수가 다름
-> - **모델 컬럼은 계속 늘어납니다.** 2026-04 기준 3종에서 2026-07 기준 10종으로 증가했고, Anthropic 외 서드파티 모델(GPT/Qwen/GLM)도 등장했습니다. 따라서 **모델명을 하드코딩하는 코드는 반드시 깨집니다** — `/api/model-usage`처럼 `endsWith('_messages')` 패턴 매칭으로만 처리해야 합니다
-> - ⚠️ **`Total_Messages`도 `_messages`로 끝납니다.** 따라서 `endsWith('_messages')` 만으로 모델 컬럼을 골라내면 전체 메시지 수가 모델 하나로 잡혀 합계가 약 2배가 됩니다. `app/api/model-usage/route.ts:25`는 `col.endsWith('_messages') && col !== 'total_messages'` 로 이를 배제합니다 — 새 코드도 반드시 이 제외 조건을 함께 써야 합니다
+> - **모델 컬럼은 계속 늘어납니다.** 2026-04 기준 3종, 2026-07 기준 10종, 2026-10 기준 16종이며 서드파티 계열은 GPT/Qwen/GLM/DeepSeek/MiniMax 5개입니다. 따라서 **모델명을 하드코딩하는 코드는 반드시 깨집니다** — `/api/model-usage`처럼 `endsWith('_messages')` 패턴 매칭으로만 처리해야 합니다. 공급사 분류도 이름 패턴(`claude_*` = Anthropic, `auto` = 라우터, 나머지 = 서드파티)으로 합니다 (`lib/model-insights.ts` `modelVendor`)
+> - **불변식: 행마다 모델 컬럼 합계 = `Total_Messages`.** 위 133개 파일 전부에서 정확히 일치했습니다. `/api/ingest-health`의 모델 컬럼 합계 검사가 이를 상시 확인하며, 어긋나면 모델 컬럼 누락·이름 변경·파싱 오류를 뜻합니다
+> - ⚠️ **`Total_Messages`도 `_messages`로 끝납니다.** 따라서 `endsWith('_messages')` 만으로 모델 컬럼을 골라내면 전체 메시지 수가 모델 하나로 잡혀 합계가 약 2배가 됩니다. `lib/uar-s3.ts`의 `isModelColumn()`이 `col.endsWith('_messages') && col !== 'total_messages'` 로 이를 배제하며, 모델 컬럼을 다루는 모든 라우트가 이 함수를 씁니다 — 새 코드도 반드시 이 제외 조건을 함께 써야 합니다
 > - Glue `OpenCSVSerDe`는 위치 기반 매핑이므로, 대시보드에서는 S3 직접 읽기 + 헤더 기반 파싱으로 처리
 > - `auto_messages`는 Auto 모드 선택 시 기록되며, 별도 모델 선택 시 해당 모델 컬럼에 기록
 
@@ -278,10 +288,10 @@ FROM by_user_analytic;
 
 | 컬럼 그룹 | 소비 API 라우트 |
 |-----------|----------------|
-| §A-1 고정 컬럼 | `/api/metrics`, `/api/trends`, `/api/users`, `/api/user-detail`, `/api/credits`, `/api/subscription`, `/api/engagement`, `/api/client-dist` (Athena) |
+| §A-1 고정 컬럼 | `/api/metrics`, `/api/trends`, `/api/users`, `/api/user-detail`, `/api/credits`, `/api/subscription`, `/api/engagement`, `/api/client-dist` (Athena). `/api/engagement`는 `client_type`별 대화당 메시지·메시지당/대화당 크레딧도 계산 (`lib/usage-efficiency.ts`) |
 | §A-1b `New_User` | `/api/adoption` (S3 직접 읽기) |
 | §A-1b `User_Email` | 없음 (의도적 미사용 — ADR-0004) |
-| §A-2 동적 모델 컬럼 | `/api/model-usage` (S3 직접 읽기, `endsWith('_messages')` 헤더 매칭) |
+| §A-2 동적 모델 컬럼 | `/api/model-usage` (S3 직접 읽기, `endsWith('_messages')` 헤더 매칭) — 분포, 공급사 비중, 클라이언트별 구성(파일명의 client), 모델 도입 추이. `/api/ingest-health` — 모델 컬럼 합계 = `Total_Messages` 검사 |
 | §B 레거시 컬럼 | `/api/productivity`, `/api/dev-activity` (Athena) |
 
 ### C-1. 문서화되었으나 현재 미사용인 컬럼

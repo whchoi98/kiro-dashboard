@@ -22,13 +22,18 @@
 | `UserActivity` | `/api/users` row — per-user activity summary |
 | `TrendDataPoint` | `/api/trends` row — date + metric value for charting |
 | `CreditUsage` | `/api/credits` row — credit consumption per user/period |
-| `EngagementMetrics` | `/api/engagement` response — retention and session depth |
+| `EngagementData` | `/api/engagement` response — tier segments, funnel, and `efficiency: { overall, byClient }` |
+| `ClientEfficiency` | One client (or `'ALL'`) — users, messages, conversations, credits, and three rates that are `null` (never 0) on a 0 denominator |
 | `ProductivityMetrics` | `/api/productivity` response — code acceptance stats |
 | `UserDetail` | `/api/user-detail` response — full per-user breakdown |
 | `IdcUser` | `/api/idc-users` row — IAM Identity Center user info |
 | `ClientDistribution` | `/api/client-dist` row — IDE version/OS breakdown |
-| `ModelUsageData` | `/api/model-usage` response — model distribution, trend, user preferences |
-| `ModelDistribution` | Per-model message count and percentage |
+| `ModelUsageData` | `/api/model-usage` response — model distribution, trend, user preferences, `vendors`, `byClient`, `adoption` |
+| `ModelDistribution` | Per-model message count, percentage, and `vendor` |
+| `ModelVendor` | `'anthropic' \| 'third_party' \| 'auto'` — derived from the column name |
+| `VendorShare` | One vendor's message count and share |
+| `ClientModelMix` | Model mix + vendor split of one client type |
+| `ModelAdoption` | Per model: first/last seen, `firstSeenAtWindowStart` (may predate the window), users, messages, `recentShare` (last 7 days, nullable) |
 | `ModelTrendPoint` | Daily model usage data point (dynamic keys per model) |
 | `ModelUserPreference` | Per-user model usage breakdown with primary model |
 | `SubscriptionData` | `/api/subscription` response — tier slices, tier trend, overage summary/watchlist |
@@ -36,7 +41,7 @@
 | `DevActivityData` | `/api/dev-activity` response — five legacy metric groups, trend, top users |
 | `RolloutData` | `/api/rollout` response — per-client trend/summary, IDE↔CLI overlap segments, per-user pickup lag, tier × client matrix, `dataStart` |
 | `RolloutUserRow` | Per-user rollout row — `pickupLagDays` is `null` when left-censored at the window edge, never `0` |
-| `IngestHealthData` | `/api/ingest-health` response — freshness, delivery matrix, file inventory, header variants, row parity, legacy instrumentation |
+| `IngestHealthData` | `/api/ingest-health` response — freshness, delivery matrix, file inventory, header variants, row parity, `modelParity` (Σ model columns vs `total_messages`, up to 5 examples), legacy instrumentation |
 | `IngestDayCell` | One (date, client) delivery cell — two states only; a `false` cell is not a failure signal |
 | `IdcUsersData` | `/api/idc-users` response — directory users plus dormancy buckets and the directory→activity funnel; top-level `newRegistrants` count, per-user `firstSeenAt` (ISO or null) and `isNewRegistrant` (window-gated, see `lib/first-seen.ts`) |
 | `DormancyBucket` | Directory-user activity grade (`active7`…`never`) — describes directory accounts, **not** Kiro seats or licenses |

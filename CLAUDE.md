@@ -214,7 +214,7 @@ CDK resolves cross-stack dependencies automatically via `npx cdk deploy --all`. 
 
 ## Reference Documentation
 
-The upstream contract for all Kiro data this project reads. **These four pages are authoritative** — when `docs/kiro-user-activity-report-schema.md` or any other repo doc disagrees with them, the upstream page wins and the repo doc should be corrected:
+The upstream contract for all Kiro data this project reads. **These five pages are authoritative** — when `docs/kiro-user-activity-report-schema.md` or any other repo doc disagrees with them, the upstream page wins and the repo doc should be corrected:
 
 | Document | Defines |
 |----------|---------|
@@ -222,11 +222,12 @@ The upstream contract for all Kiro data this project reads. **These four pages a
 | [Kiro CLI — View per-user activity](https://kiro.dev/docs/cli/enterprise/monitor-and-track/user-activity/) | Same feature, CLI side; per-`Client_Type` CSV split |
 | [Kiro CLI — Log user prompts](https://kiro.dev/docs/cli/enterprise/monitor-and-track/prompt-logging/) | Prompt log JSON schema (opt-in, separate bucket). **Enabled in this account** (`s3://whchoi01-titan-q-prompt/q-prompt-logging/`, real `HH` partition, `.json.gz`) but **no code reads it** |
 | [Kiro CLI — Viewing Kiro usage on the dashboard](https://kiro.dev/docs/cli/enterprise/monitor-and-track/dashboard/) | Kiro console's built-in aggregate view (no per-user detail); defines Active vs Pending (uncharged) subscriptions |
+| [Kiro — Export user activity with OpenTelemetry](https://kiro.dev/docs/enterprise/monitor-and-track/user-activity/opentelemetry/) | Second export format beside CSV: the same daily aggregate metrics pushed as OTLP to an OTel collector. **No new metrics; not used here** — this dashboard reads the CSV path only |
 
 Facts that constrain implementation:
 - Reports land **once daily at 02:00 UTC**, one CSV per client type. There is no intraday or on-demand generation — never write code that assumes fresher data.
 - Days with **>1,000 active users** are split into `part_1`, `part_2`, … files. `lib/uar-s3.ts` collects every `.csv` key so this is handled; preserve that behaviour.
-- Model message columns are dynamic (lowercase, alphabetical, Auto first) — hence the S3-direct-read path. See ADR-0004. **`Total_Messages` also ends in `_messages`**, so always pair `endsWith('_messages')` with the `!== 'total_messages'` exclusion as `app/api/model-usage/route.ts:25` does.
+- Model message columns are dynamic (lowercase, alphabetical, Auto first) — hence the S3-direct-read path. See ADR-0004. **`Total_Messages` also ends in `_messages`**, so always pair `endsWith('_messages')` with the `!== 'total_messages'` exclusion — use `isModelColumn()` from `lib/uar-s3.ts`, which every model route imports.
 - The legacy `by_user_analytic` report is documented as **CLI and plugin usage only**, despite this repo historically labelling `/productivity` as "IDE productivity". It has **no `Client_Type` column at all**, so its rows cannot be attributed to a client. Do not add new IDE-specific claims sourced from that table without cross-checking `Client_Type` in `user_report`.
 - **39 of the legacy report's 44 metric columns are the literal string `0` in every row** in this account. Before building any feature on a `by_user_analytic` column, run the value-existence check in `docs/kiro-user-activity-report-schema.md` §B-0 — otherwise you ship a page of zeros.
 - Neither report contains a subscription roster. **Never infer licensed seats from IdentityStore `ListUsers`** or group membership; the real source is `user-subscriptions:ListUserSubscriptions`, a console-only PRIVATE API (CloudTrail-verified 2026-08-18: no public SDK/CLI/endpoint exists — this is not one IAM grant away). Pending subscriptions are not charged.

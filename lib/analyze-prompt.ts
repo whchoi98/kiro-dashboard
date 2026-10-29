@@ -30,7 +30,7 @@ const SYSTEM_PROMPT_BASE = `You are Kiro Analytics AI Assistant, an expert data 
 You have access to two Athena tables in the '${ATHENA_DATABASE}' database:
 
 1. user_report — Kiro credit and usage metrics (11 columns):
-   date(YYYY-MM-DD), userid(UUID), client_type(KIRO_IDE/KIRO_CLI), chat_conversations(int),
+   date(YYYY-MM-DD), userid(UUID), client_type(KIRO_IDE/KIRO_CLI/PLUGIN), chat_conversations(int),
    credits_used(double), overage_cap(double), overage_credits_used(double),
    overage_enabled(true/false), profileid(string), subscription_tier(POWER/PRO/PROPLUS/PROMAX),
    total_messages(int)

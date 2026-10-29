@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, safeInt, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
+import { executeQuery, safeInt, safeFloat, NORMALIZE_USERID, isMissingTableError } from '@/lib/athena';
 import { resolveTableName } from '@/lib/glue';
 import { isoDateLiteral } from '@/lib/athena-window';
+import { buildEfficiency } from '@/lib/usage-efficiency';
 import { EngagementData, EngagementSegment, EngagementTier, FunnelStep } from '@/types/dashboard';
 
 export async function GET(req: NextRequest) {
@@ -25,7 +26,20 @@ export async function GET(req: NextRequest) {
       GROUP BY ${NORMALIZE_USERID}
     `;
 
-    const rows = await executeQuery(sql);
+    // Same window, split by client: usage intensity and credit efficiency.
+    const clientSql = `
+      SELECT
+        client_type,
+        COUNT(DISTINCT ${NORMALIZE_USERID}) AS users,
+        SUM(CAST(total_messages AS BIGINT)) AS total_messages,
+        SUM(CAST(chat_conversations AS BIGINT)) AS total_conversations,
+        SUM(CAST(credits_used AS DOUBLE)) AS credits_used
+      FROM "${tableName}"
+      WHERE date >= ${isoFloor}
+      GROUP BY client_type
+    `;
+
+    const [rows, clientRows] = await Promise.all([executeQuery(sql), executeQuery(clientSql)]);
 
     let power = 0;
     let active = 0;
@@ -93,12 +107,27 @@ export async function GET(req: NextRequest) {
           : 0,
     }));
 
-    const result: EngagementData = { segments, funnel };
+    const efficiency = buildEfficiency(
+      clientRows.map((row) => ({
+        clientType: row.client_type || 'UNKNOWN',
+        users: safeInt(row.users),
+        messages: safeInt(row.total_messages),
+        conversations: safeInt(row.total_conversations),
+        credits: safeFloat(row.credits_used),
+      })),
+      totalUsers,
+    );
+
+    const result: EngagementData = { segments, funnel, efficiency };
     return NextResponse.json(result);
   } catch (err) {
     if (isMissingTableError(err)) {
       console.warn('[/api/engagement] table not yet provisioned — returning empty data');
-      return NextResponse.json({ segments: [], funnel: [] });
+      return NextResponse.json({
+        segments: [],
+        funnel: [],
+        efficiency: { overall: null, byClient: [] },
+      } satisfies EngagementData);
     }
     console.error('[/api/engagement] Error:', err);
     return NextResponse.json({ error: 'Failed to fetch engagement data' }, { status: 500 });

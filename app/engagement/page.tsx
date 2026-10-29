@@ -6,8 +6,14 @@ import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
 import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import ClientPieChart from '@/app/components/charts/PieChart';
 import FunnelChart from '@/app/components/charts/FunnelChart';
-import { EngagementData, ClientDistribution } from '@/types/dashboard';
+import { EngagementData, ClientDistribution, ClientEfficiency } from '@/types/dashboard';
 import { useRefresh } from '@/lib/refresh';
+import { useI18n } from '@/lib/i18n';
+
+/** null means "nothing to divide by", shown as a dash rather than a fake 0. */
+function fmtRate(value: number | null, digits: number): string {
+  return value === null ? '—' : value.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: digits });
+}
 
 // `color` is the decorative accent (bars, tint backgrounds — inline hex, OK on
 // any theme). `text` is a palette class for the label so it inverts to a
@@ -41,6 +47,7 @@ const TIER_META: Record<string, { color: string; text: string; description: stri
 
 export default function EngagementPage() {
   const { nonce } = useRefresh();
+  const { t } = useI18n();
   const [days, setDays] = useState(90);
   const [engagement, setEngagement] = useState<EngagementData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +125,56 @@ export default function EngagementPage() {
         })}
         {!engagement?.segments?.length && (
           <div className="col-span-1 sm:col-span-2 md:col-span-4 text-slate-500 text-sm">No data available</div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-5">
+        <h3 className="text-lg font-semibold text-slate-300">{t('engagement.efficiency')}</h3>
+        <p className="text-slate-500 text-xs mt-1 mb-4">{t('engagement.efficiency.sub')}</p>
+        {engagement?.efficiency?.overall ? (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-800">
+                    <th className="text-left text-slate-400 font-medium py-2 px-3">{t('engagement.client')}</th>
+                    <th className="text-right text-slate-400 font-medium py-2 px-3">{t('engagement.users')}</th>
+                    <th className="text-right text-slate-400 font-medium py-2 px-3">{t('engagement.conversations')}</th>
+                    <th className="text-right text-slate-400 font-medium py-2 px-3">{t('engagement.messages')}</th>
+                    <th className="text-right text-slate-400 font-medium py-2 px-3">{t('engagement.credits')}</th>
+                    <th className="text-right text-slate-400 font-medium py-2 px-3">{t('engagement.msgsPerConv')}</th>
+                    <th className="text-right text-slate-400 font-medium py-2 px-3">{t('engagement.creditsPerMsg')}</th>
+                    <th className="text-right text-slate-400 font-medium py-2 px-3">{t('engagement.creditsPerConv')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...engagement.efficiency.byClient, engagement.efficiency.overall].map((row: ClientEfficiency) => {
+                    const isAll = row.clientType === 'ALL';
+                    return (
+                      <tr
+                        key={row.clientType}
+                        className={isAll ? 'border-t border-gray-700 font-semibold' : 'border-b border-gray-800/50'}
+                      >
+                        <td className="py-2.5 px-3 text-slate-200">
+                          {isAll ? t('engagement.allClients') : row.clientType}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-slate-300 font-mono">{row.users.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right text-slate-300 font-mono">{row.conversations.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right text-slate-300 font-mono">{row.messages.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right text-slate-300 font-mono">{fmtRate(row.credits, 1)}</td>
+                        <td className="py-2.5 px-3 text-right text-white font-mono">{fmtRate(row.messagesPerConversation, 1)}</td>
+                        <td className="py-2.5 px-3 text-right text-white font-mono">{fmtRate(row.creditsPerMessage, 2)}</td>
+                        <td className="py-2.5 px-3 text-right text-white font-mono">{fmtRate(row.creditsPerConversation, 1)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-slate-500 text-xs mt-3">{t('engagement.usersNote')}</p>
+          </>
+        ) : (
+          <p className="text-slate-500 text-sm">{t('engagement.noEfficiency')}</p>
         )}
       </div>
       </SkeletonGate>

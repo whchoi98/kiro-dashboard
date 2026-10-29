@@ -23,7 +23,7 @@ const BASE: ExecReportInput = {
       totalCredits: 24972.9, overageCredits: 0,
     },
   ] as ExecReportInput['topUsers'],
-  models: [{ model: 'Claude Opus 4.8', messages: 10408, percentage: 52.4 }],
+  models: [{ model: 'Claude Opus 4.8', messages: 10408, percentage: 52.4, vendor: 'anthropic' }],
 };
 
 describe('escapeHtml', () => {
@@ -68,7 +68,7 @@ describe('buildExecReportHtml', () => {
 
     const hostileModel = buildExecReportHtml({
       ...BASE,
-      models: [{ model: '"><svg/onload=alert(1)>', messages: 100, percentage: 50 }],
+      models: [{ model: '"><svg/onload=alert(1)>', messages: 100, percentage: 50, vendor: 'third_party' }],
     });
     expect(hostileModel).not.toContain('"><svg');
     expect(hostileModel).toContain('&quot;&gt;&lt;svg');

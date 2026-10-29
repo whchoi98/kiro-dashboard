@@ -136,6 +136,60 @@ export default function IngestHealthPage() {
       </div>
       <p className="-mt-3 text-xs text-slate-500">{t('ingest.deliveredAtNote')}</p>
 
+      {/* Model-column parity: Σ {model}_messages == total_messages per row */}
+      {data?.modelParity && (
+        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-lg font-semibold text-slate-300">{t('ingest.modelParity')}</h3>
+            <span
+              className={`text-sm font-semibold ${
+                data.modelParity.checkedFiles === 0
+                  ? 'text-slate-400'
+                  : data.modelParity.mismatchedRows > 0
+                  ? 'text-orange-400'
+                  : 'text-green-400'
+              }`}
+            >
+              {data.modelParity.checkedFiles === 0
+                ? t('ingest.modelParity.none')
+                : data.modelParity.mismatchedRows > 0
+                ? `${data.modelParity.mismatchedRows.toLocaleString()} / ${data.modelParity.checkedRows.toLocaleString()} ${t('ingest.modelParity.mismatch')}`
+                : `${t('ingest.modelParity.ok')} (${data.modelParity.checkedRows.toLocaleString()})`}
+            </span>
+          </div>
+          <p className="text-slate-500 text-xs mt-1">
+            {t('ingest.modelParity.detail')
+              .replace('{checked}', String(data.modelParity.checkedFiles))
+              .replace('{skipped}', String(data.modelParity.skippedFiles))}
+          </p>
+          <p className="text-slate-500 text-xs mt-1">{t('ingest.modelParity.note')}</p>
+          {data.modelParity.examples.length > 0 && (
+            <div className="overflow-x-auto mt-3">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-dashboard-border">
+                    <th className="text-left text-slate-400 font-medium py-1.5 px-2">date</th>
+                    <th className="text-left text-slate-400 font-medium py-1.5 px-2">client_type</th>
+                    <th className="text-right text-slate-400 font-medium py-1.5 px-2">total_messages</th>
+                    <th className="text-right text-slate-400 font-medium py-1.5 px-2">Σ {'{model}'}_messages</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.modelParity.examples.map((ex, i) => (
+                    <tr key={i} className="border-b border-dashboard-border/50">
+                      <td className="py-1.5 px-2 text-slate-300 font-mono">{ex.reportDate}</td>
+                      <td className="py-1.5 px-2 text-slate-300">{ex.clientType}</td>
+                      <td className="py-1.5 px-2 text-right text-slate-300 font-mono">{String(ex.totalMessages)}</td>
+                      <td className="py-1.5 px-2 text-right text-orange-400 font-mono">{String(ex.modelSum)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Date × client delivery matrix */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-1">{t('ingest.matrix')}</h3>

@@ -48,6 +48,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   limit, declined by a safety filter, or ended malformed now shows a ko/en
   explanation (`lib/analyze-stop.ts`) and stops the tool loop instead of
   running a truncated tool call.
+- **Usage intensity and credit efficiency by client** (`/engagement`) —
+  messages per conversation, credits per message and credits per
+  conversation for each `client_type` and for all clients. `Total_Messages`
+  counts prompts, tool calls and responses, so messages per conversation is
+  agent work per conversation (90-day sample: IDE 45.9, CLI 28.3). Rates with
+  nothing to divide by show a dash, not 0.
+- **Vendor share** (`/model-usage`) — messages split into Anthropic,
+  third-party and Auto, org-wide and per client, plus the list of third-party
+  models in use. Vendors come from the column name, so a model Kiro adds later
+  still classifies.
+- **Model mix by client** (`/model-usage`) — each client's model mix from its
+  own daily CSV (IDE and CLI differ sharply: Opus 5.5 is 17.5% of CLI
+  messages and almost absent in the IDE).
+- **Model adoption** (`/model-usage`) — per model: first and last date seen in
+  the period, distinct users, messages, and share of the last 7 days. A model
+  first seen on the period's first day is marked as possibly older.
+- **Model-column parity check** (`/ingest-health`) — every row's per-model
+  message columns must add up to `total_messages`; mismatching rows are
+  counted with examples. Files that predate model columns are skipped, not
+  counted as passing. All 133 files from Aug to Oct 2026 match exactly.
+- The `/model-usage` page now colors every model by name
+  (`lib/model-colors.ts`), so a model keeps one color across all its charts.
 
 ### Fixed
 
@@ -57,6 +79,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plugin only with no `client_type`, lists the five populated columns, and
   tells the model to report the rest as not measured rather than as zero
   usage.
+- **Wide tables no longer stretch the whole page** — `<main>` now carries
+  `min-w-0`. As a flex item it defaulted to its content's minimum width, so
+  `/model-usage`'s one-column-per-model preference table (20 columns with 16
+  models) pushed the page 220px past the viewport. Wide tables now scroll
+  inside their card; pages that already fit are unchanged.
 
 ## [1.12.0] - 2026-08-25
 
@@ -865,6 +892,25 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 - **답변이 비정상 종료될 때 안내** — 토큰 한도로 잘리거나, 안전 필터에 거절되거나,
   형식이 깨진 채 끝난 턴에 한/영 안내(`lib/analyze-stop.ts`)를 표시하고, 잘린 도구
   호출을 실행하는 대신 도구 루프를 멈춥니다.
+- **클라이언트별 사용 강도·크레딧 효율** (`/engagement`) — `client_type`별과 전체의
+  대화당 메시지, 메시지당 크레딧, 대화당 크레딧. `Total_Messages`에는 프롬프트, 도구
+  호출, 응답이 모두 포함되므로 대화당 메시지는 대화 하나에 들어간 에이전트 작업량입니다
+  (90일 표본: IDE 45.9, CLI 28.3). 나눌 값이 없는 비율은 0이 아니라 대시로 표시합니다.
+- **공급사별 비중** (`/model-usage`) — 메시지를 Anthropic, 서드파티, Auto로 나눠 전체와
+  클라이언트별로 보여주고, 사용 중인 서드파티 모델 목록을 함께 표시합니다. 공급사는 컬럼
+  이름으로 판별하므로 Kiro가 나중에 추가하는 모델도 분류됩니다.
+- **클라이언트별 모델 구성** (`/model-usage`) — 각 클라이언트의 일별 CSV로 집계한 모델
+  구성입니다(IDE와 CLI 차이가 큽니다: Opus 5.5는 CLI 메시지의 17.5%지만 IDE에서는 거의
+  쓰이지 않습니다).
+- **모델 도입 추이** (`/model-usage`) — 모델별 기간 내 처음·마지막 관측일, 사용자 수,
+  메시지 수, 최근 7일 비중. 기간 첫날에 처음 관측된 모델은 그 이전부터 쓰였을 수 있다고
+  표시합니다.
+- **모델 컬럼 합계 검사** (`/ingest-health`) — 각 행의 모델별 메시지 컬럼 합계가
+  `total_messages`와 같아야 하며, 어긋난 행은 개수와 예시로 보여줍니다. 모델 컬럼이 생기기
+  전의 파일은 통과로 세지 않고 건너뜁니다. 2026년 8~10월 파일 133개는 모두 정확히
+  일치합니다.
+- `/model-usage` 페이지가 모든 모델 색을 이름 기준(`lib/model-colors.ts`)으로 정해, 한
+  모델이 모든 차트에서 같은 색을 유지합니다.
 
 ### Fixed
 
@@ -872,6 +918,10 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
   리포트를 "IDE productivity metrics"로 설명하고 항상 0인 컬럼을 예시로 들었습니다. 이제
   CLI·플러그인 전용이며 `client_type`이 없다고 명시하고, 값이 있는 5개 컬럼만 나열하며,
   나머지는 사용량 0이 아니라 측정되지 않음으로 보고하도록 지시합니다.
+- **넓은 표가 더 이상 페이지 전체를 늘리지 않음** — `<main>`에 `min-w-0`을 추가했습니다.
+  flex 항목의 최소 너비가 기본적으로 내용의 최소 너비라서, `/model-usage`의 모델별 열
+  선호도 표(모델 16개 → 20열)가 페이지를 화면보다 220px 넓게 밀어냈습니다. 이제 넓은
+  표는 카드 안에서 가로 스크롤되고, 원래 화면에 맞던 페이지는 그대로입니다.
 
 ## [1.12.0] - 2026-08-25
 

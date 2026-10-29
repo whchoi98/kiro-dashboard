@@ -103,7 +103,11 @@ describe('dashboard API routes tolerate missing tables', () => {
     const { GET } = await import('../../app/api/engagement/route');
     const res = await GET(makeReq('/api/engagement?days=30') as any);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ segments: [], funnel: [] });
+    expect(await res.json()).toEqual({
+      segments: [],
+      funnel: [],
+      efficiency: { overall: null, byClient: [] },
+    });
   });
 
   it('/api/productivity returns 200 + empty summary/topUsers/dailyTrend', async () => {

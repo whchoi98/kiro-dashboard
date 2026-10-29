@@ -60,7 +60,12 @@ export default function RootLayout({
               <div className="flex">
                 <Sidebar />
                 {/* Mobile: no sidebar margin, room for the fixed top bar instead */}
-                <main className="ml-0 md:ml-[220px] p-4 pt-16 md:p-6 md:pt-6 min-h-screen w-full">
+                {/* min-w-0: a flex item's min-width defaults to its content's
+                    min-content width, so a wide table (e.g. /model-usage's
+                    one-column-per-model preference table) stretched <main> past
+                    the viewport even inside overflow-x-auto. With it, wide
+                    tables scroll inside their card instead of the page. */}
+                <main className="ml-0 md:ml-[220px] p-4 pt-16 md:p-6 md:pt-6 min-h-screen w-full min-w-0">
                   {children}
                 </main>
               </div>

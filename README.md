@@ -107,7 +107,7 @@ flowchart TB
 - **Bilingual Interface** — Full Korean/English toggle with sidebar language switcher
 - **Lambda@Edge Authentication** — CDN-level Cognito PKCE authentication via Lambda@Edge; no auth logic in the app
 - **Data Masking** — Server-side masking of all user identifiers (names, emails, organizations) showing only first 2 characters
-- **Model Usage Analysis** — Per-model message distribution (Auto, Claude Opus, Claude Sonnet), daily trends, Auto vs manual selection ratio, and user model preference table via S3 direct CSV parsing
+- **Model Usage Analysis** — Per-model message distribution, daily trends, Auto vs manual selection ratio, vendor share (Anthropic / third-party / Auto), model mix per client (IDE vs CLI), model adoption (first/last seen, users, last-7-day share), and user model preference table via S3 direct CSV parsing
 - **Executive Snapshot** — One-page leadership view composing KPI cards, daily active users and credits, model share, tier mix, and top credit users
 - **Subscription & Overage Governance** — Tier mix (users/credits/messages per subscription tier), tier credit share, and a per-user overage watchlist tracking `overage_credits_used` against `overage_cap`
 - **New Users & Adoption** — Daily new-user inflow (UAR `New_User` flag), active and cumulative user trends, and a recent-new-users table via S3 direct CSV parsing
@@ -607,7 +607,7 @@ flowchart TB
 - **이중 언어 인터페이스** — 사이드바 언어 전환기를 통한 한국어/영어 완전 지원
 - **Lambda@Edge 인증** — CDN 레벨 Cognito PKCE 인증 (Lambda@Edge), 앱 내 인증 로직 없음
 - **데이터 마스킹** — 모든 사용자 식별자(이름, 이메일, 소속)를 서버 측에서 마스킹하여 첫 2글자만 표시
-- **모델 사용 분석** — 모델별 메시지 분포(Auto, Claude Opus, Claude Sonnet), 일별 트렌드, Auto vs 수동 선택 비율, 사용자별 모델 선호도 테이블 (S3 CSV 직접 파싱)
+- **모델 사용 분석** — 모델별 메시지 분포, 일별 트렌드, Auto vs 수동 선택 비율, 공급사별 비중(Anthropic / 서드파티 / Auto), 클라이언트별 모델 구성(IDE vs CLI), 모델 도입 추이(처음·마지막 관측, 사용자 수, 최근 7일 비중), 사용자별 모델 선호도 테이블 (S3 CSV 직접 파싱)
 - **Executive 스냅샷** — KPI 카드, 일별 활성 사용자·크레딧, 모델 점유율, 티어 구성, 상위 크레딧 사용자를 한 페이지로 구성한 경영진용 뷰
 - **구독·초과사용 거버넌스** — 구독 티어 구성(티어별 사용자/크레딧/메시지), 티어 크레딧 점유율, `overage_cap` 대비 `overage_credits_used`를 추적하는 사용자별 초과사용 워치리스트
 - **신규 사용자·온보딩** — 일별 신규 사용자 유입(UAR `New_User` 플래그), 활성·누적 사용자 추이, 최근 신규 사용자 테이블 (S3 CSV 직접 파싱)

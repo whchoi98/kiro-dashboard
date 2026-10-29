@@ -10,7 +10,9 @@ import {
   countCsvRows,
   reportDateFromKey,
   clientTypeFromKey,
+  parseCsv,
 } from '@/lib/uar-s3';
+import { modelSumParity } from '@/lib/model-insights';
 import {
   IngestHealthData,
   IngestFile,
@@ -75,6 +77,7 @@ function emptyIngestHealth(configured: boolean): IngestHealthData {
     files: [],
     headerVariants: [],
     parity: { athenaRows: null, csvRows: 0, deltaRows: null },
+    modelParity: { checkedFiles: 0, skippedFiles: 0, checkedRows: 0, mismatchedRows: 0, examples: [] },
     legacyInstrumentation: { available: false, columns: [], totalRows: 0 },
     config: {
       bucketConfigured: Boolean(process.env.S3_DATA_BUCKET || process.env.ATHENA_OUTPUT_BUCKET),
@@ -257,6 +260,35 @@ export async function GET(req: NextRequest) {
       b.lastDate.localeCompare(a.lastDate)
     );
 
+    // ── model-column parity: Σ {model}_messages must equal total_messages
+    // per row. `toRead` is newest first, so the examples are the newest.
+    const modelParity: IngestHealthData['modelParity'] = {
+      checkedFiles: 0,
+      skippedFiles: 0,
+      checkedRows: 0,
+      mismatchedRows: 0,
+      examples: [],
+    };
+    for (let i = 0; i < toRead.length; i += 1) {
+      const result = modelSumParity(parseCsv(bodies[i]));
+      if (!result.applicable) {
+        modelParity.skippedFiles += 1;
+        continue;
+      }
+      modelParity.checkedFiles += 1;
+      modelParity.checkedRows += result.rows;
+      modelParity.mismatchedRows += result.mismatches.length;
+      for (const m of result.mismatches) {
+        if (modelParity.examples.length >= 5) break;
+        modelParity.examples.push({
+          reportDate: files[i].reportDate,
+          clientType: files[i].clientType,
+          totalMessages: m.totalMessages,
+          modelSum: m.modelSum,
+        });
+      }
+    }
+
     // ── freshness. `latestDeliveredAt` is the S3 object write time; the UI
     // must label it as such and never as the 02:00 UTC generation target.
     const latestReportDate = dates.length ? dates[dates.length - 1] : null;
@@ -294,6 +326,7 @@ export async function GET(req: NextRequest) {
             ? athenaSide.athenaRows - csvRows
             : null,
       },
+      modelParity,
       legacyInstrumentation: {
         available: athenaSide.legacyAvailable,
         columns: athenaSide.legacyColumns,

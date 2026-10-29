@@ -9,8 +9,21 @@ import {
   isModelColumn,
   prettifyModelName,
   normalizeUserId,
+  clientTypeFromKey,
 } from '@/lib/uar-s3';
-import { ModelUsageData, ModelDistribution, ModelTrendPoint, ModelUserPreference } from '@/types/dashboard';
+import {
+  clientModelMix,
+  modelAdoption,
+  modelDistribution,
+  vendorShares,
+  type ReportFile,
+} from '@/lib/model-insights';
+import { ModelUsageData, ModelTrendPoint, ModelUserPreference } from '@/types/dashboard';
+
+const EMPTY: ModelUsageData = {
+  distribution: [], trend: [], userPreferences: [], availableModels: [],
+  vendors: [], byClient: [], adoption: [],
+};
 
 // The response depends on the live contents of the Kiro UAR S3 prefix, which
 // grows daily. Next.js 14's default for GET route handlers caches forever
@@ -26,9 +39,7 @@ export async function GET(req: NextRequest) {
       // yet. Return a well-shaped empty payload so the /model-usage page renders
       // as an empty table rather than crashing with S3/SDK errors.
       console.warn('[/api/model-usage] bucket or prefix not configured — returning empty data');
-      return NextResponse.json({
-        distribution: [], trend: [], userPreferences: [], availableModels: [],
-      } satisfies ModelUsageData);
+      return NextResponse.json(EMPTY);
     }
 
     const { searchParams } = new URL(req.url);
@@ -36,9 +47,7 @@ export async function GET(req: NextRequest) {
 
     const files = await listReportFiles(days);
     if (files.length === 0) {
-      return NextResponse.json({
-        distribution: [], trend: [], userPreferences: [], availableModels: [],
-      } satisfies ModelUsageData);
+      return NextResponse.json(EMPTY);
     }
 
     const modelTotals = new Map<string, number>();
@@ -47,8 +56,13 @@ export async function GET(req: NextRequest) {
     const allModels = new Set<string>();
 
     const csvTexts = await Promise.all(files.map(readCsvFromS3));
-    for (const text of csvTexts) {
-      const rows = parseCsv(text);
+    // Kiro writes one CSV per client per day; the filename is the only client
+    // signal on this path, so rows stay grouped by the file they came from.
+    const reportFiles: ReportFile[] = csvTexts.map((text, i) => ({
+      clientType: clientTypeFromKey(files[i]),
+      rows: parseCsv(text),
+    }));
+    for (const { rows } of reportFiles) {
       if (rows.length === 0) continue;
 
       const headers = Object.keys(rows[0]);
@@ -76,14 +90,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const grandTotal = [...modelTotals.values()].reduce((a, b) => a + b, 0);
-    const distribution: ModelDistribution[] = [...modelTotals.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([col, msgs]) => ({
-        model: prettifyModelName(col),
-        messages: msgs,
-        percentage: grandTotal > 0 ? (msgs / grandTotal) * 100 : 0,
-      }));
+    const distribution = modelDistribution(modelTotals);
 
     const trend: ModelTrendPoint[] = [...dateTotals.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -126,6 +133,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       distribution, trend, userPreferences, availableModels,
+      vendors: vendorShares(modelTotals),
+      byClient: clientModelMix(reportFiles),
+      adoption: modelAdoption(reportFiles),
     } satisfies ModelUsageData);
   } catch (err) {
     console.error('[/api/model-usage] Error:', err);

@@ -10,20 +10,61 @@ import { SkeletonGate } from '@/app/components/ui/PageSkeleton';
 import { pageBodyOpacityClass } from '@/lib/skeleton-layout';
 import { useI18n } from '@/lib/i18n';
 import { useChartTheme } from '@/lib/chart-theme';
-import { ModelUsageData } from '@/types/dashboard';
+import { modelColor } from '@/lib/model-colors';
+import { ModelUsageData, ModelVendor, ModelDistribution } from '@/types/dashboard';
 import { useRefresh } from '@/lib/refresh';
 
 export const dynamic = 'force-dynamic';
 
-const MODEL_COLORS: Record<string, string> = {
-  'Auto': '#22d3ee',
-  'Claude Opus 4.6': '#9046FF',
-  'Claude Sonnet 4': '#6366f1',
-};
-const FALLBACK_COLORS = ['#f97316', '#ec4899', '#22c55e', '#f59e0b', '#a78bfa'];
+// One model keeps one color in every chart on the page (and across pages):
+// name-derived via lib/model-colors.ts, never by ranking index.
+function getModelColor(model: string, _index?: number): string {
+  return modelColor(model);
+}
 
-function getModelColor(model: string, index: number): string {
-  return MODEL_COLORS[model] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+// Series accents — theme-invariant inline colors, like modelColor's palette.
+const VENDOR_COLORS: Record<ModelVendor, string> = {
+  anthropic: '#9046FF',
+  third_party: '#f97316',
+  auto: '#64748b',
+};
+
+const MIX_TOP_MODELS = 6;
+
+interface BarSegment {
+  key: string;
+  label: string;
+  percentage: number;
+  color: string;
+}
+
+/** 100% stacked bar. No text sits on the fills, so they carry no contrast duty. */
+function StackedBar({ segments }: { segments: BarSegment[] }) {
+  return (
+    <div className="flex h-3 w-full overflow-hidden rounded-full bg-gray-800">
+      {segments
+        .filter((s) => s.percentage > 0)
+        .map((s) => (
+          <div
+            key={s.key}
+            style={{ width: `${s.percentage}%`, backgroundColor: s.color }}
+            title={`${s.label} ${s.percentage.toFixed(1)}%`}
+          />
+        ))}
+    </div>
+  );
+}
+
+/** Top models of a mix plus one "Other" slice, so a long tail stays readable. */
+function mixSegments(models: ModelDistribution[], otherLabel: string): BarSegment[] {
+  const top = models.slice(0, MIX_TOP_MODELS).map((m) => ({
+    key: m.model,
+    label: m.model,
+    percentage: m.percentage,
+    color: modelColor(m.model),
+  }));
+  const rest = models.slice(MIX_TOP_MODELS).reduce((sum, m) => sum + m.percentage, 0);
+  return rest > 0 ? [...top, { key: '__other', label: otherLabel, percentage: rest, color: '#475569' }] : top;
 }
 
 export default function ModelUsagePage() {
@@ -203,6 +244,101 @@ export default function ModelUsagePage() {
         </div>
       </div>
 
+      {/* Vendor share + per-client model mix */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
+          <h3 className="text-lg font-semibold text-slate-300">{t('model.vendorShare')}</h3>
+          <p className="text-slate-500 text-xs mt-1 mb-4">{t('model.vendorShare.sub')}</p>
+          {(data?.vendors?.length ?? 0) > 0 ? (
+            <>
+              <div className="flex flex-col gap-4">
+                {[
+                  { key: 'ALL', label: t('model.allClients'), vendors: data!.vendors },
+                  ...(data?.byClient ?? []).map((c) => ({ key: c.clientType, label: c.clientType, vendors: c.vendors })),
+                ].map((row) => (
+                  <div key={row.key}>
+                    <p className="text-slate-300 text-sm font-medium mb-1.5">{row.label}</p>
+                    <StackedBar
+                      segments={row.vendors.map((v) => ({
+                        key: v.vendor,
+                        label: t(`model.vendor.${v.vendor}`),
+                        percentage: v.percentage,
+                        color: VENDOR_COLORS[v.vendor],
+                      }))}
+                    />
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
+                      {row.vendors.map((v) => (
+                        <span key={v.vendor} className="flex items-center gap-1.5 text-xs text-slate-400">
+                          <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: VENDOR_COLORS[v.vendor] }} />
+                          {t(`model.vendor.${v.vendor}`)}
+                          <span className="font-mono text-slate-300">{v.percentage.toFixed(1)}%</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 pt-4 border-t border-dashboard-border">
+                <p className="text-slate-400 text-xs font-medium mb-2">{t('model.thirdPartyModels')}</p>
+                {data!.distribution.some((d) => d.vendor === 'third_party') ? (
+                  <div className="flex flex-col gap-1.5">
+                    {data!.distribution
+                      .filter((d) => d.vendor === 'third_party')
+                      .map((d) => (
+                        <div key={d.model} className="flex items-center justify-between text-sm">
+                          <span className="text-slate-400">{d.model}</span>
+                          <span className="flex items-center gap-3">
+                            <span className="text-slate-300 font-mono">{d.messages.toLocaleString()}</span>
+                            <span className="text-slate-500 text-xs w-14 text-right">{d.percentage.toFixed(1)}%</span>
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-500 text-sm">{t('model.noThirdParty')}</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-slate-500 text-sm">{t('model.noData')}</p>
+          )}
+        </div>
+
+        <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
+          <h3 className="text-lg font-semibold text-slate-300">{t('model.byClient')}</h3>
+          <p className="text-slate-500 text-xs mt-1 mb-4">{t('model.byClient.sub')}</p>
+          {(data?.byClient?.length ?? 0) > 0 ? (
+            <div className="flex flex-col gap-5">
+              {data!.byClient.map((client) => {
+                const segments = mixSegments(client.models, t('model.other'));
+                return (
+                  <div key={client.clientType}>
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <p className="text-slate-300 text-sm font-medium">{client.clientType}</p>
+                      <p className="text-slate-500 text-xs font-mono">{client.totalMessages.toLocaleString()}</p>
+                    </div>
+                    <StackedBar segments={segments} />
+                    <div className="flex flex-col gap-1 mt-2">
+                      {segments.map((s) => (
+                        <div key={s.key} className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1.5 text-slate-400">
+                            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                            {s.label}
+                          </span>
+                          <span className="font-mono text-slate-300">{s.percentage.toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-slate-500 text-sm">{t('model.noData')}</p>
+          )}
+        </div>
+      </div>
+
       {/* Trend chart */}
       <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
         <h3 className="text-lg font-semibold text-slate-300 mb-4">{t('model.dailyTrend')}</h3>
@@ -234,6 +370,60 @@ export default function ModelUsagePage() {
                 ))}
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="text-slate-500 text-sm">{t('model.noData')}</p>
+        )}
+      </div>
+
+      {/* Model adoption */}
+      <div className="bg-dashboard-card rounded-xl p-5 border border-dashboard-border">
+        <h3 className="text-lg font-semibold text-slate-300">{t('model.adoption')}</h3>
+        <p className="text-slate-500 text-xs mt-1 mb-4">{t('model.adoption.sub')}</p>
+        {(data?.adoption?.length ?? 0) > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-dashboard-border">
+                  <th className="text-left text-slate-400 font-medium py-2 px-3">{t('model.modelName')}</th>
+                  <th className="text-left text-slate-400 font-medium py-2 px-3">{t('model.vendor')}</th>
+                  <th className="text-left text-slate-400 font-medium py-2 px-3">{t('model.firstSeen')}</th>
+                  <th className="text-left text-slate-400 font-medium py-2 px-3">{t('model.lastSeen')}</th>
+                  <th className="text-right text-slate-400 font-medium py-2 px-3">{t('model.users')}</th>
+                  <th className="text-right text-slate-400 font-medium py-2 px-3">{t('model.messages')}</th>
+                  <th className="text-right text-slate-400 font-medium py-2 px-3">{t('model.recentShare')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data!.adoption.map((m) => (
+                  <tr key={m.model} className="border-b border-dashboard-border/50 hover:bg-gray-800/30 transition-colors">
+                    <td className="py-2.5 px-3 text-slate-200">
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: modelColor(m.model) }} />
+                        {m.model}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span
+                        className="inline-block px-2 py-0.5 rounded text-xs font-medium"
+                        style={{ backgroundColor: `${VENDOR_COLORS[m.vendor]}20`, color: VENDOR_COLORS[m.vendor] }}
+                      >
+                        {t(`model.vendor.${m.vendor}`)}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-300 font-mono" title={m.firstSeenAtWindowStart ? t('model.predatesWindow') : undefined}>
+                      {m.firstSeenAtWindowStart ? `≤ ${m.firstSeen}` : m.firstSeen}
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-300 font-mono">{m.lastSeen}</td>
+                    <td className="py-2.5 px-3 text-right text-slate-300 font-mono">{m.users.toLocaleString()}</td>
+                    <td className="py-2.5 px-3 text-right text-slate-300 font-mono">{m.messages.toLocaleString()}</td>
+                    <td className="py-2.5 px-3 text-right text-white font-mono">
+                      {m.recentShare === null ? '—' : `${m.recentShare.toFixed(1)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <p className="text-slate-500 text-sm">{t('model.noData')}</p>
