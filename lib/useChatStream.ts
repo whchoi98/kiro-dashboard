@@ -15,11 +15,13 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   tools?: ToolEvent[];
+  /** Latest between-tool-call progress note; transient, never sent as history. */
+  progress?: string;
   model?: string;
   error?: string;
 }
 
-export const CHAT_MODEL_ID = 'claude-sonnet-4-6';
+export const CHAT_MODEL_ID = 'claude-sonnet-5-5';
 
 // Multi-turn context sent back to /api/analyze — cap borrowed from the
 // claude-code-dashboard chatbot (12 turns keeps prompts bounded while
@@ -170,7 +172,11 @@ export function useChatStream(): ChatStream {
 
             if (event.type === 'text' && event.content) {
               const text = event.content;
-              patchLastAssistant((m) => ({ ...m, content: m.content + text }));
+              // Once the model writes answer text, the last note is stale.
+              patchLastAssistant((m) => ({ ...m, content: m.content + text, progress: undefined }));
+            } else if (event.type === 'progress' && event.content) {
+              const note = event.content;
+              patchLastAssistant((m) => ({ ...m, progress: note }));
             } else if (event.type === 'tool_start' && event.tool) {
               patchLastAssistant((m) => {
                 const pending = (m.tools ?? []).find(

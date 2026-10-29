@@ -32,7 +32,7 @@ components/
   chat/
     FloatingChat.tsx    Global draggable chatbot widget (mounted in app/layout.tsx; hidden on /analyze); full-screen sheet + drag disabled below md
     ChatPanel.tsx       Chat container — variant 'page' | 'widget'; owns the scroll container + stick-to-bottom auto-follow (lib/chat-scroll.ts); quick-prompt suggestions in BOTH variants (page: wrapped pills, widget: horizontal chip row above composer)
-    MessageList.tsx     Message bubbles, tool badges, typing dots, MD/PDF export buttons (page variant) — no scroll logic (lives in ChatPanel)
+    MessageList.tsx     Message bubbles, tool badges, latest model progress note (only while that message streams), typing dots, MD/PDF export buttons (page variant) — no scroll logic (lives in ChatPanel)
     ChatComposer.tsx    Textarea + send/stop buttons (Enter sends, Shift+Enter newline)
     ChatMarkdown.tsx    Dark-theme ReactMarkdown renderer shared by chat surfaces
   charts/

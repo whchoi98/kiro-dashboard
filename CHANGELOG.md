@@ -13,6 +13,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **AI analysis runs on Claude Sonnet 5.5** — `/api/analyze` moves from
+  `global.anthropic.claude-sonnet-4-6` to `global.anthropic.claude-sonnet-5-5`
+  (global inference profile, ACTIVE in ap-northeast-2; the task role's
+  `inference-profile/*` grant already covers it). Sonnet 5.5 thinks adaptively
+  by default, so the route pins `effort: medium`, raises `maxTokens`
+  4096 → 16000 because thinking now counts toward it, and replays the model's
+  signed reasoning blocks across tool-loop turns in stream order instead of
+  rebuilding each turn from text + tool calls. The chat header label follows.
+
+### Added
+
+- **Prompt caching for the analysis agent** — a Converse `cachePoint` after
+  the system prompt caches the tools + system prefix that every tool-loop
+  iteration resends. Measured on Sonnet 5.5: later iterations, and the next
+  request within the cache window, read the full ~2K-token prefix from cache.
+- **`query_athena` states its row cap** — results are now
+  `{rowCount, truncated, rows}` and the tool description names the
+  200-row limit, so the model aggregates in SQL instead of summing a
+  silently truncated result.
+- **Failed tool calls are flagged** — errored results carry Converse
+  `status: 'error'`, which the model reads as "fix and retry"; a tool called
+  with the wrong letter case is matched to its real name, and an unknown
+  tool's error lists the available ones.
+- **Progress notes in the chat** — the route requests Sonnet 5.5's
+  between-tool-call progress notes (`thinking.display: "updates"`, beta
+  `thinking-display-updates-2026-08-18`) and streams each as a `progress`
+  event; the chat shows the latest one under the tool badges while the answer
+  is being worked on. In testing the model mostly keeps such remarks as plain
+  answer text, so notes appear only on some turns.
+- **Notice when an answer ends abnormally** — a turn cut off at the token
+  limit, declined by a safety filter, or ended malformed now shows a ko/en
+  explanation (`lib/analyze-stop.ts`) and stops the tool loop instead of
+  running a truncated tool call.
+
+### Fixed
+
+- **AI analysis no longer calls `by_user_analytic` IDE metrics** — the
+  system prompt described the legacy report as "IDE productivity metrics" and
+  offered always-zero columns as examples. It now states the report is CLI and
+  plugin only with no `client_type`, lists the five populated columns, and
+  tells the model to report the rest as not measured rather than as zero
+  usage.
+
 ## [1.12.0] - 2026-08-25
 
 The executive snapshot learns to leave the browser, and the refresh button
@@ -789,6 +834,44 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+### Changed
+
+- **AI 분석 모델을 Claude Sonnet 5.5로 교체** — `/api/analyze`가
+  `global.anthropic.claude-sonnet-4-6`에서 `global.anthropic.claude-sonnet-5-5`
+  (글로벌 추론 프로파일, ap-northeast-2에서 ACTIVE 확인, 태스크 역할의
+  `inference-profile/*` 권한으로 이미 허용됨)로 이동합니다. Sonnet 5.5는 기본적으로
+  적응형 사고(adaptive thinking)를 하므로 라우트에서 `effort: medium`을 고정하고,
+  사고 토큰이 상한에 포함되므로 `maxTokens`를 4096 → 16000으로 올렸으며, 도구 루프의
+  각 턴을 텍스트 + 도구 호출만으로 재구성하는 대신 모델의 서명된 추론 블록을 스트림
+  순서 그대로 다시 전달합니다. 채팅 헤더의 모델 라벨도 함께 바뀝니다.
+
+### Added
+
+- **분석 에이전트 프롬프트 캐싱** — 시스템 프롬프트 뒤에 Converse `cachePoint`를 두어,
+  도구 루프의 매 반복마다 다시 보내는 도구 + 시스템 프리픽스를 캐시합니다. Sonnet 5.5
+  실측: 두 번째 반복부터, 그리고 캐시 유효 시간 내의 다음 요청에서도 약 2K 토큰 프리픽스
+  전체를 캐시에서 읽습니다.
+- **`query_athena`가 행 상한을 명시** — 결과가 `{rowCount, truncated, rows}` 형태가 되고
+  도구 설명에 200행 제한을 적어, 모델이 잘린 결과를 합산하는 대신 SQL에서 집계합니다.
+- **실패한 도구 호출 표시** — 오류 결과에 Converse `status: 'error'`를 붙여 모델이
+  "수정 후 재시도"로 읽게 하고, 대소문자만 다른 도구 이름은 실제 이름으로 매칭하며,
+  알 수 없는 도구 오류에는 사용 가능한 도구 목록을 함께 반환합니다.
+- **채팅 진행 메시지** — 라우트가 Sonnet 5.5의 도구 호출 사이 진행 메시지
+  (`thinking.display: "updates"`, 베타 `thinking-display-updates-2026-08-18`)를 요청해
+  각각 `progress` 이벤트로 스트리밍하고, 채팅은 답변 작성 중에 가장 최근 메시지를 도구
+  배지 아래에 표시합니다. 테스트에서는 모델이 이런 말을 대부분 일반 답변 텍스트로
+  남겨, 진행 메시지는 일부 턴에서만 나타납니다.
+- **답변이 비정상 종료될 때 안내** — 토큰 한도로 잘리거나, 안전 필터에 거절되거나,
+  형식이 깨진 채 끝난 턴에 한/영 안내(`lib/analyze-stop.ts`)를 표시하고, 잘린 도구
+  호출을 실행하는 대신 도구 루프를 멈춥니다.
+
+### Fixed
+
+- **AI 분석이 `by_user_analytic`을 IDE 지표로 부르지 않음** — 시스템 프롬프트가 레거시
+  리포트를 "IDE productivity metrics"로 설명하고 항상 0인 컬럼을 예시로 들었습니다. 이제
+  CLI·플러그인 전용이며 `client_type`이 없다고 명시하고, 값이 있는 5개 컬럼만 나열하며,
+  나머지는 사용량 0이 아니라 측정되지 않음으로 보고하도록 지시합니다.
 
 ## [1.12.0] - 2026-08-25
 

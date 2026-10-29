@@ -103,6 +103,14 @@ export default function MessageList({
                 </div>
               )}
 
+              {/* Latest progress note from the model — only while it is working */}
+              {streamingThis && msg.progress && (
+                <div className="flex items-start gap-1.5 text-xs text-gray-400" aria-live="polite">
+                  <span className="mt-1.5 inline-block w-1 h-1 shrink-0 rounded-full bg-[#9046FF]" />
+                  <span>{msg.progress}</span>
+                </div>
+              )}
+
               {/* Assistant content card */}
               {msg.content && (
                 <div

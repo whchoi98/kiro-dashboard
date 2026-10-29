@@ -4,6 +4,7 @@ import {
   ConverseStreamCommand,
   ContentBlock,
   Message,
+  StopReason,
   Tool,
   ToolUseBlock,
   ToolResultContentBlock,
@@ -12,6 +13,7 @@ import type { DocumentType } from '@smithy/types';
 import { executeQuery } from '@/lib/athena';
 import { resolveUserDetails } from '@/lib/identity';
 import { buildSystemPrompt, resolveLocale } from '@/lib/analyze-prompt';
+import { stopReasonNotice } from '@/lib/analyze-stop';
 import { getIdcUsersPayload, filterIdcUsers, IdcFilter } from '@/lib/idc-users';
 import { NEW_REGISTRANT_DAYS } from '@/lib/first-seen';
 
@@ -19,12 +21,29 @@ const bedrockClient = new BedrockRuntimeClient({ region: 'ap-northeast-2' });
 
 const ATHENA_DATABASE = process.env.ATHENA_DATABASE || 'titanlog';
 
+const MODEL_ID = 'global.anthropic.claude-sonnet-5-5';
+// Sonnet 5.5 thinks adaptively by default (Sonnet 4.6 never thought unless
+// asked), so effort is pinned rather than left at the model's 'high'.
+// 'medium' is the recommended start for multistep tool use; 'low' trims
+// time-to-first-token for simple chat.
+const EFFORT = 'medium';
+
+// Beta that makes reasoning blocks carry the model's between-tool-call
+// progress notes. Bedrock takes betas inside the request fields; without it
+// display 'updates' is rejected as an unknown value.
+const PROGRESS_UPDATES_BETA = 'thinking-display-updates-2026-08-18';
+
+// Rows of a query_athena result that reach the model. The tool description
+// states the cap and the result carries the full rowCount, so the model never
+// mistakes a truncated result for the whole answer.
+const MAX_RESULT_ROWS = 200;
+
 const tools: Tool[] = [
   {
     toolSpec: {
       name: 'query_athena',
       description:
-        `Execute an Athena SQL query against the '${ATHENA_DATABASE}' database. Returns query results as JSON array of rows.`,
+        `Execute an Athena SQL query against the '${ATHENA_DATABASE}' database. Returns {rowCount, truncated, rows}: rows holds at most the first ${MAX_RESULT_ROWS} result rows, so compute counts, sums, and rankings in SQL rather than over the returned rows.`,
       inputSchema: {
         json: {
           type: 'object',
@@ -97,22 +116,32 @@ function sseEncode(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
+const TOOL_NAMES = tools.map((t) => t.toolSpec?.name ?? '');
+
 async function executeToolCall(
-  name: string,
+  requestedName: string,
   input: Record<string, unknown>,
-): Promise<{ result: string; rowCount?: number }> {
+): Promise<{ result: string; rowCount?: number; isError?: boolean }> {
+  // Sonnet 5.5 occasionally varies a tool name's letter case ('Query_Athena').
+  // An unambiguous match is accepted rather than failed.
+  const name =
+    TOOL_NAMES.find((t) => t.toLowerCase() === requestedName.toLowerCase()) ?? requestedName;
+
   if (name === 'query_athena') {
     const sql = input.sql as string;
     try {
       const rows = await executeQuery(sql);
-      const truncated = rows.slice(0, 200);
       return {
-        result: JSON.stringify(truncated),
+        result: JSON.stringify({
+          rowCount: rows.length,
+          truncated: rows.length > MAX_RESULT_ROWS,
+          rows: rows.slice(0, MAX_RESULT_ROWS),
+        }),
         rowCount: rows.length,
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      return { result: JSON.stringify({ error: message }), rowCount: 0 };
+      return { result: JSON.stringify({ error: message }), rowCount: 0, isError: true };
     }
   }
 
@@ -127,7 +156,7 @@ async function executeToolCall(
       return { result: JSON.stringify(obj), rowCount: userIds.length };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      return { result: JSON.stringify({ error: message }), rowCount: 0 };
+      return { result: JSON.stringify({ error: message }), rowCount: 0, isError: true };
     }
   }
 
@@ -162,11 +191,16 @@ async function executeToolCall(
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      return { result: JSON.stringify({ error: message }), rowCount: 0 };
+      return { result: JSON.stringify({ error: message }), rowCount: 0, isError: true };
     }
   }
 
-  return { result: JSON.stringify({ error: `Unknown tool: ${name}` }) };
+  return {
+    result: JSON.stringify({
+      error: `Unknown tool: ${requestedName}. Available tools: ${TOOL_NAMES.join(', ')}`,
+    }),
+    isError: true,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -181,7 +215,8 @@ export async function POST(request: NextRequest) {
 
   // Older clients (and any direct API caller) omit `locale` — default to
   // Korean, matching the app's default UI language.
-  const systemPrompt = buildSystemPrompt(resolveLocale(body.locale));
+  const locale = resolveLocale(body.locale);
+  const systemPrompt = buildSystemPrompt(locale);
 
   const encoder = new TextEncoder();
 
@@ -213,15 +248,33 @@ export async function POST(request: NextRequest) {
 
           const response = await bedrockClient.send(
             new ConverseStreamCommand({
-              modelId: 'global.anthropic.claude-sonnet-4-6',
-              system: [{ text: systemPrompt }],
+              modelId: MODEL_ID,
+              // The cache point covers tools + system, which every loop
+              // iteration and every request resends unchanged (per locale).
+              // Measured on Sonnet 5.5: iterations after the first read the
+              // whole prefix from cache instead of paying for it again.
+              system: [{ text: systemPrompt }, { cachePoint: { type: 'default' } }],
               messages,
               toolConfig: { tools },
-              inferenceConfig: { maxTokens: 4096 },
+              // Thinking counts toward maxTokens, so 4096 would now truncate answers.
+              inferenceConfig: { maxTokens: 16000 },
+              additionalModelRequestFields: {
+                output_config: { effort: EFFORT },
+                thinking: { type: 'adaptive', display: 'updates' },
+                anthropic_beta: [PROGRESS_UPDATES_BETA],
+              },
             }),
           );
 
-          let assistantText = '';
+          // Every block of this turn keyed by contentBlockIndex, so the
+          // assistant message is replayed in the order the model produced it.
+          // That includes reasoning blocks: under display 'updates' the
+          // reasoning itself comes back empty and only progress notes carry
+          // text, but the signature lets Bedrock restore the model's
+          // reasoning on the next tool-loop turn. Rebuilding the turn from
+          // text + toolUse alone silently drops it.
+          const turnBlocks = new Map<number, ContentBlock>();
+          let stopReason: StopReason | undefined;
           const toolUseBlocks: ToolUseBlock[] = [];
           let currentToolUseId = '';
           let currentToolUseName = '';
@@ -252,8 +305,29 @@ export async function POST(request: NextRequest) {
 
             if (event.contentBlockDelta?.delta?.text) {
               const text = event.contentBlockDelta.delta.text;
-              assistantText += text;
+              const idx = event.contentBlockDelta.contentBlockIndex ?? 0;
+              turnBlocks.set(idx, { text: (turnBlocks.get(idx)?.text ?? '') + text });
               send({ type: 'text', content: text });
+            }
+
+            const reasoning = event.contentBlockDelta?.delta?.reasoningContent;
+            if (reasoning) {
+              const idx = event.contentBlockDelta?.contentBlockIndex ?? 0;
+              if (reasoning.redactedContent) {
+                turnBlocks.set(idx, {
+                  reasoningContent: { redactedContent: reasoning.redactedContent },
+                });
+              } else {
+                const prev = turnBlocks.get(idx)?.reasoningContent?.reasoningText;
+                turnBlocks.set(idx, {
+                  reasoningContent: {
+                    reasoningText: {
+                      text: (prev?.text ?? '') + (reasoning.text ?? ''),
+                      signature: reasoning.signature ?? prev?.signature,
+                    },
+                  },
+                });
+              }
             }
 
             if (event.contentBlockDelta?.delta?.toolUse) {
@@ -262,6 +336,16 @@ export async function POST(request: NextRequest) {
             }
 
             if (event.contentBlockStop) {
+              // Under display 'updates', any reasoning block with text is a
+              // progress note ("Checking the 7-day count next"). Sent whole at
+              // block stop — notes are a sentence or two.
+              const note = turnBlocks
+                .get(event.contentBlockStop.contentBlockIndex ?? 0)
+                ?.reasoningContent?.reasoningText?.text?.trim();
+              if (note) {
+                send({ type: 'progress', content: note });
+              }
+
               if (currentToolUseId && currentToolUseName) {
                 let parsedInput: Record<string, unknown> = {};
                 try {
@@ -275,6 +359,13 @@ export async function POST(request: NextRequest) {
                   name: currentToolUseName,
                   input: parsedInput,
                 } as ToolUseBlock);
+                turnBlocks.set(event.contentBlockStop.contentBlockIndex ?? 0, {
+                  toolUse: {
+                    toolUseId: currentToolUseId,
+                    name: currentToolUseName,
+                    input: parsedInput as DocumentType,
+                  },
+                });
 
                 if (
                   currentToolUseName === 'query_athena' &&
@@ -292,33 +383,35 @@ export async function POST(request: NextRequest) {
                 currentToolInput = '';
               }
             }
+
+            if (event.messageStop) {
+              stopReason = event.messageStop.stopReason;
+            }
+          }
+
+          // An abnormal ending (cut off, declined, malformed) leaves the turn
+          // incomplete: a truncated toolUse would run with partial input. Tell
+          // the user why and stop the loop instead of carrying on.
+          const notice = stopReasonNotice(stopReason, locale);
+          if (notice) {
+            send({ type: 'error', content: notice });
+            break;
           }
 
           if (toolUseBlocks.length === 0) {
             break;
           }
 
-          // Build assistant message content blocks
-          const assistantContent: ContentBlock[] = [];
-          if (assistantText) {
-            assistantContent.push({ text: assistantText });
-          }
-          for (const tb of toolUseBlocks) {
-            assistantContent.push({
-              toolUse: {
-                toolUseId: tb.toolUseId,
-                name: tb.name,
-                input: tb.input as DocumentType,
-              },
-            });
-          }
+          const assistantContent: ContentBlock[] = [...turnBlocks.entries()]
+            .sort(([a], [b]) => a - b)
+            .map(([, block]) => block);
 
           messages.push({ role: 'assistant', content: assistantContent });
 
           // Execute tools and build toolResult blocks
           const toolResultBlocks: ContentBlock[] = [];
           for (const tb of toolUseBlocks) {
-            const { result, rowCount } = await executeToolCall(
+            const { result, rowCount, isError } = await executeToolCall(
               tb.name!,
               tb.input as Record<string, unknown>,
             );
@@ -333,6 +426,9 @@ export async function POST(request: NextRequest) {
               toolResult: {
                 toolUseId: tb.toolUseId,
                 content: [{ text: result }] as ToolResultContentBlock[],
+                // Converse's is_error: the model reads it as "this call failed"
+                // and retries (e.g. fixes the SQL) instead of reporting the error.
+                ...(isError ? { status: 'error' as const } : {}),
               },
             });
           }

@@ -35,11 +35,13 @@ You have access to two Athena tables in the '${ATHENA_DATABASE}' database:
    overage_enabled(true/false), profileid(string), subscription_tier(POWER/PRO/PROPLUS/PROMAX),
    total_messages(int)
 
-2. by_user_analytic — IDE productivity metrics (46 columns):
-   userid(UUID), date(MM-DD-YYYY format!), chat_aicodelines, chat_messagesinteracted,
-   chat_messagessent, inline_suggestionscount, inline_acceptancecount, inline_aicodelines,
-   inlinechat_totaleventcount, inlinechat_acceptanceeventcount, dev_generationeventcount,
-   dev_acceptedlines, codereview_findingscount, testgeneration_generatedtests, etc.
+2. by_user_analytic — legacy per-user report covering CLI and plugin usage only (46 columns):
+   userid(UUID), date(MM-DD-YYYY format!) and 44 metric columns. It has no client_type column, so its
+   rows cannot be attributed to the IDE or the CLI — do not present its figures as IDE metrics.
+   Only five metric columns carry values in this account: chat_messagessent, chat_aicodelines,
+   inline_suggestionscount, inline_acceptancecount, inline_aicodelines. The rest (inlinechat_*, dev_*,
+   codefix_*, codereview_*, testgeneration_*, docgeneration_*, transformation_*, chat_messagesinteracted)
+   are 0 in every row — report them as not measured, not as zero usage.
 
 IMPORTANT SQL RULES:
 - user_report dates: WHERE date >= 'YYYY-MM-DD' (string comparison)
@@ -55,6 +57,7 @@ TOOLS BEYOND SQL:
 - Names, emails, and organizations from these tools are MASKED by policy (e.g. 'Jo********', 'ad***@wh*******'). Present them exactly as returned; never guess or reconstruct originals. The stable identifier is userId (UUID).
 - The directory is NOT a Kiro subscription roster: a user with no activity may simply have no subscription. Never present inactive directory users as wasted licenses or seats.
 
+- Base every figure on tool results or on your earlier answers in this conversation; when a question needs data you have not retrieved yet, query it rather than estimating.
 - Always include data tables and key insights.`;
 
 /**
