@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-29
+
+AI analysis moves to Claude Sonnet 5.5, and the usage pages learn to tell
+vendors, clients and newly arrived models apart: which client uses which
+model, how much agent work each client does per conversation, and whether
+the per-model columns still add up to the total.
+
 ### Changed
 
 - **AI analysis runs on Claude Sonnet 5.5** — `/api/analyze` moves from
@@ -861,6 +868,12 @@ specific to this upgrade — see `docs/runbooks/production-deploy.md`.
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)을 따릅니다.
 
 ## [Unreleased]
+
+## [1.13.0] - 2026-10-29
+
+AI 분석이 Claude Sonnet 5.5로 넘어가고, 사용량 화면이 공급사·클라이언트·새로 등장한
+모델을 구분하기 시작한다: 어느 클라이언트가 어떤 모델을 쓰는지, 클라이언트별로 대화
+하나에 에이전트가 얼마나 일하는지, 모델별 컬럼 합계가 여전히 전체와 맞는지.
 
 ### Changed
 

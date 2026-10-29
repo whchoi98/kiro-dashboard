@@ -4,7 +4,7 @@
 
 **Name**: kiro-dashboard
 **Description**: Kiro IDE 사용자 분석 대시보드 — Next.js 14 (App Router) + CloudFront/ALB/ECS Fargate + Athena/Glue/S3 + Bedrock AI 분석
-**Version**: 1.12.0
+**Version**: 1.13.0
 **Language**: Korean (primary), English (secondary)
 
 Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.js 대시보드로 시각화하며, Amazon Bedrock으로 AI 인사이트를 제공하는 풀스택 분석 플랫폼.
@@ -34,7 +34,7 @@ Kiro IDE 사용자의 활동 데이터를 S3/Glue/Athena로 분석하고, Next.j
 # Development
 npm run dev            # Local development server (port 3000)
 npm run build          # Production build
-npm test             # jest — 39 suites (structure/lib/api/infra); the real pre-deploy gate
+npm test             # jest — 46 suites (structure/lib/api/infra); the real pre-deploy gate
 npm run start          # Start production server
 npm run lint        # BROKEN: no ESLint config committed — use npm test + npm run build instead
 
