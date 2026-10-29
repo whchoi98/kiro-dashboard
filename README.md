@@ -22,31 +22,39 @@ kiro-dashboard is a full-stack analytics platform that visualizes Kiro IDE usage
 
 ### Dashboard Overview
 
+Captured from the production deployment (v1.13.0, 2026-10-29). Names and emails are masked server-side before they reach the browser.
+
 ![Dashboard Overview](screenshot/dashboard01.png)
 
-### User Activity and Leaderboard
+### New in v1.13 — Model Insights
 
-![Users](screenshot/user.png)
+Vendor share (Anthropic / third-party / Auto) org-wide and per client, next to each client's model mix built from its own daily CSV:
 
-### User Detail Drill-down
+![Vendor share and model mix by client](screenshot/model-vendor-share.png)
 
-![User Detail](screenshot/user-detail.png)
+Model adoption — first and last day each model was seen, distinct users, messages, and its share of the last 7 days:
 
-### Daily Trends
+![Model adoption](screenshot/model-adoption.png)
 
-![Trends](screenshot/trends.png)
+<table>
+<tr><td width="50%"><b>Usage intensity & credit efficiency by client</b> · <code>/engagement</code><br><img src="screenshot/engagement-efficiency.png" alt="Usage intensity and credit efficiency by client"></td><td width="50%"><b>Model-column parity check</b> · <code>/ingest-health</code><br><img src="screenshot/ingest-parity.png" alt="Model-column parity check"></td></tr>
+</table>
 
-### IDE Productivity Metrics
-
-![IDE Productivity](screenshot/ide_productivity.png)
-
-### Engagement Segmentation
-
-![Engagement](screenshot/engagement.png)
-
-### AI-Powered Natural Language Analysis
+### AI-Powered Natural Language Analysis (Claude Sonnet 5.5)
 
 ![AI Analysis](screenshot/AI_analytics.png)
+
+### All Screens
+
+<table>
+<tr><td width="50%"><b>Executive Snapshot</b> · <code>/exec</code><br><img src="screenshot/exec.png" alt="Executive Snapshot"></td><td width="50%"><b>Users & Leaderboard</b> · <code>/users</code><br><img src="screenshot/user.png" alt="Users & Leaderboard"></td></tr>
+<tr><td width="50%"><b>User Detail Drill-down</b> · <code>/users</code><br><img src="screenshot/user-detail.png" alt="User Detail Drill-down"></td><td width="50%"><b>Credits</b> · <code>/credits</code><br><img src="screenshot/credits.png" alt="Credits"></td></tr>
+<tr><td width="50%"><b>Daily Trends</b> · <code>/trends</code><br><img src="screenshot/trends.png" alt="Daily Trends"></td><td width="50%"><b>Subscription & Overage</b> · <code>/subscription</code><br><img src="screenshot/subscription.png" alt="Subscription & Overage"></td></tr>
+<tr><td width="50%"><b>New Users & Adoption</b> · <code>/adoption</code><br><img src="screenshot/adoption.png" alt="New Users & Adoption"></td><td width="50%"><b>IDE Productivity</b> · <code>/productivity</code><br><img src="screenshot/ide_productivity.png" alt="IDE Productivity"></td></tr>
+<tr><td width="50%"><b>Dev Activity Detail</b> · <code>/dev-activity</code><br><img src="screenshot/dev-activity.png" alt="Dev Activity Detail"></td><td width="50%"><b>Engagement Segments</b> · <code>/engagement</code><br><img src="screenshot/engagement.png" alt="Engagement Segments"></td></tr>
+<tr><td width="50%"><b>Client Rollout</b> · <code>/rollout</code><br><img src="screenshot/rollout.png" alt="Client Rollout"></td><td width="50%"><b>Model Usage</b> · <code>/model-usage</code><br><img src="screenshot/model-usage.png" alt="Model Usage"></td></tr>
+<tr><td width="50%"><b>Ingest Health</b> · <code>/ingest-health</code><br><img src="screenshot/ingest-health.png" alt="Ingest Health"></td><td width="50%"><b>Infra & Cost</b> · <code>/infra-cost</code><br><img src="screenshot/infra-cost.png" alt="Infra & Cost"></td></tr>
+</table>
 
 ## Architecture
 
@@ -101,19 +109,20 @@ flowchart TB
 - **Real-time Usage Analytics** — Track users, messages, conversations, credits, and overage across configurable time periods (1 minute to 90 days)
 - **IDE Productivity Metrics** — Analyze inline completion rates, AI code lines, chat interactions, dev agent usage, and code review findings from the 46-column legacy report
 - **Identity Center Integration** — Map all IdC users to display names, emails, and organizations with active/inactive status tracking
-- **AI-Powered Analysis** — Ask natural language questions about Kiro data; Claude Sonnet 5.5 autonomously generates Athena SQL, executes queries, and produces Korean markdown reports
+- **AI-Powered Analysis** — Ask natural language questions about Kiro data; Claude Sonnet 5.5 autonomously generates Athena SQL, executes queries, and produces markdown reports in the UI language; prompt caching on the tool loop, between-tool-call progress notes, and a notice when an answer is cut off or declined
 - **User Detail Drill-down** — Click any user row to see daily activity breakdown, client type usage, and conversation history in a slide-in panel
 - **Animated Kiro Mascot** — Page-themed Kiro ghost character with eye-blinking, bouncing, and contextual accessories (dashboard grid, trend arrows, code terminal, chat bubbles)
 - **Bilingual Interface** — Full Korean/English toggle with sidebar language switcher
 - **Lambda@Edge Authentication** — CDN-level Cognito PKCE authentication via Lambda@Edge; no auth logic in the app
 - **Data Masking** — Server-side masking of all user identifiers (names, emails, organizations) showing only first 2 characters
+- **Usage Intensity & Credit Efficiency** — Messages per conversation, credits per message, and credits per conversation for each `client_type` and for all clients on `/engagement`; rates with nothing to divide by show a dash, not 0
 - **Model Usage Analysis** — Per-model message distribution, daily trends, Auto vs manual selection ratio, vendor share (Anthropic / third-party / Auto), model mix per client (IDE vs CLI), model adoption (first/last seen, users, last-7-day share), and user model preference table via S3 direct CSV parsing
 - **Executive Snapshot** — One-page leadership view composing KPI cards, daily active users and credits, model share, tier mix, and top credit users
 - **Subscription & Overage Governance** — Tier mix (users/credits/messages per subscription tier), tier credit share, and a per-user overage watchlist tracking `overage_credits_used` against `overage_cap`
 - **New Users & Adoption** — Daily new-user inflow (UAR `New_User` flag), active and cumulative user trends, and a recent-new-users table via S3 direct CSV parsing
 - **Dev Activity Detail** — TestGen, DocGen, Transform, InlineChat, and CodeFix activity groups from the legacy report: events, generated vs accepted lines, acceptance rates, daily trends
 - **Client Rollout & Cross-client Adoption** — Daily and cumulative adoption per `Client_Type` (`KIRO_IDE` / `KIRO_CLI` / `PLUGIN`), IDE↔CLI overlap segments, per-user pickup lag (left-censored users report `null`, never `0`), and a tier × client matrix
-- **Ingest Health Monitor** — Report freshness against the 02:00 UTC delivery cadence (timestamps render in KST, 02:00 UTC = 11:00 KST), a (date × client) delivery matrix, per-file S3 inventory, CSV header-drift detection, and Athena↔S3 row parity — the schema drift `OpenCSVSerDe` hides by silently mapping columns onto wrong names
+- **Ingest Health Monitor** — Report freshness against the 02:00 UTC delivery cadence (timestamps render in KST, 02:00 UTC = 11:00 KST), a (date × client) delivery matrix, per-file S3 inventory, CSV header-drift detection, Athena↔S3 row parity — the schema drift `OpenCSVSerDe` hides by silently mapping columns onto wrong names — and a model-column parity check (every row's `{model}_messages` columns must sum to `Total_Messages`)
 - **Dormancy Grading & Activation Funnel** — Identity Center directory users bucketed by days since last activity (`active7` → `never`) plus a directory → any-activity → sustained-activity funnel. Graded accounts are **directory users, never licensed seats** — neither report contains a subscription roster
 - **Credits per Accepted AI Code Line** — Cross-report efficiency ratio summing `credits_used` and legacy AI-code-line columns independently over their overlapping window, with a separate population `n` per side (an inner join would drop 303 of 541 legacy pairs)
 - **Changelog Page** — Bilingual in-app changelog rendered from `CHANGELOG.md` at build time; the sidebar version footer links to it
@@ -522,31 +531,39 @@ kiro-dashboard는 Kiro IDE 사용 데이터를 시각화하는 풀스택 분석 
 
 ### 대시보드 개요
 
+운영 환경(v1.13.0, 2026-10-29)에서 캡처한 화면입니다. 이름과 이메일은 브라우저에 도달하기 전에 서버에서 마스킹됩니다.
+
 ![대시보드 개요](screenshot/dashboard01.png)
 
-### 사용자 활동 및 리더보드
+### v1.13 신규 — 모델 인사이트
 
-![사용자](screenshot/user.png)
+전체와 클라이언트별 공급사 비중(Anthropic / 서드파티 / Auto), 그리고 클라이언트별 일일 CSV로 집계한 모델 구성:
 
-### 사용자 상세 드릴다운
+![공급사별 비중과 클라이언트별 모델 구성](screenshot/model-vendor-share.png)
 
-![사용자 상세](screenshot/user-detail.png)
+모델 도입 추이 — 모델별 처음·마지막 관측일, 사용자 수, 메시지 수, 최근 7일 비중:
 
-### 일별 트렌드
+![모델 도입 추이](screenshot/model-adoption.png)
 
-![트렌드](screenshot/trends.png)
+<table>
+<tr><td width="50%"><b>클라이언트별 사용 강도·크레딧 효율</b> · <code>/engagement</code><br><img src="screenshot/engagement-efficiency.png" alt="클라이언트별 사용 강도와 크레딧 효율"></td><td width="50%"><b>모델 컬럼 합계 검사</b> · <code>/ingest-health</code><br><img src="screenshot/ingest-parity.png" alt="모델 컬럼 합계 검사"></td></tr>
+</table>
 
-### IDE 생산성 메트릭
-
-![IDE 생산성](screenshot/ide_productivity.png)
-
-### 참여도 세그먼트
-
-![참여도](screenshot/engagement.png)
-
-### AI 기반 자연어 분석
+### AI 기반 자연어 분석 (Claude Sonnet 5.5)
 
 ![AI 분석](screenshot/AI_analytics.png)
+
+### 전체 화면
+
+<table>
+<tr><td width="50%"><b>Executive 스냅샷</b> · <code>/exec</code><br><img src="screenshot/exec.png" alt="Executive 스냅샷"></td><td width="50%"><b>사용자 · 리더보드</b> · <code>/users</code><br><img src="screenshot/user.png" alt="사용자 · 리더보드"></td></tr>
+<tr><td width="50%"><b>사용자 상세 드릴다운</b> · <code>/users</code><br><img src="screenshot/user-detail.png" alt="사용자 상세 드릴다운"></td><td width="50%"><b>크레딧</b> · <code>/credits</code><br><img src="screenshot/credits.png" alt="크레딧"></td></tr>
+<tr><td width="50%"><b>일별 트렌드</b> · <code>/trends</code><br><img src="screenshot/trends.png" alt="일별 트렌드"></td><td width="50%"><b>구독 · 초과사용</b> · <code>/subscription</code><br><img src="screenshot/subscription.png" alt="구독 · 초과사용"></td></tr>
+<tr><td width="50%"><b>신규 사용자</b> · <code>/adoption</code><br><img src="screenshot/adoption.png" alt="신규 사용자"></td><td width="50%"><b>IDE 생산성</b> · <code>/productivity</code><br><img src="screenshot/ide_productivity.png" alt="IDE 생산성"></td></tr>
+<tr><td width="50%"><b>개발활동 상세</b> · <code>/dev-activity</code><br><img src="screenshot/dev-activity.png" alt="개발활동 상세"></td><td width="50%"><b>참여도 세그먼트</b> · <code>/engagement</code><br><img src="screenshot/engagement.png" alt="참여도 세그먼트"></td></tr>
+<tr><td width="50%"><b>클라이언트 전환</b> · <code>/rollout</code><br><img src="screenshot/rollout.png" alt="클라이언트 전환"></td><td width="50%"><b>모델 사용</b> · <code>/model-usage</code><br><img src="screenshot/model-usage.png" alt="모델 사용"></td></tr>
+<tr><td width="50%"><b>수집 상태</b> · <code>/ingest-health</code><br><img src="screenshot/ingest-health.png" alt="수집 상태"></td><td width="50%"><b>인프라 · 비용</b> · <code>/infra-cost</code><br><img src="screenshot/infra-cost.png" alt="인프라 · 비용"></td></tr>
+</table>
 
 ## 아키텍처
 
@@ -601,19 +618,20 @@ flowchart TB
 - **실시간 사용 분석** — 사용자, 메시지, 대화, 크레딧, 초과 크레딧을 1분~90일 범위로 추적합니다
 - **IDE 생산성 메트릭** — 46개 컬럼 레거시 리포트에서 인라인 수락률, AI 코드 라인, 채팅, Dev Agent, 코드 리뷰를 분석합니다
 - **Identity Center 통합** — 모든 IdC 사용자를 이름, 이메일, 소속으로 매핑하고 활성/비활성 상태를 추적합니다
-- **AI 기반 분석** — Kiro 데이터에 대한 자연어 질문을 처리합니다. Claude Sonnet 5.5가 Athena SQL을 자율 생성하고 실행하여 한국어 마크다운 리포트를 생성합니다
+- **AI 기반 분석** — Kiro 데이터에 대한 자연어 질문을 처리합니다. Claude Sonnet 5.5가 Athena SQL을 자율 생성하고 실행하여 UI 언어로 마크다운 리포트를 생성합니다. 도구 루프 프롬프트 캐싱, 도구 호출 사이 진행 메시지, 답변이 잘리거나 거절될 때 안내를 지원합니다
 - **사용자 상세 드릴다운** — 사용자 행 클릭 시 일별 활동 내역, 클라이언트 유형별 사용량, 대화 이력을 슬라이드 패널로 확인합니다
 - **애니메이션 Kiro 마스코트** — 페이지별 테마에 맞는 Kiro 유령 캐릭터가 눈 깜빡임, 바운스, 상황별 액세서리(대시보드 그리드, 트렌드 화살표, 코드 터미널, 채팅 말풍선)를 표시합니다
 - **이중 언어 인터페이스** — 사이드바 언어 전환기를 통한 한국어/영어 완전 지원
 - **Lambda@Edge 인증** — CDN 레벨 Cognito PKCE 인증 (Lambda@Edge), 앱 내 인증 로직 없음
 - **데이터 마스킹** — 모든 사용자 식별자(이름, 이메일, 소속)를 서버 측에서 마스킹하여 첫 2글자만 표시
+- **사용 강도·크레딧 효율** — `/engagement`에서 `client_type`별과 전체의 대화당 메시지, 메시지당 크레딧, 대화당 크레딧을 보여줍니다. 나눌 값이 없는 비율은 0이 아니라 대시로 표시합니다
 - **모델 사용 분석** — 모델별 메시지 분포, 일별 트렌드, Auto vs 수동 선택 비율, 공급사별 비중(Anthropic / 서드파티 / Auto), 클라이언트별 모델 구성(IDE vs CLI), 모델 도입 추이(처음·마지막 관측, 사용자 수, 최근 7일 비중), 사용자별 모델 선호도 테이블 (S3 CSV 직접 파싱)
 - **Executive 스냅샷** — KPI 카드, 일별 활성 사용자·크레딧, 모델 점유율, 티어 구성, 상위 크레딧 사용자를 한 페이지로 구성한 경영진용 뷰
 - **구독·초과사용 거버넌스** — 구독 티어 구성(티어별 사용자/크레딧/메시지), 티어 크레딧 점유율, `overage_cap` 대비 `overage_credits_used`를 추적하는 사용자별 초과사용 워치리스트
 - **신규 사용자·온보딩** — 일별 신규 사용자 유입(UAR `New_User` 플래그), 활성·누적 사용자 추이, 최근 신규 사용자 테이블 (S3 CSV 직접 파싱)
 - **개발활동 상세** — 레거시 리포트의 TestGen, DocGen, Transform, InlineChat, CodeFix 그룹: 이벤트, 생성 대비 수락 라인, 수락률, 일별 추이
 - **클라이언트 확산·교차 사용** — `Client_Type`(`KIRO_IDE` / `KIRO_CLI` / `PLUGIN`)별 일별·누적 확산, IDE↔CLI 중복 세그먼트, 사용자별 도입 지연(윈도우 경계에서 좌측 절단된 사용자는 `0`이 아니라 `null`), 티어 × 클라이언트 매트릭스
-- **적재 상태 모니터** — 02:00 UTC 전송 주기 대비 신선도(시각은 KST로 표시, 02:00 UTC = 11:00 KST), (날짜 × 클라이언트) 전송 매트릭스, 파일별 S3 인벤토리, CSV 헤더 드리프트 감지, Athena↔S3 행 수 일치 검증 — `OpenCSVSerDe`가 드리프트된 컬럼을 잘못된 이름에 조용히 매핑해 감추는 문제를 드러냅니다
+- **적재 상태 모니터** — 02:00 UTC 전송 주기 대비 신선도(시각은 KST로 표시, 02:00 UTC = 11:00 KST), (날짜 × 클라이언트) 전송 매트릭스, 파일별 S3 인벤토리, CSV 헤더 드리프트 감지, Athena↔S3 행 수 일치 검증(`OpenCSVSerDe`가 드리프트된 컬럼을 잘못된 이름에 조용히 매핑해 감추는 문제를 드러냅니다), 모델 컬럼 합계 검사(각 행의 `{model}_messages` 합계 = `Total_Messages`)
 - **휴면 등급·활성화 퍼널** — Identity Center 디렉터리 사용자를 마지막 활동 경과일 기준으로 분류(`active7` → `never`)하고, 디렉터리 → 활동 있음 → 지속 활동 퍼널을 제공합니다. 등급이 매겨지는 대상은 **디렉터리 사용자이며 라이선스 좌석이 아닙니다** — 두 리포트 모두 구독 명부를 포함하지 않습니다
 - **수락 AI 코드 라인당 크레딧** — `credits_used`와 레거시 AI 코드 라인 컬럼을 공통 기간에 대해 각각 독립 합산한 리포트 간 효율 지표. 항별 모집단 `n`을 따로 표기합니다(내부 조인 시 레거시 541쌍 중 303쌍이 유실)
 - **Changelog 페이지** — 빌드 타임에 `CHANGELOG.md`를 렌더링하는 앱 내 이중언어 변경 이력, 사이드바 버전 표기에서 연결
